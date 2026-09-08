@@ -37,11 +37,11 @@
                 <version>0.0.8</version>
                 <configuration>
                     <!-- 指定入口程序 -->
-                    <mainClass>com.MyFire.zdx.HelloWorld</mainClass>
+                    <mainClass>com.kingdom.game.view.Main</mainClass>
                     <!-- 指定编码格式，防止中文乱码 -->
                     <options>
                         <option>-Dfile.encoding=UTF-8</option>
-                        <option>-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005</option>
+<!--                        <option>-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005</option>-->
                     </options>
                 </configuration>
             </plugin>
