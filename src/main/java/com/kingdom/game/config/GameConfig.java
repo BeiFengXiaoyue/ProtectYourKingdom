@@ -44,6 +44,10 @@ public class GameConfig {
     private double[] pathX = {60, 300, 300, 620, 620, 860};
     private double[] pathY = {160, 160, 360, 360, 240, 240};
 
+    // ===== 可建塔点位（坐标为布局定稿后写死 / 经 setBuildSlots 注入；默认不预置）=====
+    private double[] buildSlotX = {};
+    private double[] buildSlotY = {};
+
     // ===== 渲染配色 =====
     private String colorBackground = "#dcefc7"; // 草地
     private String colorPath = "#8a5a2b";       // 深色土路
@@ -144,7 +148,7 @@ public class GameConfig {
         return this;
     }
 
-    // ===== 地图底图与塔位标点 =====
+    // ===== 地图底图与塔位标点（由标注工具生成，resources/maps/ 下）=====
     /** 地图底图文件名（位于 /maps/ 下）；null 表示无底图，渲染回退为配色画法 */
     public String getMapImageName() { return mapImageName; }
     public GameConfig setMapImageName(String mapImageName) {
@@ -156,6 +160,18 @@ public class GameConfig {
     public TowerSpots getTowerSpots() { return towerSpots; }
     public GameConfig setTowerSpots(TowerSpots towerSpots) {
         if (towerSpots != null) this.towerSpots = towerSpots;
+        return this;
+    }
+
+    // ===== 可建塔点位 =====
+    public double[] getBuildSlotX() { return buildSlotX; }
+    public double[] getBuildSlotY() { return buildSlotY; }
+    public GameConfig setBuildSlots(double[] xs, double[] ys) {
+        if (xs == null || ys == null || xs.length == 0 || xs.length != ys.length) {
+            throw new IllegalArgumentException("建塔点位坐标数组不能为空且长度必须一致");
+        }
+        this.buildSlotX = xs;
+        this.buildSlotY = ys;
         return this;
     }
 

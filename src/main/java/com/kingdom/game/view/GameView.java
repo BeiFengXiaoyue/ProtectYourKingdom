@@ -8,19 +8,30 @@ import com.kingdom.game.controller.IParticleFx;
 import com.kingdom.game.controller.IRenderNotifier;
 import com.kingdom.game.controller.IScreenFx;
 import com.kingdom.game.controller.ISelectionFx;
+import com.kingdom.game.controller.ITowerBuilder;
 import com.kingdom.game.model.GameObject;
+import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.projectile.Projectile;
 import com.kingdom.game.model.tower.Tower;
 import javafx.animation.AnimationTimer;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.image.Image;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
+import javafx.scene.text.Font;
 
 /**
  * GameView —— 主画布（UI 层核心）。
@@ -28,10 +39,15 @@ import javafx.scene.shape.StrokeLineJoin;
  * 职责（D 开发者）：
  * - 实现 IRenderNotifier：后端每帧结束后回调 requestRender() → 重绘战场；
  * - 实现 4 个视觉特效接口（飘字/屏幕级/粒子/选中高亮），为渲染层预留；
- * - AnimationTimer 每帧驱动 IGameLoop.update(nanoTime)。
+ * - AnimationTimer 每帧驱动 IGameLoop.update(nanoTime)；
+ * - 建塔交互：点空闲可建塔点位弹出锚定目录（TowerBuildMenu），选型后经
+ *   ITowerBuilder.placeTower 在该点位中心建塔（校验/提示由后端负责）。
  */
 public class GameView implements IRenderNotifier,
         IFloatingTextFx, IScreenFx, IParticleFx, ISelectionFx {
+
+    private static final double SLOT_CLICK_RADIUS = 24;  // 点到点位中心多远算命中
+    private static final double SLOT_OCCUPY_RADIUS = 40; // 塔距点位中心多远视为已占用（与后端塔间距一致）
 
     private final Canvas canvas;
     private final GraphicsContext gc;
@@ -40,20 +56,41 @@ public class GameView implements IRenderNotifier,
 
     private final IGameLoop gameLoop;
     private final IGameStateReader stateReader;
+    private final ITowerBuilder builder;
+
+    private final TowerBuildMenu buildMenu;
+    private int pendingSlotIndex = -1;   // 最近一次弹出目录所对应的点位下标
+
+    // 结束/胜利覆盖层（内嵌本类构建，不新增类；可见即拦截画布点击）
+    private final Runnable onRestart;
+    private final StackPane endOverlay;
+    private final Label endTitleLabel = new Label();
+    private final Label endSubLabel = new Label();
+    private final Label endDetailLabel = new Label();
+    private final Button endRestartButton = new Button("重新开始");
+    private boolean endShown = false;    // 防每帧重复 show 的幂等开关
 
     private final AnimationTimer timer;
 
     /** 地图底图（resources/maps/<config.mapImageName>），缺失时回退配色画法 */
     private Image mapBackground;
 
-    public GameView(IGameLoop gameLoop, IGameStateReader stateReader, GameConfig config) {
+    public GameView(IGameLoop gameLoop, IGameStateReader stateReader, GameConfig config,
+                    ITowerBuilder builder, Runnable onRestart) {
         this.gameLoop = gameLoop;
         this.stateReader = stateReader;
         this.config = config;
+        this.builder = builder;
+        this.onRestart = onRestart;
 
         this.canvas = new Canvas(config.getViewWidth(), config.getViewHeight());
         this.gc = canvas.getGraphicsContext2D();
-        this.root = new Pane(canvas);
+
+        this.buildMenu = new TowerBuildMenu(stateReader, this::onMenuSelect);
+        this.endOverlay = buildEndOverlay();
+
+        this.root = new Pane(canvas, buildMenu.getNode(), endOverlay);
+        canvas.setOnMouseClicked(this::handleCanvasClick);
 
         this.timer = new AnimationTimer() {
             @Override
@@ -132,6 +169,9 @@ public class GameView implements IRenderNotifier,
         // 塔位标点（TowerSpotEditorTool 手工标注，建塔入口参照物）
         drawTowerSpots();
 
+        // 可建塔点位（画在实体之下：空闲亮环，已占用灰环）
+        drawBuildSlots();
+
         // 渲染顺序：塔 → 友方 → 敌人 → 投射物
         for (Tower t : stateReader.getTowers()) {
             t.render(gc);
@@ -145,6 +185,144 @@ public class GameView implements IRenderNotifier,
         for (Projectile p : stateReader.getProjectiles()) {
             p.render(gc);
         }
+
+        syncEndOverlay();
+    }
+
+    // ================= 可建塔点位交互（数据驱动，空点位数组时天然安全）=================
+
+    /** 绘制点位：无点位数据时无事可做；已占用以灰态区分，避免误点后白弹菜单 */
+    private void drawBuildSlots() {
+        double[] xs = config.getBuildSlotX();
+        double[] ys = config.getBuildSlotY();
+        gc.setLineWidth(3);
+        for (int i = 0; i < xs.length; i++) {
+            boolean occupied = isSlotOccupied(i);
+            gc.setStroke(occupied ? Color.web("#8a8f85") : Color.web("#3f7a2a"));
+            gc.strokeOval(xs[i] - 18, ys[i] - 18, 36, 36);
+            gc.setFill(occupied ? Color.web("#777777") : Color.web("#ffffff"));
+            gc.fillOval(xs[i] - 3, ys[i] - 3, 6, 6);
+        }
+    }
+
+    /** 距点击点 < SLOT_CLICK_RADIUS 的最近点位下标；无点位/无命中返回 -1 */
+    private int findSlotIndex(double x, double y) {
+        double[] xs = config.getBuildSlotX();
+        double[] ys = config.getBuildSlotY();
+        int best = -1;
+        double bestDist = SLOT_CLICK_RADIUS;
+        for (int i = 0; i < xs.length; i++) {
+            double d = Math.hypot(xs[i] - x, ys[i] - y);
+            if (d < bestDist) {
+                bestDist = d;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /** 点位中心 SLOT_OCCUPY_RADIUS 内已有塔即视为占用 */
+    private boolean isSlotOccupied(int idx) {
+        double[] xs = config.getBuildSlotX();
+        double[] ys = config.getBuildSlotY();
+        if (idx < 0 || idx >= xs.length) return false;
+        double cx = xs[idx];
+        double cy = ys[idx];
+        for (Tower t : stateReader.getTowers()) {
+            if (Math.hypot(t.getX() - cx, t.getY() - cy) < SLOT_OCCUPY_RADIUS) return true;
+        }
+        return false;
+    }
+
+    /** 画布点击：空闲点位 → 弹目录；再点同一点位 → 收起；点空白/已占用 → 收起已开弹窗 */
+    private void handleCanvasClick(MouseEvent e) {
+        int idx = findSlotIndex(e.getX(), e.getY());
+        if (buildMenu.isVisible() && idx == pendingSlotIndex) {
+            hideBuildMenu();
+            return;
+        }
+        if (idx < 0 || isSlotOccupied(idx)) {
+            if (buildMenu.isVisible()) hideBuildMenu();
+            return;
+        }
+        hideBuildMenu();
+        pendingSlotIndex = idx;
+        double[] xs = config.getBuildSlotX();
+        double[] ys = config.getBuildSlotY();
+        buildMenu.show(xs[idx], ys[idx], canvas.getWidth(), canvas.getHeight());
+    }
+
+    /** 目录选型：在弹窗所对应点位中心落塔；成败/扣钱由后端 placeTower 校验并推送 */
+    private void onMenuSelect(TowerSpec spec) {
+        int idx = pendingSlotIndex;
+        double[] xs = config.getBuildSlotX();
+        double[] ys = config.getBuildSlotY();
+        if (idx < 0 || idx >= xs.length || spec == null) return;
+        builder.placeTower(xs[idx], ys[idx], spec.getType());
+        pendingSlotIndex = -1;
+    }
+
+    private void hideBuildMenu() {
+        buildMenu.hide();
+        pendingSlotIndex = -1;
+    }
+
+    // ================= 结束/胜利覆盖层（内嵌，不新增类）=================
+
+    /** 结束/胜利全画布叠层：半透明遮罩 + 居中卡片（可见即拦截画布点击） */
+    private StackPane buildEndOverlay() {
+        Rectangle mask = new Rectangle(canvas.getWidth(), canvas.getHeight());
+        mask.setFill(Color.rgb(0, 0, 0, 0.55));
+
+        endTitleLabel.setFont(Font.font(36));
+        endSubLabel.setFont(Font.font(15));
+        endDetailLabel.setFont(Font.font(13));
+        endSubLabel.setTextFill(Color.web("#dddddd"));
+        endDetailLabel.setTextFill(Color.web("#bbbbbb"));
+
+        endRestartButton.setFont(Font.font(15));
+        endRestartButton.setPrefWidth(180);
+        endRestartButton.setOnAction(e -> {
+            hideEnd();
+            onRestart.run();
+        });
+
+        VBox card = new VBox(14, endTitleLabel, endSubLabel, endDetailLabel, endRestartButton);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(28, 40, 28, 40));
+        card.setStyle("-fx-background-color: rgba(30,34,40,0.96); -fx-background-radius: 12;"
+                + "-fx-border-color: #9aa3ad; -fx-border-radius: 12;");
+
+        StackPane overlay = new StackPane(mask, card);
+        overlay.setVisible(false);
+        return overlay;
+    }
+
+    /** 每帧判定：仅在一次终态到达时显示一次；未终态且已隐藏则不动 */
+    private void syncEndOverlay() {
+        if (endShown) return;
+        if (stateReader.isGameOver()) {
+            showEnd(false);
+        } else if (stateReader.isVictory()) {
+            showEnd(true);
+        }
+    }
+
+    private void showEnd(boolean victory) {
+        hideBuildMenu();                       // 清掉可能开着的建塔弹窗
+        endTitleLabel.setText(victory ? "胜利！" : "游戏结束");
+        endTitleLabel.setTextFill(victory ? Color.web("#ffd700") : Color.web("#ff6b5e"));
+        endSubLabel.setText(victory ? "所有波次已击退" : "生命值已耗尽");
+        endDetailLabel.setText(victory
+                ? "剩余生命 " + stateReader.getCurrentLives()
+                : "抵达第 " + stateReader.getCurrentWave() + " / " + stateReader.getTotalWaves() + " 波");
+        endOverlay.setVisible(true);
+        endShown = true;
+    }
+
+    private void hideEnd() {
+        endOverlay.setVisible(false);
+        endShown = false;
     }
 
     /** 绘制塔位标点（半透明圆台 + 锤位示意，与 TowerSpotEditorTool 内画法一致） */
