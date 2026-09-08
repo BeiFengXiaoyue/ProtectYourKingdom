@@ -43,4 +43,13 @@ public class WaveManager {
     public boolean isSpawning() {
         return spawning && spawned < enemyCount;
     }
+
+    /** 重置（重新开始一局时由 GameController 调用） */
+    public void reset() {
+        enemyCount = 0;
+        spawnIntervalNanos = 0;
+        waveStartNanos = -1;
+        spawned = 0;
+        spawning = false;
+    }
 }

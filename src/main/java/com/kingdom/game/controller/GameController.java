@@ -1,32 +1,65 @@
 package com.kingdom.game.controller;
 
 import com.kingdom.game.config.GameConfig;
+import com.kingdom.game.model.GameObject;
 import com.kingdom.game.model.GameState;
+import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
+import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.enemy.NormalEnemy;
+import com.kingdom.game.model.projectile.Projectile;
 import com.kingdom.game.model.tower.Tower;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiFunction;
 
 /**
- * GameController —— 后端核心控制器（具体类），实现 4 个 UI→后端接口；
- * 持有 3 个后端→UI 通知接口，由 Main/UI 层通过 setter 依赖注入。
+ * GameController —— 控制层核心（具体类），实现 4 个 UI→后端接口。
+ *
+ * 职责（唯一归属）：
+ * - 持有敌/塔/投射物/友方注册表；
+ * - 每帧统一驱动 update、碰撞检测、命中结算与列表移除；
+ * - 金币/生命结算唯一在此发生；
+ * - 向实体注入事件通道(attachEffects)，并持有各事件接口做控制层级通知。
  */
 public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, IGameStateReader {
+
+    private static final double PATH_CLEARANCE = 30;   // 塔中心离路径中线的最近距离下限
+    private static final double TOWER_SPACING = 40;    // 塔之间最小间距
 
     private final GameState state;
     private final WaveManager waveManager;
     private final GameConfig config;
 
+    // ===== 实体注册表 =====
     private final List<Enemy> enemies = new ArrayList<>();
+    private final List<Tower> towers = new ArrayList<>();
+    private final List<Projectile> projectiles = new ArrayList<>();
+    private final List<Ally> allies = new ArrayList<>();
 
-    // 后端 → UI 通知接口（setter 注入，可为空）
+    // 塔工厂注册表：type -> (x,y) -> Tower（由装配处/防御塔负责人登记）
+    private final Map<TowerType, BiFunction<Double, Double, Tower>> towerFactories = new HashMap<>();
+
+    // ===== UI 通知接口（注入可为空）=====
     private IStatusObserver statusObserver;
     private IRenderNotifier renderNotifier;
     private ITowerSelectionNotifier selectionNotifier;
+
+    // ===== 音效/视觉事件接口（注入可为空；实体侧缺省 FxNop）=====
+    private IWaveSound waveSound;
+    private ITowerSound towerSound;
+    private IUnitSound unitSound;
+    private ICombatSound combatSound;
+    private IEndSound endSound;
+    private IFloatingTextFx fxText;
+    private IScreenFx fxScreen;
+    private IParticleFx fxParticle;
+    private ISelectionFx fxSelection;
 
     private boolean waveInProgress = false;
 
@@ -36,16 +69,31 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         this.config = config;
     }
 
-    // ===== 通知接口注入（Main 组装阶段调用）=====
+    // ===== 事件接口注入（D/素材层接线）=====
     public void setStatusObserver(IStatusObserver statusObserver) { this.statusObserver = statusObserver; }
     public void setRenderNotifier(IRenderNotifier renderNotifier) { this.renderNotifier = renderNotifier; }
     public void setSelectionNotifier(ITowerSelectionNotifier selectionNotifier) { this.selectionNotifier = selectionNotifier; }
+    public void setWaveSound(IWaveSound waveSound) { this.waveSound = waveSound; }
+    public void setTowerSound(ITowerSound towerSound) { this.towerSound = towerSound; }
+    public void setUnitSound(IUnitSound unitSound) { this.unitSound = unitSound; }
+    public void setCombatSound(ICombatSound combatSound) { this.combatSound = combatSound; }
+    public void setEndSound(IEndSound endSound) { this.endSound = endSound; }
+    public void setFloatingTextFx(IFloatingTextFx fxText) { this.fxText = fxText; }
+    public void setScreenFx(IScreenFx fxScreen) { this.fxScreen = fxScreen; }
+    public void setParticleFx(IParticleFx fxParticle) { this.fxParticle = fxParticle; }
+    public void setSelectionFx(ISelectionFx fxSelection) { this.fxSelection = fxSelection; }
 
     /** 组装完成后，把初始状态一次性推送给 HUD */
     public void refreshUI() {
         notifyGold(state.getGold());
         notifyLives(state.getLives());
         notifyMessage("点击「开始波次」开战！");
+    }
+
+    // ===== 塔工厂注册（A：防御塔负责人交付后在此登记）=====
+    public void registerTower(TowerType type, TowerSpec spec, BiFunction<Double, Double, Tower> factory) {
+        config.addTowerSpec(spec);
+        towerFactories.put(type, factory);
     }
 
     // ================= IGameLoop =================
@@ -58,32 +106,80 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
         waveManager.update(nanoTime, this::spawnEnemy);
 
+        // 塔：索敌开火（A 交付具体塔后生效）
+        for (Tower t : new ArrayList<>(towers)) {
+            t.update();
+            t.tryAttack(enemies);
+        }
+
+        // 投射物：飞行 → 命中后调用 onHit 并移除（B 交付后生效）
+        for (Projectile p : new ArrayList<>(projectiles)) {
+            p.update();
+            if (p.hasHit()) {
+                p.onHit(enemies);
+                projectiles.remove(p);
+            }
+        }
+
+        // 友方：移动/AI（B 交付 Soldier 后生效）
+        for (Ally a : new ArrayList<>(allies)) {
+            a.update();
+        }
+
+        // 敌我近战碰撞（拦截/反击）
+        processEntityCollisions();
+
+        // 敌人：更新并结算（到达终点扣命 / 死亡赏金）
         Iterator<Enemy> it = enemies.iterator();
         while (it.hasNext()) {
             Enemy e = it.next();
             e.update();
-            if (e.hasReachedEnd()) {            // 走到终点 → 扣生命
+            if (e.hasReachedEnd()) {            // 走到终点 → 扣 1 生命
                 it.remove();
                 state.loseLives(1);
                 notifyLives(state.getLives());
                 if (state.isGameOver()) {
+                    if (endSound != null) endSound.onGameOver();
                     notifyMessage("游戏结束！所有生命值耗尽");
                     break;
                 }
-            } else if (!e.isAlive()) {          // 被击杀 → 赏金（Day2 起才有攻击方）
+            } else if (!e.isAlive()) {          // 被击杀 → 赏金
                 it.remove();
                 state.addGold(e.getGoldReward());
                 notifyGold(state.getGold());
             }
         }
 
-        // 一波结束：出怪完毕且场上清空 → 允许下一波
-        if (!state.isGameOver() && waveInProgress && !waveManager.isSpawning() && enemies.isEmpty()) {
+        // 友方死亡清理
+        allies.removeIf(a -> !a.isAlive());
+
+        // 一波结束：出怪完毕且场上清空 → 允许下一波 / 判定胜利
+        if (waveInProgress && !waveManager.isSpawning() && enemies.isEmpty()) {
             waveInProgress = false;
-            notifyMessage("第 " + state.getWave() + " 波结束，可开始下一波");
+            if (state.getWave() >= state.getTotalWaves()) {
+                if (endSound != null) endSound.onVictory();
+                notifyMessage("胜利！所有波次已击退！");
+            } else {
+                notifyMessage("第 " + state.getWave() + " 波结束，可开始下一波");
+            }
         }
 
         if (renderNotifier != null) renderNotifier.requestRender();
+    }
+
+    /** 敌我近战碰撞检测（O(n*m)，规模小可接受；后续可换网格优化） */
+    private void processEntityCollisions() {
+        for (Enemy e : enemies) {
+            if (!e.isCollisionEnabled()) continue;
+            for (Ally a : allies) {
+                if (!a.isCollisionEnabled()) continue;
+                double dist = Math.hypot(e.getX() - a.getX(), e.getY() - a.getY());
+                if (dist < e.getCollisionRadius() + a.getCollisionRadius()) {
+                    e.onCollision(a);
+                    a.onCollision(e);
+                }
+            }
+        }
     }
 
     /** 生成一只敌人并加入战场（数值/路径取自 config） */
@@ -93,7 +189,13 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         NormalEnemy enemy = new NormalEnemy(px[0], py[0],
                 config.getNormalHp(), config.getNormalSpeed(), config.getNormalGoldReward());
         enemy.setPath(px.clone(), py.clone());
+        attachFx(enemy);
         enemies.add(enemy);
+    }
+
+    /** 向实体注入事件通道（注册/放置时调用） */
+    private void attachFx(GameObject obj) {
+        obj.attachEffects(combatSound, fxText, fxScreen, fxParticle, fxSelection);
     }
 
     // ================= IWaveStarter =================
@@ -103,12 +205,16 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         state.advanceWave();
         waveManager.beginWave(config.getWaveEnemyCount(), config.getWaveSpawnIntervalMs());
         waveInProgress = true;
+        if (waveSound != null) waveSound.onWaveStarted(state.getWave());
         notifyMessage("第 " + state.getWave() + " 波来袭！");
+        if (state.getWave() >= state.getTotalWaves() && fxScreen != null) {
+            fxScreen.showBossWarning();   // 最终波 Boss 预警
+        }
     }
 
     @Override
     public boolean canStartNextWave() {
-        return !state.isGameOver() && !waveInProgress;
+        return !state.isGameOver() && !waveInProgress && state.getWave() < state.getTotalWaves();
     }
 
     // ================= IGameStateReader =================
@@ -122,21 +228,122 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     public int getTotalWaves() { return state.getTotalWaves(); }
     @Override
     public List<Enemy> getEnemies() { return enemies; }
-
-    // ================= ITowerBuilder（Day2 起实现）=================
     @Override
-    public void placeTower(double x, double y, TowerType type) {
-        // TODO Day2：校验金币并创建对应塔（本日竖切无建塔）
+    public List<Tower> getTowers() { return towers; }
+    @Override
+    public List<Projectile> getProjectiles() { return projectiles; }
+    @Override
+    public List<Ally> getAllies() { return allies; }
+    @Override
+    public List<TowerSpec> getTowerSpecs() { return config.getTowerSpecs(); }
+    @Override
+    public boolean isGameOver() { return state.isGameOver(); }
+    @Override
+    public boolean isVictory() {
+        return !state.isGameOver() && state.getWave() >= state.getTotalWaves()
+                && !waveInProgress && enemies.isEmpty();
+    }
+
+    // ================= ITowerBuilder =================
+    @Override
+    public boolean placeTower(double x, double y, TowerType type) {
+        BiFunction<Double, Double, Tower> factory = towerFactories.get(type);
+        TowerSpec spec = config.getTowerSpec(type);
+        if (factory == null || spec == null) {
+            notifyMessage("该塔尚未开放建造");
+            return false;
+        }
+        // 越界 / 路径 / 重叠 校验
+        if (x < 0 || y < 0 || x > config.getViewWidth() || y > config.getViewHeight()) {
+            notifyMessage("建造位置超出地图范围");
+            return false;
+        }
+        if (distToPath(x, y) < PATH_CLEARANCE) {
+            notifyMessage("不能在道路上建造");
+            return false;
+        }
+        for (Tower t : towers) {
+            if (Math.hypot(t.getX() - x, t.getY() - y) < TOWER_SPACING) {
+                notifyMessage("该位置已被占据");
+                return false;
+            }
+        }
+        if (!state.spendGold(spec.getCost())) {
+            notifyMessage("金币不足！需要 " + spec.getCost());
+            return false;
+        }
+
+        Tower tower = factory.apply(x, y);
+        tower.setX(x);
+        tower.setY(y);
+        tower.setProjectileSink(p -> projectiles.add(p));
+        attachFx(tower);
+        towers.add(tower);
+
+        if (towerSound != null) towerSound.onTowerPlaced(type);
+        notifyGold(state.getGold());
+        if (renderNotifier != null) renderNotifier.requestRender();
+        return true;
     }
 
     @Override
     public void upgradeTower(Tower tower) {
-        // TODO Day6：升级塔
+        if (tower == null) return;
+        int cost = tower.getUpgradeCost();
+        if (!state.spendGold(cost)) {
+            notifyMessage("金币不足，无法升级");
+            return;
+        }
+        tower.upgrade();
+        if (towerSound != null) towerSound.onTowerUpgraded(tower);
+        notifyGold(state.getGold());
+        if (renderNotifier != null) renderNotifier.requestRender();
     }
 
     @Override
     public void sellTower(Tower tower) {
-        // TODO Day6：出售返还 50% 投入
+        if (tower == null) return;
+        int refund = tower.sell();
+        towers.remove(tower);
+        state.addGold(refund);
+        if (towerSound != null) towerSound.onTowerSold(tower);
+        notifyGold(state.getGold());
+        if (renderNotifier != null) renderNotifier.requestRender();
+    }
+
+    /** 点到路径折线的最短距离（用于禁止在道路上建塔） */
+    private double distToPath(double x, double y) {
+        double[] px = config.getPathX();
+        double[] py = config.getPathY();
+        double min = Double.MAX_VALUE;
+        for (int i = 0; i < px.length - 1; i++) {
+            min = Math.min(min, distToSegment(x, y, px[i], py[i], px[i + 1], py[i + 1]));
+        }
+        return min;
+    }
+
+    private double distToSegment(double px, double py, double x1, double y1, double x2, double y2) {
+        double dx = x2 - x1, dy = y2 - y1;
+        double lenSq = dx * dx + dy * dy;
+        if (lenSq == 0) return Math.hypot(px - x1, py - y1);
+        double t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    }
+
+    // ================= 重开一局 =================
+    public void resetGame() {
+        enemies.clear();
+        towers.clear();
+        projectiles.clear();
+        allies.clear();
+        state.reset();
+        waveManager.reset();
+        waveInProgress = false;
+        notifyGold(state.getGold());
+        notifyLives(state.getLives());
+        notifyMessage("游戏已重置，点击「开始波次」开战！");
+        if (renderNotifier != null) renderNotifier.requestRender();
     }
 
     // ================= 内部通知小工具 =================

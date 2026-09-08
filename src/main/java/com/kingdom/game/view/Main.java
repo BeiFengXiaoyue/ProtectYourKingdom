@@ -4,6 +4,7 @@ import com.kingdom.game.config.GameConfig;
 import com.kingdom.game.controller.GameController;
 import com.kingdom.game.controller.WaveManager;
 import com.kingdom.game.model.GameState;
+import com.kingdom.game.util.Assets;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.layout.BorderPane;
@@ -11,7 +12,11 @@ import javafx.stage.Stage;
 
 /**
  * Main —— JavaFX 启动类，负责组装与依赖注入（唯一接线处）。
- * 开发期微调数值：改下面 config 的 setter 即可，无需动其他类。
+ *
+ * 分工接线说明：
+ * - GameView 实现 4 个视觉特效接口 → 经 controller.setXxxFx(view) 注入；
+ * - 音效接口（IWaveSound 等）由素材/音效负责人实现后在此注入 controller；
+ * - 塔由防御塔负责人实现具体类后，在此 registerTower(...) 登记即可上架。
  */
 public class Main extends Application {
 
@@ -35,14 +40,24 @@ public class Main extends Application {
 
         controller.setStatusObserver(hud);
         controller.setRenderNotifier(view);
+        controller.setFloatingTextFx(view);   // GameView 实现视觉特效
+        controller.setScreenFx(view);
+        controller.setParticleFx(view);
+        controller.setSelectionFx(view);
+        // TODO 音效接口：素材负责人实现 SoundManager 后在此 setWaveSound/setCombatSound... 注入
+        // TODO 塔登记（防御塔负责人交付 ArrowTower 后）：
+        // controller.registerTower(TowerType.ARROW, new TowerSpec(TowerType.ARROW, "箭塔", 50),
+        //         (x, y) -> new ArrowTower(x, y));
         controller.refreshUI();               // 推送初始生命/金币/波次到 HUD
+
+        Assets.preload();                     // 预加载贴图（无图自动跳过）
 
         BorderPane root = new BorderPane();
         root.setTop(hud.getNode());
         root.setCenter(view.getNode());
 
         Scene scene = new Scene(root);
-        stage.setTitle("王国保卫战：前线哨站（Day 0/1 竖切）");
+        stage.setTitle("王国保卫战：前线哨站");
         stage.setScene(scene);
         stage.setResizable(false);
         stage.show();
