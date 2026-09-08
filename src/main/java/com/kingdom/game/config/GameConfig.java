@@ -42,6 +42,10 @@ public class GameConfig {
     private double[] pathX = {60, 300, 300, 620, 620, 860};
     private double[] pathY = {160, 160, 360, 360, 240, 240};
 
+    // ===== 可建塔点位（坐标为布局定稿后写死 / 经 setBuildSlots 注入；默认不预置）=====
+    private double[] buildSlotX = {};
+    private double[] buildSlotY = {};
+
     // ===== 渲染配色 =====
     private String colorBackground = "#dcefc7"; // 草地
     private String colorPath = "#8a5a2b";       // 深色土路
@@ -115,6 +119,18 @@ public class GameConfig {
     public GameConfig setColors(String background, String path) {
         this.colorBackground = background;
         this.colorPath = path;
+        return this;
+    }
+
+    // ===== 可建塔点位 =====
+    public double[] getBuildSlotX() { return buildSlotX; }
+    public double[] getBuildSlotY() { return buildSlotY; }
+    public GameConfig setBuildSlots(double[] xs, double[] ys) {
+        if (xs == null || ys == null || xs.length == 0 || xs.length != ys.length) {
+            throw new IllegalArgumentException("建塔点位坐标数组不能为空且长度必须一致");
+        }
+        this.buildSlotX = xs;
+        this.buildSlotY = ys;
         return this;
     }
 
