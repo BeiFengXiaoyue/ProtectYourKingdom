@@ -1,5 +1,12 @@
 package com.kingdom.game.config;
 
+import com.kingdom.game.model.TowerSpec;
+import com.kingdom.game.model.TowerType;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * GameConfig —— 开发期可修改的游戏配置对象（唯一数值来源）。
  *
@@ -7,7 +14,7 @@ package com.kingdom.game.config;
  * - 不是 static final 常量类（编译后改不动、调试麻烦），而是普通实例对象；
  * - 数值全部收敛在此，实体/控制器/界面通过 getter 现取；
  * - 提供 fluent setter，开发期在 Main 里改一行即可微调，改动对新建实体/新波次即时生效；
- * - 交付期（Day9 数值冻结）如需要可再加"从外部配置文件加载"。
+ * - 塔目录（TowerSpec）也登记在此，配合 registerTowerFactory 支持"逐步加塔"。
  *
  * 默认值取自《计划书 v1.0》§4.3 数值表。
  */
@@ -38,6 +45,9 @@ public class GameConfig {
     // ===== 渲染配色 =====
     private String colorBackground = "#dcefc7"; // 草地
     private String colorPath = "#8a5a2b";       // 深色土路
+
+    // ===== 塔目录（逐步开发：开始只有 ARROW，后续 addTowerSpec 追加）=====
+    private final List<TowerSpec> towerSpecs = new ArrayList<>();
 
     // ===== 画布 =====
     public double getViewWidth() { return viewWidth; }
@@ -106,5 +116,25 @@ public class GameConfig {
         this.colorBackground = background;
         this.colorPath = path;
         return this;
+    }
+
+    // ===== 塔目录 =====
+    /** 登记一种可建造塔的目录条目（显示名/造价），由装配处或防御塔负责人调用 */
+    public GameConfig addTowerSpec(TowerSpec spec) {
+        if (spec != null) towerSpecs.add(spec);
+        return this;
+    }
+
+    /** 当前可建造塔目录（只读） */
+    public List<TowerSpec> getTowerSpecs() {
+        return Collections.unmodifiableList(towerSpecs);
+    }
+
+    /** 按类型取塔目录条目；未登记返回 null */
+    public TowerSpec getTowerSpec(TowerType type) {
+        for (TowerSpec spec : towerSpecs) {
+            if (spec.getType() == type) return spec;
+        }
+        return null;
     }
 }
