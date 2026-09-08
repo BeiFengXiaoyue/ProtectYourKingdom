@@ -16,13 +16,21 @@ import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.projectile.Projectile;
 import com.kingdom.game.model.tower.Tower;
 import javafx.animation.AnimationTimer;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
+import javafx.scene.text.Font;
 
 /**
  * GameView —— 主画布（UI 层核心）。
@@ -52,21 +60,32 @@ public class GameView implements IRenderNotifier,
     private final TowerBuildMenu buildMenu;
     private int pendingSlotIndex = -1;   // 最近一次弹出目录所对应的点位下标
 
+    // 结束/胜利覆盖层（内嵌本类构建，不新增类；可见即拦截画布点击）
+    private final Runnable onRestart;
+    private final StackPane endOverlay;
+    private final Label endTitleLabel = new Label();
+    private final Label endSubLabel = new Label();
+    private final Label endDetailLabel = new Label();
+    private final Button endRestartButton = new Button("重新开始");
+    private boolean endShown = false;    // 防每帧重复 show 的幂等开关
+
     private final AnimationTimer timer;
 
     public GameView(IGameLoop gameLoop, IGameStateReader stateReader, GameConfig config,
-                    ITowerBuilder builder) {
+                    ITowerBuilder builder, Runnable onRestart) {
         this.gameLoop = gameLoop;
         this.stateReader = stateReader;
         this.config = config;
         this.builder = builder;
+        this.onRestart = onRestart;
 
         this.canvas = new Canvas(config.getViewWidth(), config.getViewHeight());
         this.gc = canvas.getGraphicsContext2D();
 
         this.buildMenu = new TowerBuildMenu(stateReader, this::onMenuSelect);
+        this.endOverlay = buildEndOverlay();
 
-        this.root = new Pane(canvas, buildMenu.getNode());
+        this.root = new Pane(canvas, buildMenu.getNode(), endOverlay);
         canvas.setOnMouseClicked(this::handleCanvasClick);
 
         this.timer = new AnimationTimer() {
@@ -136,6 +155,8 @@ public class GameView implements IRenderNotifier,
         for (Projectile p : stateReader.getProjectiles()) {
             p.render(gc);
         }
+
+        syncEndOverlay();
     }
 
     // ================= 可建塔点位交互（数据驱动，空点位数组时天然安全）=================
@@ -214,6 +235,64 @@ public class GameView implements IRenderNotifier,
     private void hideBuildMenu() {
         buildMenu.hide();
         pendingSlotIndex = -1;
+    }
+
+    // ================= 结束/胜利覆盖层（内嵌，不新增类）=================
+
+    /** 结束/胜利全画布叠层：半透明遮罩 + 居中卡片（可见即拦截画布点击） */
+    private StackPane buildEndOverlay() {
+        Rectangle mask = new Rectangle(canvas.getWidth(), canvas.getHeight());
+        mask.setFill(Color.rgb(0, 0, 0, 0.55));
+
+        endTitleLabel.setFont(Font.font(36));
+        endSubLabel.setFont(Font.font(15));
+        endDetailLabel.setFont(Font.font(13));
+        endSubLabel.setTextFill(Color.web("#dddddd"));
+        endDetailLabel.setTextFill(Color.web("#bbbbbb"));
+
+        endRestartButton.setFont(Font.font(15));
+        endRestartButton.setPrefWidth(180);
+        endRestartButton.setOnAction(e -> {
+            hideEnd();
+            onRestart.run();
+        });
+
+        VBox card = new VBox(14, endTitleLabel, endSubLabel, endDetailLabel, endRestartButton);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(28, 40, 28, 40));
+        card.setStyle("-fx-background-color: rgba(30,34,40,0.96); -fx-background-radius: 12;"
+                + "-fx-border-color: #9aa3ad; -fx-border-radius: 12;");
+
+        StackPane overlay = new StackPane(mask, card);
+        overlay.setVisible(false);
+        return overlay;
+    }
+
+    /** 每帧判定：仅在一次终态到达时显示一次；未终态且已隐藏则不动 */
+    private void syncEndOverlay() {
+        if (endShown) return;
+        if (stateReader.isGameOver()) {
+            showEnd(false);
+        } else if (stateReader.isVictory()) {
+            showEnd(true);
+        }
+    }
+
+    private void showEnd(boolean victory) {
+        hideBuildMenu();                       // 清掉可能开着的建塔弹窗
+        endTitleLabel.setText(victory ? "胜利！" : "游戏结束");
+        endTitleLabel.setTextFill(victory ? Color.web("#ffd700") : Color.web("#ff6b5e"));
+        endSubLabel.setText(victory ? "所有波次已击退" : "生命值已耗尽");
+        endDetailLabel.setText(victory
+                ? "剩余生命 " + stateReader.getCurrentLives()
+                : "抵达第 " + stateReader.getCurrentWave() + " / " + stateReader.getTotalWaves() + " 波");
+        endOverlay.setVisible(true);
+        endShown = true;
+    }
+
+    private void hideEnd() {
+        endOverlay.setVisible(false);
+        endShown = false;
     }
 
     // ================= 视觉特效接口（骨架，D 后续填充实际绘制）=================

@@ -36,7 +36,7 @@ public class Main extends Application {
 
         // ===== UI 组装与依赖注入 =====
         HUD hud = new HUD(controller, controller);
-        GameView view = new GameView(controller, controller, config, controller);
+        GameView view = new GameView(controller, controller, config, controller, controller::resetGame);
 
         controller.setStatusObserver(hud);
         controller.setRenderNotifier(view);
