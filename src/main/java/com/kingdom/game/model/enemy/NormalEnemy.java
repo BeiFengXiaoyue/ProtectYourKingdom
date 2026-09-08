@@ -16,7 +16,10 @@ public final class NormalEnemy extends Enemy {
 
     @Override
     protected void onDeath() {
-        // 死亡表现与金币结算由 GameController 依 isAlive() 统一处理
+        // 死亡表现：红色粒子爆散（经事件槽，未接特效层时为空操作）
+        // 死亡音效 onUnitDied 已在基类 LivingEntity.takeDamage() 触发；
+        // 赏金结算由 GameController 依 getGoldReward() 完成，实体不做金币操作。
+        fxParticle.spawnExplosionParticles(x, y, "#ff4444", 8);
     }
 
     @Override
