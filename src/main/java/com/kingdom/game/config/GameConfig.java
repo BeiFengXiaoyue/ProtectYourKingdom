@@ -3,6 +3,7 @@ package com.kingdom.game.config;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.util.MapRoute;
+import com.kingdom.game.util.TowerSpots;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,6 +48,10 @@ public class GameConfig {
     private String colorBackground = "#dcefc7"; // 草地
     private String colorPath = "#8a5a2b";       // 深色土路
 
+    // ===== 地图底图与塔位标点（由标注工具生成，resources/maps/ 下）=====
+    private String mapImageName;               // 底图文件名（null = 无底图，回退配色渲染）
+    private TowerSpots towerSpots = TowerSpots.of(900, 560, new double[0], new double[0]);
+
     // ===== 塔目录（逐步开发：开始只有 ARROW，后续 addTowerSpec 追加）=====
     private final List<TowerSpec> towerSpecs = new ArrayList<>();
 
@@ -54,12 +59,19 @@ public class GameConfig {
      * 无参构造：启动时自动探测 maps/default_path.json（由 util.MapRoute 工具类解析）。
      * - 存在：套用导出路线的画布尺寸与路径（敌人出生/渲染/移动/禁塔区随之生效）；
      * - 不存在/解析失败：保持下方默认值，行为与旧版一致。
+     * 同时探测 maps/tower_spots.json（由 util.TowerSpotEditorTool 手工标注），
+     * 缺失时塔位列表为空，游戏内不渲染塔位标记。
      */
     public GameConfig() {
         MapRoute route = MapRoute.loadFromClasspath("/maps/default_path.json");
         if (route != null) {
             setViewSize(route.getWidth(), route.getHeight());
             setPath(route.getXs(), route.getYs());
+            this.mapImageName = route.getImage();
+        }
+        TowerSpots spots = TowerSpots.loadFromClasspath("/maps/tower_spots.json");
+        if (spots != null) {
+            this.towerSpots = spots;
         }
     }
 
@@ -129,6 +141,21 @@ public class GameConfig {
     public GameConfig setColors(String background, String path) {
         this.colorBackground = background;
         this.colorPath = path;
+        return this;
+    }
+
+    // ===== 地图底图与塔位标点 =====
+    /** 地图底图文件名（位于 /maps/ 下）；null 表示无底图，渲染回退为配色画法 */
+    public String getMapImageName() { return mapImageName; }
+    public GameConfig setMapImageName(String mapImageName) {
+        this.mapImageName = mapImageName;
+        return this;
+    }
+
+    /** 手工标注的塔位（只读）；无标注文件时为空列表 */
+    public TowerSpots getTowerSpots() { return towerSpots; }
+    public GameConfig setTowerSpots(TowerSpots towerSpots) {
+        if (towerSpots != null) this.towerSpots = towerSpots;
         return this;
     }
 

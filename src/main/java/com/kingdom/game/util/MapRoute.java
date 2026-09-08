@@ -173,7 +173,8 @@ public final class MapRoute {
     }
 
     // ================= 极简 JSON 解析器（仅本 schema 子集）=================
-    private static final class MiniJson {
+    // 包可见：同包的 TowerSpots（塔位标点 JSON）复用本解析器
+    static final class MiniJson {
         private final String s;
         private int pos;
 
