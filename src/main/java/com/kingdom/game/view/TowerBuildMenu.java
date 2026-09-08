@@ -49,6 +49,10 @@ public class TowerBuildMenu {
     /** 在点位附近显示目录；viewW/viewH 用于把弹窗 clamp 在画布内 */
     public void show(double slotX, double slotY, double viewW, double viewH) {
         rebuild();
+        // 本弹窗以 setManaged(false) 做绝对定位：父容器不会帮它 resize，
+        // 必须先 applyCss + autosize 让 VBox 拿到实际尺寸并布局子按钮，否则不可见。
+        box.applyCss();
+        box.autosize();
         positionNear(slotX, slotY, viewW, viewH);
         box.setVisible(true);
         visible = true;

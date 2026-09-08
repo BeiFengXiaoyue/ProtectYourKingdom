@@ -166,11 +166,8 @@ public class GameView implements IRenderNotifier,
         gc.setFill(Color.web("#5a3a1a"));
         gc.fillOval(pathX[pathX.length - 1] - 20, pathY[pathY.length - 1] - 20, 40, 40);
 
-        // 塔位标点（TowerSpotEditorTool 手工标注，建塔入口参照物）
+        // 塔位标点（唯一来源：util.TowerSpots / maps/tower_spots.json；已占用点位显示为灰）
         drawTowerSpots();
-
-        // 可建塔点位（画在实体之下：空闲亮环，已占用灰环）
-        drawBuildSlots();
 
         // 渲染顺序：塔 → 友方 → 敌人 → 投射物
         for (Tower t : stateReader.getTowers()) {
@@ -189,29 +186,18 @@ public class GameView implements IRenderNotifier,
         syncEndOverlay();
     }
 
-    // ================= 可建塔点位交互（数据驱动，空点位数组时天然安全）=================
+    // ================= 塔位交互（唯一来源：util.TowerSpots / maps/tower_spots.json）=================
 
-    /** 绘制点位：无点位数据时无事可做；已占用以灰态区分，避免误点后白弹菜单 */
-    private void drawBuildSlots() {
-        double[] xs = config.getBuildSlotX();
-        double[] ys = config.getBuildSlotY();
-        gc.setLineWidth(3);
-        for (int i = 0; i < xs.length; i++) {
-            boolean occupied = isSlotOccupied(i);
-            gc.setStroke(occupied ? Color.web("#8a8f85") : Color.web("#3f7a2a"));
-            gc.strokeOval(xs[i] - 18, ys[i] - 18, 36, 36);
-            gc.setFill(occupied ? Color.web("#777777") : Color.web("#ffffff"));
-            gc.fillOval(xs[i] - 3, ys[i] - 3, 6, 6);
-        }
-    }
-
-    /** 距点击点 < SLOT_CLICK_RADIUS 的最近点位下标；无点位/无命中返回 -1 */
+    /** 距点击点 < SLOT_CLICK_RADIUS 的最近塔位下标；无塔位/无命中返回 -1 */
     private int findSlotIndex(double x, double y) {
-        double[] xs = config.getBuildSlotX();
-        double[] ys = config.getBuildSlotY();
+        var spots = config.getTowerSpots();
+        int n = spots.spotCount();
+        if (n == 0) return -1;
+        double[] xs = spots.getXs();
+        double[] ys = spots.getYs();
         int best = -1;
         double bestDist = SLOT_CLICK_RADIUS;
-        for (int i = 0; i < xs.length; i++) {
+        for (int i = 0; i < n; i++) {
             double d = Math.hypot(xs[i] - x, ys[i] - y);
             if (d < bestDist) {
                 bestDist = d;
@@ -221,20 +207,20 @@ public class GameView implements IRenderNotifier,
         return best;
     }
 
-    /** 点位中心 SLOT_OCCUPY_RADIUS 内已有塔即视为占用 */
+    /** 塔位中心 SLOT_OCCUPY_RADIUS 内已有塔即视为占用 */
     private boolean isSlotOccupied(int idx) {
-        double[] xs = config.getBuildSlotX();
-        double[] ys = config.getBuildSlotY();
+        var spots = config.getTowerSpots();
+        double[] xs = spots.getXs();
         if (idx < 0 || idx >= xs.length) return false;
         double cx = xs[idx];
-        double cy = ys[idx];
+        double cy = spots.getYs()[idx];
         for (Tower t : stateReader.getTowers()) {
             if (Math.hypot(t.getX() - cx, t.getY() - cy) < SLOT_OCCUPY_RADIUS) return true;
         }
         return false;
     }
 
-    /** 画布点击：空闲点位 → 弹目录；再点同一点位 → 收起；点空白/已占用 → 收起已开弹窗 */
+    /** 画布点击：空闲塔位 → 弹目录；再点同一点位 → 收起；点空白/已占用 → 收起已开弹窗 */
     private void handleCanvasClick(MouseEvent e) {
         int idx = findSlotIndex(e.getX(), e.getY());
         if (buildMenu.isVisible() && idx == pendingSlotIndex) {
@@ -247,16 +233,18 @@ public class GameView implements IRenderNotifier,
         }
         hideBuildMenu();
         pendingSlotIndex = idx;
-        double[] xs = config.getBuildSlotX();
-        double[] ys = config.getBuildSlotY();
+        var spots = config.getTowerSpots();
+        double[] xs = spots.getXs();
+        double[] ys = spots.getYs();
         buildMenu.show(xs[idx], ys[idx], canvas.getWidth(), canvas.getHeight());
     }
 
-    /** 目录选型：在弹窗所对应点位中心落塔；成败/扣钱由后端 placeTower 校验并推送 */
+    /** 目录选型：在弹窗所对应塔位中心落塔；成败/扣钱由后端 placeTower 校验并推送 */
     private void onMenuSelect(TowerSpec spec) {
         int idx = pendingSlotIndex;
-        double[] xs = config.getBuildSlotX();
-        double[] ys = config.getBuildSlotY();
+        var spots = config.getTowerSpots();
+        double[] xs = spots.getXs();
+        double[] ys = spots.getYs();
         if (idx < 0 || idx >= xs.length || spec == null) return;
         builder.placeTower(xs[idx], ys[idx], spec.getType());
         pendingSlotIndex = -1;
@@ -325,7 +313,7 @@ public class GameView implements IRenderNotifier,
         endShown = false;
     }
 
-    /** 绘制塔位标点（半透明圆台 + 锤位示意，与 TowerSpotEditorTool 内画法一致） */
+    /** 绘制塔位标点（半透明圆台 + 锤位示意，与 TowerSpotEditorTool 内画法一致；已占用变灰） */
     private void drawTowerSpots() {
         var spots = config.getTowerSpots();
         int n = spots.spotCount();
@@ -336,12 +324,13 @@ public class GameView implements IRenderNotifier,
             double x = xs[i];
             double y = ys[i];
             double r = 14;
-            gc.setFill(Color.web("#f4d03f", 0.55));
+            boolean occupied = isSlotOccupied(i);
+            gc.setFill(occupied ? Color.web("#9a9a9a", 0.55) : Color.web("#f4d03f", 0.55));
             gc.fillOval(x - r, y - r, r * 2, r * 2);
-            gc.setStroke(Color.web("#7d6608"));
+            gc.setStroke(occupied ? Color.web("#666666") : Color.web("#7d6608"));
             gc.setLineWidth(2.5);
             gc.strokeOval(x - r, y - r, r * 2, r * 2);
-            gc.setFill(Color.web("#7d6608"));
+            gc.setFill(occupied ? Color.web("#666666") : Color.web("#7d6608"));
             gc.fillRect(x - 2, y - 7, 4, 14);
             gc.fillRect(x - 6, y - 2, 12, 4);
         }

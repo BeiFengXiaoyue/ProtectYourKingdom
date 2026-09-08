@@ -3,16 +3,14 @@ package com.kingdom.game.model.projectile;
 import com.kingdom.game.model.AssetKey;
 import com.kingdom.game.model.enemy.Enemy;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 
 import java.util.List;
 
 /**
  * Arrow —— 箭矢投射物（追踪模式，箭塔用）。
- * [骨架] 具体实现待填（实体开发 B）。
- *
- * 扩展模式（对照《计划书 v2.0》/《接口契约》）：
- * 继承 Projectile（选追踪构造）→ onHit() / render()；
- * 飞行/锁定目标由基类 update()/fly() 完成。
+ * 飞行/锁定目标由基类 Projectile 的 update()/fly() 完成；
+ * 命中与渲染保持"最小可用"实现（贴图优先、色块回退），素材/特效可后续增强。
  */
 public class Arrow extends Projectile {
 
@@ -25,17 +23,34 @@ public class Arrow extends Projectile {
      */
     public Arrow(double x, double y, Enemy target, int damage, double speed) {
         super(x, y, target, damage, speed);
-        // TODO 体型：setWidth/setHeight（细长形）
+        setWidth(8);   // 细长形
+        setHeight(8);
     }
 
+    /** 命中：目标仍存活则扣血；事件经基类事件槽发出（未接线时为空操作） */
     @Override
     public void onHit(List<Enemy> enemies) {
-        // TODO 命中效果：目标仍存活则 takeDamage(damage)（单体扣血），可经事件槽发命中音效
+        if (targetEnemy != null && targetEnemy.isAlive()) {
+            targetEnemy.takeDamage(damage);
+            combatSound.onProjectileHit(this, targetEnemy);
+            fxText.showFloatingText(targetEnemy.getX(), targetEnemy.getY() - 24,
+                    "-" + damage, "WHITE");
+        }
     }
 
     @Override
     public void render(GraphicsContext gc) {
-        // TODO 贴图优先：drawSprite(gc, AssetKey.ARROW)；
-        //     缺失回退：按飞行方向旋转绘制细长箭头（可用 Math.atan2 求角，gc.rotate 绘制）
+        // 贴图优先
+        if (drawSprite(gc, AssetKey.ARROW)) return;
+        // 回退：沿飞行方向画一枚深色小箭
+        double angle = Math.atan2(targetY - y, targetX - x);
+        gc.save();
+        gc.translate(x, y);
+        gc.rotate(Math.toDegrees(angle));
+        gc.setFill(Color.web("#4a3a2a"));
+        gc.fillOval(-3, -3, 6, 6);
+        gc.setFill(Color.web("#8f8f8f"));
+        gc.fillRect(2, -1.2, 6, 2.4);   // 箭杆
+        gc.restore();
     }
 }
