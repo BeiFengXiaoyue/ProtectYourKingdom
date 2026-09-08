@@ -2,6 +2,7 @@ package com.kingdom.game.config;
 
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
+import com.kingdom.game.util.MapRoute;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,6 +49,19 @@ public class GameConfig {
 
     // ===== 塔目录（逐步开发：开始只有 ARROW，后续 addTowerSpec 追加）=====
     private final List<TowerSpec> towerSpecs = new ArrayList<>();
+
+    /**
+     * 无参构造：启动时自动探测 maps/default_path.json（由 util.MapRoute 工具类解析）。
+     * - 存在：套用导出路线的画布尺寸与路径（敌人出生/渲染/移动/禁塔区随之生效）；
+     * - 不存在/解析失败：保持下方默认值，行为与旧版一致。
+     */
+    public GameConfig() {
+        MapRoute route = MapRoute.loadFromClasspath("/maps/default_path.json");
+        if (route != null) {
+            setViewSize(route.getWidth(), route.getHeight());
+            setPath(route.getXs(), route.getYs());
+        }
+    }
 
     // ===== 画布 =====
     public double getViewWidth() { return viewWidth; }
