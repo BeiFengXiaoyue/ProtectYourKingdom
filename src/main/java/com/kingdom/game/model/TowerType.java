@@ -15,6 +15,7 @@ package com.kingdom.game.model;
  */
 public enum TowerType {
     ARROW,
+    ARROW_ELITE,
     CANNON,
     BARRACK
 }
