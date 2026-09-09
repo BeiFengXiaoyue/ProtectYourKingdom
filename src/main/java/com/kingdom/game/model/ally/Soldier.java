@@ -34,8 +34,8 @@ public class Soldier extends Ally {
     public Soldier(double x, double y, int hp, double speed,
                    int attackDamage, int attackCooldown) {
         super(x, y, hp, speed, attackDamage, attackCooldown);
-        setWidth(18);
-        setHeight(18);
+        setWidth(60);   // 与普通敌人（60×60）同尺寸
+        setHeight(60);
         this.homeX = x;
         this.homeY = y;
     }
