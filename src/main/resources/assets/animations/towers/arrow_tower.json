@@ -1,0 +1,8 @@
+{
+  "kind": "towers",
+  "name": "arrow_tower",
+  "interval": 6,
+  "modes": {
+    "idle": []
+  }
+}

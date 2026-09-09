@@ -2,6 +2,7 @@ package com.kingdom.game.config;
 
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
+import com.kingdom.game.util.MapLibrary;
 import com.kingdom.game.util.MapRoute;
 import com.kingdom.game.util.TowerSpots;
 
@@ -48,32 +49,48 @@ public class GameConfig {
     private String colorBackground = "#dcefc7"; // 草地
     private String colorPath = "#8a5a2b";       // 深色土路
 
-    // ===== 地图底图与塔位标点（由标注工具生成，resources/maps/ 下）=====
-    private String mapImageName;               // 底图文件名（null = 无底图，回退配色渲染）
+    // ===== 地图分包（maps/index.json 注册表 + 每图目录 maps/<key>/…）=====
+    private String mapKey;                  // 活动地图 key（默认取 index 第一条）
+    private String mapImageName;            // 底图文件名（位于 maps/<key>/ 下；null=无底图回退配色）
     private TowerSpots towerSpots = TowerSpots.of(900, 560, new double[0], new double[0]);
 
     // ===== 塔目录（逐步开发：开始只有 ARROW，后续 addTowerSpec 追加）=====
     private final List<TowerSpec> towerSpecs = new ArrayList<>();
 
     /**
-     * 无参构造：启动时自动探测 maps/default_path.json（由 util.MapRoute 工具类解析）。
-     * - 存在：套用导出路线的画布尺寸与路径（敌人出生/渲染/移动/禁塔区随之生效）；
-     * - 不存在/解析失败：保持下方默认值，行为与旧版一致。
-     * 同时探测 maps/tower_spots.json（由 util.TowerSpotEditorTool 手工标注），
-     * 缺失时塔位列表为空，游戏内不渲染塔位标记。
+     * 无参构造：启动时从 classpath 读 maps/index.json 选择“默认地图”（可用 -Dmap.key=&lt;key&gt; 指定），
+     * 再从 maps/&lt;key&gt;/ 读取 path.json / spots.json / 底图文件名。
+     * 任一文件缺失/解析失败 → 该项保持内置默认（画布/路径/塔位）。
      */
     public GameConfig() {
-        MapRoute route = MapRoute.loadFromClasspath("/maps/default_path.json");
-        if (route != null) {
-            setViewSize(route.getWidth(), route.getHeight());
-            setPath(route.getXs(), route.getYs());
-            this.mapImageName = route.getImage();
+        java.util.List<MapLibrary.MapEntry> entries = MapLibrary.listMapsFromClasspath();
+        String override = System.getProperty("map.key");
+        MapLibrary.MapEntry active = null;
+        for (MapLibrary.MapEntry e : entries) {
+            if (override != null && e.getKey().equals(override)) {
+                active = e;
+                break;
+            }
         }
-        TowerSpots spots = TowerSpots.loadFromClasspath("/maps/tower_spots.json");
-        if (spots != null) {
-            this.towerSpots = spots;
+        if (active == null && !entries.isEmpty()) active = entries.get(0);
+        if (active != null) {
+            this.mapKey = active.getKey();
+            this.mapImageName = active.getImage();
+
+            MapRoute route = MapLibrary.readPathFromClasspath(active.getKey());
+            if (route != null) {
+                setViewSize(route.getWidth(), route.getHeight());
+                setPath(route.getXs(), route.getYs());
+            }
+            TowerSpots spots = MapLibrary.readSpotsFromClasspath(active.getKey());
+            if (spots != null) {
+                this.towerSpots = spots;
+            }
         }
     }
+
+    /** 活动地图 key（null=未找到 index，使用内置默认） */
+    public String getMapKey() { return mapKey; }
 
     // ===== 画布 =====
     public double getViewWidth() { return viewWidth; }

@@ -9,11 +9,13 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputControl;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
@@ -31,7 +33,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * PathEditorTool —— 可视化路径标注工具的【启动入口】（本类不继承 Application）。
@@ -40,14 +44,15 @@ import java.util.List;
  * 而非 module-path）下运行会报“错误: 缺少 JavaFX 运行时组件”。因此把真正窗口逻辑放在嵌套的
  * {@link PathEditorToolApp}，本类 main 只做一次 Application.launch 转发即可直接运行。
  *
- * 使用：运行本类（com.kingdom.game.util.PathEditorTool）或 PathEditorLauncher。
+ * 使用：把 pom 的 javafx mainClass 改为 com.kingdom.game.util.PathEditorTool 后 mvn javafx:run；
+ * IDE 直接运行不可用（JavaFX 模块检查）。
  *
  * 操作：
- * 1. 「载入图片」选择地图底图，或填宽/高后「新建空白画布」；
+ * 1. 顶栏选「地图」（maps/index.json 已有地图）或「新建地图…」；
  * 2. 左键标路径点（首点=出生点，末点=终点）；右键删最近点；
  *    Backspace/Delete 撤销最后一个点，Esc 清空，拖拽微调已有；
- * 3. 「保存到游戏资源」写 src/main/resources/maps/default_path.json；
- *    游戏启动时（GameConfig 构造器）自动读取该文件，敌人/渲染/出生点随之更新。
+ * 3. 「保存到该地图」写 当前地图 maps/&lt;key&gt;/path.json；
+ *    游戏启动时（GameConfig/MapLibrary 按默认地图）读取，敌人/渲染/出生点随之更新。
  *
  * 坐标语义与游戏一致：像素坐标、路径点为“中心点”。
  */
@@ -65,17 +70,20 @@ public final class PathEditorTool {
      */
     public static final class PathEditorToolApp extends Application {
 
-        private static final String DEFAULT_MAP_NAME = "default_path.json";
-
         private final List<double[]> points = new ArrayList<>();
         private final Canvas canvas = new Canvas();
         private final TextField widthField = new TextField("900");
         private final TextField heightField = new TextField("560");
-        private final Label statusLabel = new Label("提示：可「载入图片」或「新建空白画布」后开始标点。");
+        private final Label statusLabel = new Label("提示：可选择已有地图或新建地图后标路径。");
         private final ListView<String> pointListView = new ListView<>();
 
+        // 地图分包（maps/index.json + maps/<key>/）
+        private final ChoiceBox<String> mapChoice = new ChoiceBox<>();
+        private final Map<String, String> mapLabelToKey = new LinkedHashMap<>();
+        private String currentMapKey = "default";
+
         private Image backgroundImage;
-        private String backgroundImageName;   // 仅记入 JSON 的 image 字段（参考用）
+        private String backgroundImageName;   // 底图文件名（位于 maps/<key>/ 下）
         private int dragIndex = -1;
         private double canvasWidth = 900;
         private double canvasHeight = 560;
@@ -104,10 +112,109 @@ public final class PathEditorTool {
             setCanvasSize(canvasWidth, canvasHeight);
             installCanvasHandlers();
             redraw();
+
+            mapChoice.setOnAction(e -> onMapSelected());
+            initMaps();
+        }
+
+        // ================= 地图选择 / 新建 =================
+        private void initMaps() {
+            populateMaps();
+            currentMapKey = MapLibrary.defaultKey();
+            if (MapLibrary.exists(currentMapKey)) {
+                mapChoice.setValue(MapLibrary.entryLabel(MapLibrary.getEntry(currentMapKey)));
+                loadMapByKey(currentMapKey);
+            } else {
+                statusLabel.setText("暂无可用地图，请「新建地图」或先在 maps/ 建立 index");
+            }
+        }
+
+        private void populateMaps() {
+            mapLabelToKey.clear();
+            mapChoice.getItems().clear();
+            for (MapLibrary.MapEntry e : MapLibrary.listMaps()) {
+                String label = MapLibrary.entryLabel(e);
+                mapLabelToKey.put(label, e.getKey());
+                mapChoice.getItems().add(label);
+            }
+        }
+
+        private void onMapSelected() {
+            String label = mapChoice.getValue();
+            String key = mapLabelToKey.get(label);
+            if (key != null && !key.equals(currentMapKey)) {
+                currentMapKey = key;
+                loadMapByKey(key);
+            }
+        }
+
+        private void newMap() {
+            TextInputDialog k = new TextInputDialog("newmap");
+            k.setTitle("新建地图");
+            k.setHeaderText("地图 key（目录名，字母数字下划线）");
+            k.showAndWait().ifPresent(keyRaw -> {
+                String key = keyRaw.trim().replaceAll("[^A-Za-z0-9_\\-]", "_");
+                if (key.isEmpty()) return;
+                TextInputDialog n = new TextInputDialog(key);
+                n.setTitle("新建地图");
+                n.setHeaderText("显示名称");
+                String name = n.showAndWait().orElse(key);
+                FileChooser fc = new FileChooser();
+                fc.setTitle("选择该地图的底图");
+                fc.getExtensionFilters().add(new FileChooser.ExtensionFilter(
+                        "图片", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp"));
+                File img = fc.showOpenDialog(null);
+                MapLibrary.MapEntry entry = MapLibrary.createMap(key, name, img);
+                if (entry == null) {
+                    error("新建失败", "请以仓库根目录运行");
+                    return;
+                }
+                populateMaps();
+                mapChoice.setValue(MapLibrary.entryLabel(entry));
+                currentMapKey = key;
+                loadMapByKey(key);
+                statusLabel.setText("已新建地图 " + MapLibrary.entryLabel(entry) + "（可开始标路径）");
+            });
+        }
+
+        /** 加载某地图：底图 + 已有 path.json（无则空白） */
+        private void loadMapByKey(String key) {
+            MapLibrary.MapEntry entry = MapLibrary.getEntry(key);
+            if (entry == null) {
+                statusLabel.setText("地图不存在：" + key);
+                return;
+            }
+            File dir = MapLibrary.mapDir(key);
+            File imageFile = dir == null ? null : new File(dir, entry.getImage());
+            if (imageFile != null && imageFile.isFile()) {
+                Image img = new Image(imageFile.toURI().toString());
+                if (!img.isError() && img.getWidth() > 0) {
+                    backgroundImage = img;
+                    backgroundImageName = entry.getImage();
+                    setCanvasSize(img.getWidth(), img.getHeight());
+                }
+            }
+            points.clear();
+            MapRoute route = MapLibrary.readPath(key);
+            if (route != null) {
+                double[] xs = route.getXs();
+                double[] ys = route.getYs();
+                for (int i = 0; i < xs.length; i++) {
+                    points.add(new double[]{xs[i], ys[i]});
+                }
+                setCanvasSize(route.getWidth(), route.getHeight());
+            }
+            dragIndex = -1;
+            refreshPointList();
+            redraw();
+            statusLabel.setText("已载入地图 " + MapLibrary.entryLabel(entry));
         }
 
         // ================= UI 构建 =================
         private HBox buildToolbar() {
+            Button newMapBtn = new Button("新建地图…");
+            newMapBtn.setOnAction(e -> newMap());
+
             Button loadImg = new Button("载入图片");
             loadImg.setOnAction(e -> loadImage());
 
@@ -123,13 +230,16 @@ public final class PathEditorTool {
             Button loadJson = new Button("载入 JSON");
             loadJson.setOnAction(e -> loadJson());
 
-            Button saveGame = new Button("保存到游戏资源");
+            Button saveGame = new Button("保存到该地图");
             saveGame.setOnAction(e -> saveToGameResources());
 
             Button saveAs = new Button("另存为 JSON");
             saveAs.setOnAction(e -> saveAsJson());
 
-            HBox bar = new HBox(8, loadImg, blank, new SeparatorV(), undo, clear,
+            mapChoice.setPrefWidth(230);
+
+            HBox bar = new HBox(8, new Label("地图:"), mapChoice, newMapBtn,
+                    new SeparatorV(), loadImg, blank, new SeparatorV(), undo, clear,
                     new SeparatorV(), loadJson, saveGame, saveAs);
             bar.setPadding(new Insets(8));
             bar.setAlignment(Pos.CENTER_LEFT);
@@ -406,26 +516,16 @@ public final class PathEditorTool {
         }
 
         private void saveToGameResources() {
-            File resources = findResourcesDir();
-            if (resources == null) {
+            MapRoute route = toRoute();
+            if (route == null) return;
+            if (!MapLibrary.writePath(currentMapKey, route)) {
                 statusLabel.setText("未找到 src/main/resources（请以仓库根目录运行），已改为“另存为”");
                 saveAsJson();
                 return;
             }
-            File dir = new File(resources, "maps");
-            if (!dir.exists() && !dir.mkdirs()) {
-                error("保存失败", "无法创建目录 " + dir);
-                return;
-            }
-            File file = new File(dir, DEFAULT_MAP_NAME);
-            String json = buildRouteJson();
-            if (json == null) return;
-            try {
-                Files.writeString(file.toPath(), json, StandardCharsets.UTF_8);
-                statusLabel.setText("已保存到 " + file.getPath() + "（游戏启动自动生效）");
-            } catch (IOException ex) {
-                error("保存失败", ex.getMessage());
-            }
+            File f = MapLibrary.pathFile(currentMapKey);
+            statusLabel.setText("已保存到 " + (f == null ? currentMapKey : f.getPath())
+                    + "（游戏启动按默认地图读取）");
         }
 
         private void saveAsJson() {
@@ -435,17 +535,18 @@ public final class PathEditorTool {
             if (!file.getName().toLowerCase().endsWith(".json")) {
                 file = new File(file.getParentFile(), file.getName() + ".json");
             }
-            String json = buildRouteJson();
-            if (json == null) return;
+            MapRoute route = toRoute();
+            if (route == null) return;
             try {
-                Files.writeString(file.toPath(), json, StandardCharsets.UTF_8);
+                Files.writeString(file.toPath(), route.toJson(), StandardCharsets.UTF_8);
                 statusLabel.setText("已另存为 " + file.getPath());
             } catch (IOException ex) {
                 error("保存失败", ex.getMessage());
             }
         }
 
-        private String buildRouteJson() {
+        /** 由当前点生成该地图的路由（key 作为 name；image 记录地图底图名） */
+        private MapRoute toRoute() {
             double[] xs = new double[points.size()];
             double[] ys = new double[points.size()];
             for (int i = 0; i < points.size(); i++) {
@@ -456,8 +557,8 @@ public final class PathEditorTool {
                 error("导出失败", "至少需要 2 个路径点");
                 return null;
             }
-            return MapRoute.of(DEFAULT_MAP_NAME.replace(".json", ""), backgroundImageName,
-                    canvasWidth, canvasHeight, xs, ys).toJson();
+            return MapRoute.of(currentMapKey, backgroundImageName,
+                    canvasWidth, canvasHeight, xs, ys);
         }
 
         private FileChooser jsonChooser(String title, boolean save) {
@@ -465,17 +566,6 @@ public final class PathEditorTool {
             fc.setTitle(title);
             fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("路线 JSON", "*.json"));
             return fc;
-        }
-
-        /** 从当前工作目录向上查找 src/main/resources 目录（仓库根运行即可找到） */
-        private File findResourcesDir() {
-            File dir = new File(System.getProperty("user.dir"));
-            for (int i = 0; i < 8 && dir != null; i++) {
-                File candidate = new File(dir, "src/main/resources");
-                if (candidate.isDirectory()) return candidate;
-                dir = dir.getParentFile();
-            }
-            return null;
         }
 
         private void error(String title, String msg) {

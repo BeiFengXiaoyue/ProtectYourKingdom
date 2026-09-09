@@ -1,0 +1,5 @@
+{
+  "maps": [
+    { "key": "default", "name": "默认地图", "image": "map.png" }
+  ]
+}
