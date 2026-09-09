@@ -16,8 +16,11 @@ package com.kingdom.game.model;
 public enum TowerType {
     ARROW,
     ARROW_ELITE,
+    ARROW_MASTER,
     CANNON,
     CANNON_ELITE,
+    CANNON_MASTER,
     BARRACK,
-    BARRACK_ELITE
+    BARRACK_ELITE,
+    BARRACK_MASTER
 }

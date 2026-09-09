@@ -1,29 +1,30 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.TowerSpec;
+import com.kingdom.game.model.TowerType;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
- * EliteBarrack —— 精英兵营（兵营 2 级，满级）。
+ * EliteBarrack —— 精英兵营（兵营 2 级）。
  *
- * 继承 {@link Barrack}（复用生产/剪除逻辑），仅覆写生产与士兵参数 + 渲染加金色标记作区分。
- * 满级：nextLevelSpec = null，isMaxLevel() 为 true。
+ * 继承 {@link Barrack}（复用生产/剪除逻辑），仅覆写士兵参数 + 渲染加金色标记作区分。
+ * 可继续升级到 {@link MasterBarrack}（3 级）。
  *
- * 数值说明（升级费/累计投入为占位，语义由架构师 A 在 GameController 回填）。
+ * 数值（《建筑与怪物机制策划》L2）：士兵数 2 → 3、士兵 HP 50 → 80（伤害/间隔/速度/重生不变）。
  */
 public class EliteBarrack extends Barrack {
 
+    /** 2 级 → 3 级的升级投入（《策划》：180） */
+    public static final int UPGRADE_COST = 180;
+
     public EliteBarrack(double x, double y) {
         super(x, y);
-        this.spawnIntervalMillis = 2000;            // 生产更快 3s → 2s
-        this.maxSoldiers = 5;                        // 上限更高 3 → 5
-        this.soldierHp = 100;                        // 士兵增强
-        this.soldierSpeed = 65;
-        this.soldierAttack = 14;
-        this.soldierCooldown = 700;
-        this.totalCost = Barrack.BUILD_COST + Barrack.UPGRADE_COST;  // 累计投入（占位）
-        this.nextLevelSpec = null;                   // 已是满级
+        this.maxSoldiers = 3;                        // 士兵数 2 → 3
+        this.soldierHp = 80;                         // 士兵 HP 50 → 80
+        this.totalCost = Barrack.BUILD_COST + Barrack.UPGRADE_COST;      // 100 + 100 = 200
+        this.nextLevelSpec = new TowerSpec(TowerType.BARRACK_MASTER, "大师兵营", UPGRADE_COST);
     }
 
     @Override

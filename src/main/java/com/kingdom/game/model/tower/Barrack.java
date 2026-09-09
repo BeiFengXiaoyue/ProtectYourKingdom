@@ -35,18 +35,19 @@ public class Barrack extends Tower implements ITowerUpgrade {
     /** 建造成本（Main 登记 TowerSpec 时引用，保持一致） */
     public static final int BUILD_COST = 100;
 
-    /** 1 级 → 2 级的升级投入（占位，待《游戏规则说明书》核对；A 可经 setNextLevelSpec 覆盖） */
-    public static final int UPGRADE_COST = 120;
+    /** 1 级 → 2 级的升级投入（《建筑与怪物机制策划》：100；A 可经 setNextLevelSpec 覆盖） */
+    public static final int UPGRADE_COST = 100;
 
     /** 下一级塔目录条目（默认指向 2 级精英兵营；null = 满级） */
     protected TowerSpec nextLevelSpec;
 
-    // ===== 生产与士兵参数（实例字段，默认值即 1 级；2 级子类可覆写）=====
-    protected int maxSoldiers = 3;
-    protected long spawnIntervalMillis = 3000;
-    protected int soldierHp = 70;
-    protected double soldierSpeed = 60;
-    protected int soldierAttack = 10;
+    // ===== 生产与士兵参数（实例字段，默认值即 1 级；2/3 级子类可覆写）=====
+    // 数值来源《建筑与怪物机制策划》兵营基础：士兵2 / HP50 / 伤害8 / 攻击间隔800ms / 速度40 / 重生5s（覆盖文档10s）
+    protected int maxSoldiers = 2;
+    protected long spawnIntervalMillis = 5000;
+    protected int soldierHp = 50;
+    protected double soldierSpeed = 40;
+    protected int soldierAttack = 8;
     protected int soldierCooldown = 800;
 
     /** 友方出口（默认 no-op：未接线时产出被丢弃，不报错） */

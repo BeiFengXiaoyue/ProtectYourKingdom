@@ -19,32 +19,38 @@ import java.util.List;
  * 升级链（本类为 1 级，可升级到 {@link EliteCannonTower}）：
  * 默认 nextLevelSpec 指向 CANNON_ELITE；架构师 A 可经 {@link #setNextLevelSpec} 注入/替换链。
  *
- * 数值说明（开发期可调；PRD 仅给定造价 80，其余为占位，待《游戏规则说明书》核对）：
- * - 射程/冷却/伤害为可调占位；造价 80 与装配处 TowerSpec 保持一致（出售返还依赖 totalCost）。
+ * 数值说明（《建筑与怪物机制策划》炮塔基础：伤害45/间隔1500ms/射程140/溅射50；造价沿用 PRD 80）：
+ * - 溅射半径落在 Bomb.onHit()（B 侧，待其支持半径参数后接入 `splashRadius`）；造价与装配处 TowerSpec 保持一致。
  */
 public class CannonTower extends Tower implements ITowerUpgrade {
 
     /** 建造成本（Main 登记 TowerSpec 时引用，保持一致） */
     public static final int BUILD_COST = 80;
 
-    /** 1 级 → 2 级的升级投入（占位，待《游戏规则说明书》核对；A 可经 setNextLevelSpec 覆盖） */
-    public static final int UPGRADE_COST = 100;
+    /** 1 级 → 2 级的升级投入（《建筑与怪物机制策划》：150；A 可经 setNextLevelSpec 覆盖） */
+    public static final int UPGRADE_COST = 150;
 
     /** 下一级塔目录条目（默认指向 2 级精英炮塔；null = 满级） */
     protected TowerSpec nextLevelSpec;
+
+    /** 爆炸溅射半径 px（《策划》L1/L2/L3 = 50/65/80；待 Bomb 支持半径参数后传递） */
+    protected double splashRadius = 50;
 
     /** 炮弹飞行速度 px/s */
     private static final double BOMB_SPEED = 220;
 
     public CannonTower(double x, double y) {
         super(x, y);
-        this.attackRange = 120;
-        this.attackCooldown = 900;
-        this.baseAttackDamage = 25;
+        this.attackRange = 140;
+        this.attackCooldown = 1500;
+        this.baseAttackDamage = 45;
         this.upgradeCostBase = 50;
         this.totalCost = BUILD_COST;
         this.nextLevelSpec = new TowerSpec(TowerType.CANNON_ELITE, "精英炮塔", UPGRADE_COST);
     }
+
+    /** 爆炸溅射半径（px） */
+    public double getSplashRadius() { return splashRadius; }
 
     /** 由装配层/架构师注入或覆盖升级链（推荐：升级链数据收敛在登记处） */
     public void setNextLevelSpec(TowerSpec spec) {
