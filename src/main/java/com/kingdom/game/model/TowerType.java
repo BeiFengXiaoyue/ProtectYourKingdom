@@ -14,5 +14,7 @@ package com.kingdom.game.model;
  * 显示名与造价统一见 {@link TowerSpec} / GameConfig，不写死在此枚举。
  */
 public enum TowerType {
-    ARROW
+    ARROW,
+    CANNON,
+    BARRACK
 }
