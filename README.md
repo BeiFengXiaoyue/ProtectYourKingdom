@@ -53,4 +53,35 @@
 - `points`：路径拐点数组（≥2 个）；首点为出生点、末点为终点；
 - `image` 仅供工具参考底图记录，游戏暂不加载。
 
+## 敌人动画编辑器（行为帧序列）
+类：`com.kingdom.game.util.AnimEditorTool`（窗口本体为嵌套类 AnimEditorApp）。
+启动：直接运行 **`com.kingdom.game.util.AnimEditorTool`** 或 **`AnimEditorLauncher`**。
+
+用途：把一个敌人的“每种行为模式”配一组关键帧图片并轮播；**每个敌人一个 JSON**（同名=去重覆盖），
+保存到 `src/main/resources/assets/animations/<敌人名>.json`。
+
+使用步骤：
+1. 顶部输入**敌人名** → 点「按名载入」（已有=继续修改；没有=新建 idle/walk/attack 模板）；也可「打开 JSON…」直接选文件；
+2. 左侧「行为模式」可**添加/删除模式**；选中一个模式；
+3. 右侧「+ 添加关键帧(选图)」逐张选择图片 → 自动拷入
+   `assets/enemies/<敌人名>/<模式>_<序号>.png` 并加入帧序列；可上移/下移/删除帧；
+4. 设置 interval（每帧停留 tick，默认 6 ≈ 0.1s/帧）→ 点「轮播预览」检查；
+5. 「保存」写回 `animations/<敌人名>.json`（同名覆盖）；「删除该敌人」删除对应 JSON。
+
+JSON 结构（帧路径相对 `assets/`）：
+```json
+{
+  "name": "normal_enemy",
+  "interval": 6,
+  "modes": {
+    "idle": ["enemies/normal_enemy/idle_0.png"],
+    "walk": ["enemies/normal_enemy/walk_0.png", "enemies/normal_enemy/walk_1.png"],
+    "attack": []
+  }
+}
+```
+
+> 提示：当前仅提供“编辑器 + 动画表 JSON”，**游戏内敌人渲染叠加尚未接入**——配好的帧图暂不影响运行表现（详见 `docs/接口契约与抽象类说明.md` §4.6）。
+
+设计说明：`docs/敌人行为动画-渲染层设计.md`（外部推导模式 + 叠加渲染方案，未实现）。
 说明文档：`docs/接口契约与抽象类说明.md`（接口契约与抽象类说明）。
