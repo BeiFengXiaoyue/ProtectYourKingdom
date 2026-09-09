@@ -2,8 +2,12 @@
   "name": "normal_enemy",
   "interval": 6,
   "modes": {
-    "idle": [],
-    "walk": [],
-    "attack": []
+    "attack": [ "enemies/normal_enemy/attack_0.png", "enemies/normal_enemy/attack_1.png", "enemies/normal_enemy/attack_2.png", "enemies/normal_enemy/attack_3.png" ]
+,
+    "idle": [ "enemies/normal_enemy/idle_0.png", "enemies/normal_enemy/idle_1.png", "enemies/normal_enemy/idle_2.png", "enemies/normal_enemy/idle_3.png" ]
+,
+    "death": [ "enemies/normal_enemy/death_0.png", "enemies/normal_enemy/death_1.png", "enemies/normal_enemy/death_2.png", "enemies/normal_enemy/death_3.png" ]
+,
+    "walk": [ "enemies/normal_enemy/walk_0.png", "enemies/normal_enemy/walk_1.png", "enemies/normal_enemy/walk_2.png", "enemies/normal_enemy/walk_3.png", "enemies/normal_enemy/walk_4.png", "enemies/normal_enemy/walk_5.png", "enemies/normal_enemy/walk_6.png", "enemies/normal_enemy/walk_7.png", "enemies/normal_enemy/walk_8.png", "enemies/normal_enemy/walk_9.png", "enemies/normal_enemy/walk_10.png", "enemies/normal_enemy/walk_11.png" ]
   }
 }
