@@ -16,7 +16,7 @@ import java.util.Map;
  * - 首点 = 敌人出生点，末点 = 漏怪终点；
  * - 应用到游戏只需 config.setViewSize(w,h).setPath(xs,ys)，渲染/出生/移动/禁塔区自动跟随。
  *
- * JSON schema（写入 src/main/resources/maps/&lt;name&gt;.json）：
+ * JSON schema（按地图分包：写入 src/main/resources/maps/&lt;key&gt;/path.json）：
  * <pre>
  * {
  *   "name": "default_path",
@@ -158,7 +158,7 @@ public final class MapRoute {
     /**
      * 从 classpath 读取路线资源。
      *
-     * @param resource classpath 路径，如 "/maps/default_path.json"
+     * @param resource classpath 路径，如 "/maps/&lt;key&gt;/path.json"
      * @return 解析成功的 MapRoute；文件缺失/解析失败返回 null
      */
     public static MapRoute loadFromClasspath(String resource) {

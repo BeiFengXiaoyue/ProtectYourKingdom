@@ -123,13 +123,15 @@ public class GameView implements IRenderNotifier,
         draw();
     }
 
-    /** 按 config.mapImageName 从 /maps/ 加载底图；缺失/失败保持 null（回退配色渲染） */
+    /** 按 config 的 mapKey + mapImageName 从 /maps/<key>/ 加载底图；缺失/失败保持 null（回退配色渲染） */
     private void loadMapBackground() {
+        String key = config.getMapKey();
         String name = config.getMapImageName();
-        if (name == null || name.isBlank()) return;
-        try (java.io.InputStream in = GameView.class.getResourceAsStream("/maps/" + name)) {
+        if (key == null || name == null || name.isBlank()) return;
+        String resource = "/maps/" + key + "/" + name;
+        try (java.io.InputStream in = GameView.class.getResourceAsStream(resource)) {
             if (in == null) {
-                System.err.println("[GameView] 未找到地图底图 /maps/" + name + "，回退配色渲染");
+                System.err.println("[GameView] 未找到地图底图 " + resource + "，回退配色渲染");
                 return;
             }
             mapBackground = new Image(in);
@@ -173,7 +175,7 @@ public class GameView implements IRenderNotifier,
         gc.setFill(Color.web("#5a3a1a"));
         gc.fillOval(pathX[pathX.length - 1] - 20, pathY[pathY.length - 1] - 20, 40, 40);
 
-        // 塔位标点（唯一来源：util.TowerSpots / maps/tower_spots.json；已占用点位显示为灰）
+        // 塔位标点（唯一来源：当前地图 spots.json，经 util.MapLibrary 加载；已占用点位显示为灰）
         drawTowerSpots();
 
         // 渲染顺序：塔 → 友方 → 敌人 → 投射物
@@ -197,7 +199,7 @@ public class GameView implements IRenderNotifier,
         syncTowerSelection();
     }
 
-    // ================= 塔位交互（唯一来源：util.TowerSpots / maps/tower_spots.json）=================
+    // ================= 塔位交互（唯一来源：当前地图 spots.json，经 util.MapLibrary 加载）=================
 
     /** 距点击点 < SLOT_CLICK_RADIUS 的最近塔位下标；无塔位/无命中返回 -1 */
     private int findSlotIndex(double x, double y) {

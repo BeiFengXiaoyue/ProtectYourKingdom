@@ -33,15 +33,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * AnimEditorTool —— 敌人行为动画 JSON 编辑器（启动入口，不继承 Application）。
- * 真正的窗口在嵌套类 {@link AnimEditorApp}；入口经 Application.launch 转发，
- * 避免 IntelliJ 普通 Run 配置下“缺少 JavaFX 运行时组件”报错。
+ * AnimEditorTool —— 单位行为动画 JSON 编辑器（敌人/友方/防御塔，按类别子目录管理）。
+ * 入口不继承 Application，窗口在嵌套类 {@link AnimEditorApp}（避免 JavaFX 模块检查报错）。
  *
- * 功能（经 AnimLibrary 按敌人名管理，同名去重）：
- * - 按敌人名载入（存在=继续修改，不存在=新建模板 idle/walk/attack）；
- * - 行为模式可添加/删除；每个模式可逐张“选图添加关键帧”（自动拷入 assets/enemies/&lt;名&gt;/），支持上移/下移/删除；
- * - interval（每帧停留 tick）、轮播预览；
- * - 保存 → assets/animations/&lt;敌人名&gt;.json（同名覆盖）；删除该敌人。
+ * 功能（经 AnimLibrary 按“类别 + 单位名”管理，同类别同名去重）：
+ * - 顶栏选类别：敌人(enemies) / 友方(allies) / 防御塔(towers)；
+ * - 单位下拉：该类别已有表 + 已知单位类名（新建模板）+ 手动输入；
+ * - 行为模式可增删；每个模式可逐张“选图添加关键帧”（拷入 assets/&lt;类别&gt;/&lt;名&gt;/），支持上移/下移/删除；
+ * - interval、轮播预览；保存按类别落 assets/animations/&lt;类别&gt;/&lt;名&gt;.json；可删除该单位。
  */
 public final class AnimEditorTool {
 
@@ -55,20 +54,29 @@ public final class AnimEditorTool {
     /** 真正的 JavaFX 应用（public static，供 launch 反射） */
     public static final class AnimEditorApp extends Application {
 
-        /** 项目中已存在的敌人 Java 类名（便于“按已有敌人类名新建”动画表） */
-        private static final String[] KNOWN_ENEMY_CLASSES = {"NormalEnemy", "FastEnemy", "TankEnemy", "BossEnemy"};
+        /** 各类别已知的 Java 类名（类名 → 表名由 camelToSnake 转换） */
+        private static final Map<String, List<String>> KNOWN_CLASSES = new LinkedHashMap<>();
+        static {
+            KNOWN_CLASSES.put(AnimTable.KIND_ENEMIES,
+                    List.of("NormalEnemy", "FastEnemy", "TankEnemy", "BossEnemy"));
+            KNOWN_CLASSES.put(AnimTable.KIND_ALLIES, List.of("Soldier"));
+            KNOWN_CLASSES.put(AnimTable.KIND_TOWERS, List.of("ArrowTower"));
+        }
         private static final String CUSTOM_ITEM = "…手动输入其他名字";
 
-        private AnimTable table = AnimTable.template("");
+        private AnimTable table = AnimTable.template(AnimTable.KIND_ENEMIES, "");
+        private String currentKind = AnimTable.KIND_ENEMIES;
+        private boolean uiBusy = false;   // adopt() 程序化切类别时防回调重入
 
-        private final TextField enemyNameField = new TextField("enemy");
-        private final ChoiceBox<String> enemyChoice = new ChoiceBox<>();
-        private final Map<String, String> choiceToName = new LinkedHashMap<>();
+        private final ChoiceBox<String> kindChoice = new ChoiceBox<>();
+        private final ChoiceBox<String> unitChoice = new ChoiceBox<>();
+        private final Map<String, String> choiceToUnit = new LinkedHashMap<>();
+        private final TextField unitNameField = new TextField();
         private final TextField intervalField = new TextField("6");
         private final ListView<String> modeList = new ListView<>();
         private final ListView<String> frameList = new ListView<>();
         private final ImageView previewView = new ImageView();
-        private final Label statusLabel = new Label("输入敌人名后「按名载入」或新建即可开始编辑。");
+        private final Label statusLabel = new Label("选择类别与单位后即可编辑动画。");
         private final Label previewLabel = new Label("（无预览素材）");
 
         // 轮播预览
@@ -89,43 +97,171 @@ public final class AnimEditorTool {
             root.setCenter(center);
             root.setBottom(statusLabel);
 
-            Scene scene = new Scene(root, 1000, 620);
-            stage.setTitle("王国保卫战 · 敌人动画编辑器");
+            Scene scene = new Scene(root, 1080, 620);
+            stage.setTitle("王国保卫战 · 单位动画编辑器（敌人/友方/防御塔）");
             stage.setScene(scene);
             stage.show();
 
-            enemyNameField.setOnAction(e -> loadByName());
-            enemyChoice.setOnAction(e -> onEnemyChoice());
-            populateEnemyChoices();
+            kindChoice.setOnAction(e -> onKindChanged());
+            unitChoice.setOnAction(e -> onUnitChoice());
+            unitNameField.setOnAction(e -> loadCurrentUnit());
             modeList.getSelectionModel().selectedItemProperty()
                     .addListener((obs, o, n) -> onModeSelected());
             frameList.getSelectionModel().selectedItemProperty()
                     .addListener((obs, o, n) -> refreshPreview());
 
+            populateKindChoices();
+            // 默认“敌人”类别并自动载入该类别第一个已有单位
+            kindChoice.getSelectionModel().select(displayOfKind(AnimTable.KIND_ENEMIES));
+            populateUnitChoices();
+            refreshAll();
+            autoLoadFirstExisting();
+        }
+
+        // ================= 类别/单位选择 =================
+        private String displayOfKind(String kind) {
+            switch (kind) {
+                case AnimTable.KIND_ENEMIES: return "敌人 (enemies)";
+                case AnimTable.KIND_ALLIES:  return "友方 (allies)";
+                case AnimTable.KIND_TOWERS:  return "防御塔 (towers)";
+                default: return "敌人 (enemies)";
+            }
+        }
+
+        private String kindOfDisplay(String display) {
+            for (String kind : new String[]{
+                    AnimTable.KIND_ENEMIES, AnimTable.KIND_ALLIES, AnimTable.KIND_TOWERS}) {
+                if (displayOfKind(kind).equals(display)) return kind;
+            }
+            return AnimTable.KIND_ENEMIES;
+        }
+
+        private void populateKindChoices() {
+            kindChoice.getItems().setAll(
+                    displayOfKind(AnimTable.KIND_ENEMIES),
+                    displayOfKind(AnimTable.KIND_ALLIES),
+                    displayOfKind(AnimTable.KIND_TOWERS));
+        }
+
+        /** 刷新单位下拉：当前类别已有表 + 已知单位类 + 手动输入 */
+        private void populateUnitChoices() {
+            choiceToUnit.clear();
+            unitChoice.getItems().clear();
+            List<String> existing = AnimLibrary.list(currentKind);
+
+            for (String cls : KNOWN_CLASSES.getOrDefault(currentKind, List.of())) {
+                String key = camelToSnake(cls);
+                boolean has = existing.contains(key);
+                String disp = cls + (has ? "（已有）" : "（新建模板）");
+                choiceToUnit.put(disp, key);
+                unitChoice.getItems().add(disp);
+            }
+            for (String n : existing) {
+                boolean covered = false;
+                for (String cls : KNOWN_CLASSES.getOrDefault(currentKind, List.of())) {
+                    if (camelToSnake(cls).equals(n)) { covered = true; break; }
+                }
+                if (!covered) {
+                    String disp = n + "（已有·自定义）";
+                    choiceToUnit.put(disp, n);
+                    unitChoice.getItems().add(disp);
+                }
+            }
+            unitChoice.getItems().add(CUSTOM_ITEM);
+        }
+
+        private void onKindChanged() {
+            if (uiBusy) return;
+            stopPlay();
+            String kind = kindOfDisplay(kindChoice.getValue());
+            currentKind = kind;
+            populateUnitChoices();
+            table = AnimTable.template(currentKind, "");
+            unitNameField.setText("");
+            status("类别已切换为 " + displayOfKind(kind) + "，请选择或新建单位");
+            refreshAll();
+        }
+
+        private void onUnitChoice() {
+            String disp = unitChoice.getValue();
+            if (disp == null) return;
+            String key = choiceToUnit.get(disp);
+            if (key == null) {                 // 手动输入
+                unitNameField.requestFocus();
+                return;
+            }
+            loadUnit(currentKind, key);
+        }
+
+        private void loadCurrentUnit() {
+            loadUnit(currentKind, currentName());
+        }
+
+        private void loadUnit(String kind, String name) {
+            if (name == null || name.isBlank()) {
+                status("单位名不能为空");
+                return;
+            }
+            AnimTable t = AnimLibrary.read(kind, name);
+            if (t == null) {
+                t = AnimTable.template(kind, name);
+                status("未找到「" + kind + "/" + name + "」，已新建模板");
+            } else {
+                status("已载入「" + kind + "/" + name + "」（同名覆盖修改）");
+            }
+            adopt(t);
+        }
+
+        private void autoLoadFirstExisting() {
+            List<String> existing = AnimLibrary.list(currentKind);
+            if (existing.isEmpty()) {
+                status("当前类别暂无动画表，请从下拉新建或手动输入单位名");
+                return;
+            }
+            String first = existing.get(0);
+            unitNameField.setText(first);
+            loadUnit(currentKind, first);
+        }
+
+        private void adopt(AnimTable t) {
+            table = t == null ? AnimTable.template(currentKind, "") : t;
+            currentKind = table.getKind();
+            uiBusy = true;
+            try {
+                kindChoice.getSelectionModel().select(displayOfKind(currentKind));
+            } finally {
+                uiBusy = false;
+            }
+            unitNameField.setText(table.getName());
+            intervalField.setText(String.valueOf(table.getInterval()));
+            stopPlay();
+            populateUnitChoices();
             refreshAll();
         }
 
         // ================= UI 构建 =================
         private HBox buildTopBar() {
-            Button loadName = new Button("按名载入");
-            loadName.setOnAction(e -> loadByName());
+            Button load = new Button("载入");
+            load.setOnAction(e -> loadCurrentUnit());
             Button openJson = new Button("打开 JSON…");
             openJson.setOnAction(e -> openJsonFile());
             Button save = new Button("保存");
             save.setOnAction(e -> saveToGame());
             Button saveAs = new Button("另存为…");
             saveAs.setOnAction(e -> saveAsJson());
-            Button del = new Button("删除该敌人");
-            del.setOnAction(e -> deleteEnemy());
+            Button del = new Button("删除该单位");
+            del.setOnAction(e -> deleteUnit());
 
-            enemyNameField.setPrefWidth(150);
-            enemyChoice.setPrefWidth(210);
+            unitNameField.setPrefWidth(140);
+            unitChoice.setPrefWidth(220);
+            kindChoice.setPrefWidth(140);
             intervalField.setPrefWidth(50);
 
-            HBox bar = new HBox(8, new Label("敌人(表/类):"), enemyChoice,
-                    new Label("名字:"), enemyNameField,
+            HBox bar = new HBox(8, new Label("类别:"), kindChoice,
+                    new Label("单位:"), unitChoice,
+                    new Label("名字:"), unitNameField,
                     new Label("interval:"), intervalField,
-                    loadName, openJson, save, saveAs, del);
+                    load, openJson, save, saveAs, del);
             bar.setPadding(new Insets(8));
             bar.setAlignment(Pos.CENTER_LEFT);
             bar.setStyle("-fx-background-color: #e0e0e0;");
@@ -164,7 +300,7 @@ public final class AnimEditorTool {
         }
 
         private VBox buildFramePanel() {
-            frameList.setPrefWidth(260);
+            frameList.setPrefWidth(280);
             frameList.setPrefHeight(360);
 
             Button add = new Button("+ 添加关键帧(选图)");
@@ -182,101 +318,14 @@ public final class AnimEditorTool {
             return box;
         }
 
-        // ================= 敌人下拉（已有表 / 已有敌人类名新建）=================
-        /** 刷新下拉：已有动画表 + 已存在的敌人类名 + 手动输入项 */
-        private void populateEnemyChoices() {
-            choiceToName.clear();
-            enemyChoice.getItems().clear();
-            List<String> existing = AnimLibrary.listEnemies();
-
-            for (String cls : KNOWN_ENEMY_CLASSES) {
-                String key = camelToSnake(cls);
-                boolean has = existing.contains(key);
-                String disp = cls + (has ? "（已有）" : "（新建模板）");
-                choiceToName.put(disp, key);
-                enemyChoice.getItems().add(disp);
-            }
-            for (String n : existing) {
-                boolean covered = false;
-                for (String cls : KNOWN_ENEMY_CLASSES) {
-                    if (camelToSnake(cls).equals(n)) { covered = true; break; }
-                }
-                if (!covered) {
-                    String disp = n + "（已有·自定义）";
-                    choiceToName.put(disp, n);
-                    enemyChoice.getItems().add(disp);
-                }
-            }
-            enemyChoice.getItems().add(CUSTOM_ITEM);
-        }
-
-        /** 下拉选择：已有表→载入继续修改；敌人类名无表→按类名新建模板 */
-        private void onEnemyChoice() {
-            String disp = enemyChoice.getValue();
-            if (disp == null) return;
-            String key = choiceToName.get(disp);
-            if (key == null) {           // 手动输入项
-                enemyNameField.requestFocus();
-                return;
-            }
-            enemyNameField.setText(key);
-            if (AnimLibrary.exists(key)) {
-                loadByName();
-                status("下拉载入已有敌人「" + key + "」（同名覆盖修改）");
-            } else {
-                adopt(AnimTable.template(key));
-                status("已按敌人类名新建模板「" + key + "」");
-            }
-        }
-
-        /** NormalEnemy → normal_enemy；FastEnemy → fast_enemy */
-        private static String camelToSnake(String s) {
-            if (s == null || s.isEmpty()) return s;
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < s.length(); i++) {
-                char c = s.charAt(i);
-                if (Character.isUpperCase(c)) {
-                    if (i > 0) sb.append('_');
-                    sb.append(Character.toLowerCase(c));
-                } else {
-                    sb.append(c);
-                }
-            }
-            return sb.toString();
-        }
-
         // ================= 数据操作 =================
         private String currentName() {
-            String n = enemyNameField.getText() == null ? "" : enemyNameField.getText().trim();
+            String n = unitNameField.getText() == null ? "" : unitNameField.getText().trim();
             return n.replaceAll("[^A-Za-z0-9_\\-]", "_");
         }
 
         private String currentMode() {
             return modeList.getSelectionModel().getSelectedItem();
-        }
-
-        private void loadByName() {
-            String name = currentName();
-            if (name.isEmpty()) {
-                status("敌人名不能为空");
-                return;
-            }
-            AnimTable t = AnimLibrary.read(name);
-            if (t == null) {
-                t = AnimTable.template(name);
-                status("未找到「" + name + "」，已新建模板（idle/walk/attack）");
-            } else {
-                status("已载入「" + name + "」（同名覆盖修改）");
-            }
-            adopt(t);
-        }
-
-        private void adopt(AnimTable t) {
-            table = t == null ? AnimTable.template("") : t;
-            enemyNameField.setText(table.getName());
-            intervalField.setText(String.valueOf(table.getInterval()));
-            stopPlay();
-            refreshAll();
         }
 
         private void openJsonFile() {
@@ -300,8 +349,8 @@ public final class AnimEditorTool {
                 saveAsJson();
                 return;
             }
-            populateEnemyChoices();
-            status("已保存到 " + f.getPath() + "（按名去重）");
+            populateUnitChoices();
+            status("已保存到 " + f.getPath() + "（同类别同名去重）");
         }
 
         private void saveAsJson() {
@@ -323,7 +372,7 @@ public final class AnimEditorTool {
         private boolean applyNameAndInterval() {
             String name = currentName();
             if (name.isEmpty()) {
-                status("敌人名不能为空");
+                status("单位名不能为空");
                 return false;
             }
             int interval = 6;
@@ -332,25 +381,30 @@ public final class AnimEditorTool {
             } catch (NumberFormatException ignored) {
                 status("interval 需为整数，已用默认 6");
             }
+            table.setKind(currentKind);
             table.setName(name);
             table.setInterval(interval);
-            enemyNameField.setText(name);
+            unitNameField.setText(name);
             intervalField.setText(String.valueOf(interval));
             return true;
         }
 
-        private void deleteEnemy() {
+        private void deleteUnit() {
+            String kind = currentKind;
             String name = currentName();
             if (name.isEmpty()) return;
-            boolean ok = AnimLibrary.delete(name);
-            status(ok ? "已删除「" + name + "」的动画表" : "未找到可删除的动画表「" + name + "」");
-            adopt(AnimTable.template(""));
-            populateEnemyChoices();
+            boolean ok = AnimLibrary.delete(kind, name);
+            status(ok ? "已删除「" + kind + "/" + name + "」的动画表"
+                    : "未找到可删除的动画表「" + kind + "/" + name + "」");
+            table = AnimTable.template(kind, "");
+            unitNameField.setText("");
+            populateUnitChoices();
+            refreshAll();
         }
 
         // ================= 模式 =================
         private void addMode() {
-            TextInputDialog dlg = new TextInputDialog("walk2");
+            TextInputDialog dlg = new TextInputDialog("fire");
             dlg.setTitle("添加行为模式");
             dlg.setHeaderText("新模式名");
             dlg.setContentText("模式名（字母数字下划线）：");
@@ -382,17 +436,18 @@ public final class AnimEditorTool {
             String name = currentName();
             String mode = currentMode();
             if (name.isEmpty() || mode == null) {
-                status("请先输入敌人名并选中一个行为模式");
+                status("请先输入单位名并选中一个行为模式");
                 return;
             }
-            File dir = AnimLibrary.enemyFramesDir(name);
+            File dir = AnimLibrary.framesDir(currentKind, name);
             if (dir == null) {
                 status("未找到 src/main/resources（请以仓库根目录运行）");
                 return;
             }
             FileChooser fc = new FileChooser();
             fc.setTitle("选择关键帧图片（第 " + (table.getFrames(mode).size() + 1) + " 张）");
-            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("图片", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp"));
+            fc.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("图片", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp"));
             File src = fc.showOpenDialog(null);
             if (src == null) return;
 
@@ -410,8 +465,9 @@ public final class AnimEditorTool {
                 error("拷贝失败", ex.getMessage());
                 return;
             }
-            table.addFrame(mode, "enemies/" + name + "/" + fileName);
-            status("已添加帧：enemies/" + name + "/" + fileName);
+            String rel = currentKind + "/" + name + "/" + fileName;
+            table.addFrame(mode, rel);
+            status("已添加帧：" + rel);
             refreshFrameList();
         }
 
@@ -502,7 +558,9 @@ public final class AnimEditorTool {
             }
             Image img = loadImage(rels.get(0));
             previewView.setImage(img);
-            previewLabel.setText(img == null ? "缺少素材：" + rels.get(0) : "模式「" + mode + "」共 " + rels.size() + " 帧");
+            previewLabel.setText(img == null
+                    ? "缺少素材：" + rels.get(0)
+                    : "模式「" + mode + "」共 " + rels.size() + " 帧");
         }
 
         private void togglePlay() {
@@ -560,6 +618,22 @@ public final class AnimEditorTool {
             fc.setTitle(title);
             fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("动画 JSON", "*.json"));
             return fc;
+        }
+
+        /** NormalEnemy → normal_enemy；ArrowTower → arrow_tower */
+        private static String camelToSnake(String s) {
+            if (s == null || s.isEmpty()) return s;
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < s.length(); i++) {
+                char c = s.charAt(i);
+                if (Character.isUpperCase(c)) {
+                    if (i > 0) sb.append('_');
+                    sb.append(Character.toLowerCase(c));
+                } else {
+                    sb.append(c);
+                }
+            }
+            return sb.toString();
         }
 
         private void status(String msg) {

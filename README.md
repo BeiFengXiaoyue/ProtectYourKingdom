@@ -7,70 +7,96 @@
 ---
 
 ## 快速开始（运行游戏）
-- 在 IDE 中运行 `com.kingdom.game.view.Main`（或执行 `mvn javafx:run`）。
+- 默认 `pom.xml` 的 javafx 插件 mainClass 为 `com.kingdom.game.view.Main`，直接执行 `mvn javafx:run` 运行游戏。
+- IDE 直接运行不可用（JavaFX 模块检查），工具/游戏都请走 `mvn javafx:run`（工具见下节）。
 - 点击「开始波次」出怪；生命值归零即失败，守住全部波次即胜利。
 - 启动时会自动读取路线文件 `src/main/resources/maps/default_path.json`
   （若存在则按导出内容设置画布尺寸与敌人路径，不存在则使用内置默认路径）。
 
+## 运行工具（改 pom 后 mvn javafx:run）
+所有工具/编辑器都通过**修改 `pom.xml` 的 javafx 插件 mainClass** 后用 `mvn javafx:run` 启动。
+默认（游戏）为 `com.kingdom.game.view.Main`；运行工具时把它改成下表目标类，跑完改回游戏即可。
+
+```xml
+<!-- pom.xml javafx-maven-plugin 配置里 -->
+<mainClass>com.kingdom.game.util.PathEditorTool</mainClass>   <!-- 示例：运行路径标注工具 -->
+```
+命令：`mvn javafx:run`
+
+| 工具 | pom 填的 mainClass |
+|---|---|
+| 游戏（默认） | `com.kingdom.game.view.Main` |
+| 路径标注（路线编辑器） | `com.kingdom.game.util.PathEditorTool` |
+| 塔位标注 | `com.kingdom.game.util.TowerSpotEditorTool` |
+| 单位动画编辑器（敌人/友方/防御塔） | `com.kingdom.game.util.AnimEditorTool` |
+
+> 注意：本环境**不支持在 IDE 直接运行工具类**（JavaFX 模块检查会报“缺少 JavaFX 运行时组件”）。
+> 统一做法：把 pom 的 mainClass 改为目标工具类 → `mvn javafx:run` → 跑完改回 `com.kingdom.game.view.Main`。
+
 ## 路径标注工具（路线编辑器）
 类：`com.kingdom.game.util.PathEditorTool`（窗口本体为嵌套类 PathEditorToolApp）。
-启动：直接运行 **`com.kingdom.game.util.PathEditorTool`** 或 **`PathEditorLauncher`** 均可
-（入口类不继承 Application，绕开了“缺少 JavaFX 运行时组件”报错；不影响游戏入口）。
+启动：**把 pom 的 `<mainClass>` 改成 `com.kingdom.game.util.PathEditorTool` 后执行 `mvn javafx:run`**
+（IDE 直接运行不可用，见上方“运行工具”说明）。
 
 使用步骤：
-1. 运行 `PathEditorLauncher` 打开工具窗口；
-2. 「载入图片」选择地图底图；若无底图，可在右侧宽/高框填数后点「新建空白画布」；
-3. 在图上标路径点（用鼠标操作）：
-   - 左键点击：新增一个路径点（首点=敌人生成点，末点=漏怪终点）；
-   - 右键点击：删除离光标最近的点；
-   - `Backspace` / `Delete`：撤销最后一个点；`Esc`：清空全部；
-   - 鼠标拖拽：微调已有的点；
+1. 改 pom mainClass 后用 `mvn javafx:run` 打开工具窗口；
+2. 顶栏选**地图**（maps/index.json 里已有地图）或点「新建地图…」（输入 key/名称并选底图）；
+3. 选中地图会自动载入其底图与已有 `path.json`（无则空白）；在图上标路径点（左键加点、右键删最近、Backspace/Delete 撤销、Esc 清空、拖拽微调）；
 4. 保存路线：
-   - 「保存到游戏资源」→ 写入 `src/main/resources/maps/default_path.json`（要求以仓库根目录为工作目录运行；否则自动改为“另存为”）；
-   - 「另存为 JSON」→ 自定义位置保存（可当草稿，之后用「载入 JSON」回显继续编辑）。
+   - 「保存到该地图」→ 写入该地图的 `maps/<key>/path.json`（仓库根目录运行；否则自动改“另存为”）；
+   - 「另存为 JSON」→ 自定义位置保存（草稿，可用「载入 JSON」回显继续编辑）。
 
 坐标约定：保存的是**画布像素坐标**，路径点为“中心点”，与敌人移动逻辑一致。
 
-## 路线文件（maps/*.json）
-由工具导出的 JSON 结构示例：
+## 地图分包与文件结构
+```
+src/main/resources/maps/
+├── index.json                      注册表：{ maps:[ {key,name,image} ] }
+└── <key>/                          一张地图一个目录
+    ├── map.png                     底图（名称以 index 的 image 为准）
+    ├── path.json                   敌人路径（MapRoute）
+    └── spots.json                  塔位（TowerSpots）
+```
+- 工具经 `maps/index.json` 列“已有地图”并可选择/新建；`PathEditorTool` 写 `path.json`，`TowerSpotEditorTool` 写 `spots.json`；
+- 游戏启动时 `GameConfig` 读取默认地图（index 第一条，可用 `-Dmap.key=<key>` 指定）并加载 `path/spots/底图`；
+- 缺少某文件则该部分回退内置默认。
+
+`path.json` 结构示例（沿用原 schema，仅“存放目录按地图分包”）：
 ```json
 {
-  "name": "default_path",
+  "name": "default",
   "image": "map.png",
-  "width": 900,
-  "height": 560,
-  "points": [
-    {"x": 60, "y": 160},
-    {"x": 300, "y": 160},
-    {"x": 300, "y": 360},
-    {"x": 620, "y": 360},
-    {"x": 620, "y": 240},
-    {"x": 860, "y": 240}
-  ]
+  "width": 700,
+  "height": 600,
+  "points": [ {"x":60,"y":160}, {"x":300,"y":160} ]
 }
 ```
-- `width / height`：游戏画布尺寸（窗口随其变化）；
-- `points`：路径拐点数组（≥2 个）；首点为出生点、末点为终点；
-- `image` 仅供工具参考底图记录，游戏暂不加载。
+- `width / height`：画布尺寸（随地图）；`points`：路径拐点（≥2），首点为出生点、末点为终点。
 
-## 敌人动画编辑器（行为帧序列）
+## 单位动画编辑器（敌人 / 友方 / 防御塔）
 类：`com.kingdom.game.util.AnimEditorTool`（窗口本体为嵌套类 AnimEditorApp）。
-启动：直接运行 **`com.kingdom.game.util.AnimEditorTool`** 或 **`AnimEditorLauncher`**。
+启动：**把 pom 的 `<mainClass>` 改成 `com.kingdom.game.util.AnimEditorTool` 后执行 `mvn javafx:run`**
+（IDE 直接运行不可用，见“运行工具”说明）。
 
-用途：把一个敌人的“每种行为模式”配一组关键帧图片并轮播；**每个敌人一个 JSON**（同名=去重覆盖），
-保存到 `src/main/resources/assets/animations/<敌人名>.json`。
+用途：给“敌人 / 友方 / 防御塔”任一单位的每种行为模式配一组关键帧并轮播；
+**每个单位按类别存放一个 JSON**（同类别同名=去重覆盖），保存在
+`src/main/resources/assets/animations/{enemies,allies,towers}/<单位名>.json`。
 
 使用步骤：
-1. 顶部输入**敌人名** → 点「按名载入」（已有=继续修改；没有=新建 idle/walk/attack 模板）；也可「打开 JSON…」直接选文件；
-2. 左侧「行为模式」可**添加/删除模式**；选中一个模式；
-3. 右侧「+ 添加关键帧(选图)」逐张选择图片 → 自动拷入
-   `assets/enemies/<敌人名>/<模式>_<序号>.png` 并加入帧序列；可上移/下移/删除帧；
-4. 设置 interval（每帧停留 tick，默认 6 ≈ 0.1s/帧）→ 点「轮播预览」检查；
-5. 「保存」写回 `animations/<敌人名>.json`（同名覆盖）；「删除该敌人」删除对应 JSON。
+1. 顶栏先选**类别**：敌人(enemies) / 友方(allies) / 防御塔(towers)；
+2. **单位下拉**选单位：下拉含该类别已有表 + 已知单位类（敌人 Normal/Fast/Tank/Boss、友方 Soldier、塔 ArrowTower）；选择“新建模板”项或手动输入新单位名即可新建（也可「打开 JSON…」直接选文件）；
+3. 左侧「行为模式」可**添加/删除模式**；选中一个模式；
+4. 右侧「+ 添加关键帧(选图)」逐张选择图片 → 自动拷入
+   `assets/<类别>/<单位名>/<模式>_<序号>.png` 并加入帧序列；可上移/下移/删除帧；
+5. 设置 interval（每帧停留 tick，默认 6 ≈ 0.1s/帧）→ 点「轮播预览」检查；
+6. 「保存」写回 `animations/<类别>/<单位名>.json`（同类别同名去重）；「删除该单位」删除对应 JSON。
 
-JSON 结构（帧路径相对 `assets/`）：
+默认模板模式：敌人/友方 = `idle/walk/attack`；防御塔 = `idle`（常时循环；暂不分“开火帧”，本轮不动塔基类）。
+
+JSON 结构（帧路径相对 `assets/`，前缀为类别子目录）：
 ```json
 {
+  "kind": "enemies",
   "name": "normal_enemy",
   "interval": 6,
   "modes": {
@@ -81,7 +107,7 @@ JSON 结构（帧路径相对 `assets/`）：
 }
 ```
 
-> 提示：当前仅提供“编辑器 + 动画表 JSON”，**游戏内敌人渲染叠加尚未接入**——配好的帧图暂不影响运行表现（详见 `docs/接口契约与抽象类说明.md` §4.6）。
+> 提示：当前提供“编辑器 + 动画表 JSON（三类通用）”，**游戏内渲染叠加尚未接入**——配好的帧图暂不影响运行表现（详见 `docs/接口契约与抽象类说明.md` §4.6/§4.7）。
 
-设计说明：`docs/单位行为动画-渲染层设计.md`（外部推导模式 + 叠加渲染方案，敌/友通用，未实现）。
+设计说明：`docs/单位行为动画-渲染层设计.md`（外部推导模式 + 叠加渲染方案，敌/友/塔通用，未实现）。
 说明文档：`docs/接口契约与抽象类说明.md`（接口契约与抽象类说明）。
