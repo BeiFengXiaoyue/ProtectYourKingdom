@@ -1,6 +1,8 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.TowerSpec;
+import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.projectile.Arrow;
 import javafx.scene.canvas.GraphicsContext;
@@ -14,15 +16,24 @@ import java.util.List;
  * 发射流程：attack() 生成追踪型 {@link Arrow} 并交给 projectileSink；
  * 命中结算在 Arrow.onHit()（实体负责人 B 的正式交付物）。
  *
+ * 升级链（本类为 1 级，可升级到 {@link EliteArrowTower}）：
+ * 默认 nextLevelSpec 指向 ARROW_ELITE；架构师 A 可经 {@link #setNextLevelSpec} 注入/替换链。
+ *
  * 数值说明（开发期可直接在构造函数微调）：
  * - 对照默认普通敌人 HP80 / 初始金币100：造价 50 可起手两座，
  *   伤害 18 + 冷却 550ms 约 4~5 箭击杀一只普通敌人。
  * - BUILD_COST 与装配处 TowerSpec 的造价保持一致（出售返还依赖 totalCost）。
  */
-public class ArrowTower extends Tower {
+public class ArrowTower extends Tower implements ITowerUpgrade {
 
     /** 建造成本（Main 登记 TowerSpec 时引用，保持一致） */
     public static final int BUILD_COST = 50;
+
+    /** 1 级 → 2 级的升级投入（占位，待《游戏规则说明书》核对；A 可经 setNextLevelSpec 覆盖） */
+    public static final int UPGRADE_COST = 90;
+
+    /** 下一级塔目录条目（默认指向 2 级精英箭塔；null = 满级） */
+    protected TowerSpec nextLevelSpec;
 
     /** 箭矢飞行速度 px/s */
     private static final double ARROW_SPEED = 320;
@@ -34,7 +45,19 @@ public class ArrowTower extends Tower {
         this.baseAttackDamage = 18;
         this.upgradeCostBase = 45;
         this.totalCost = BUILD_COST;
+        this.nextLevelSpec = new TowerSpec(TowerType.ARROW_ELITE, "精英箭塔", UPGRADE_COST);
     }
+
+    /** 由装配层/架构师注入或覆盖升级链（推荐：升级链数据收敛在登记处） */
+    public void setNextLevelSpec(TowerSpec spec) {
+        if (spec != null) this.nextLevelSpec = spec;
+    }
+
+    @Override
+    public TowerSpec getNextLevelSpec() { return nextLevelSpec; }
+
+    @Override
+    public boolean isMaxLevel() { return nextLevelSpec == null; }
 
     /**
      * 索敌：返回射程内第一个存活敌人。

@@ -7,6 +7,8 @@ import com.kingdom.game.model.GameState;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.tower.ArrowTower;
+import com.kingdom.game.model.tower.Barrack;
+import com.kingdom.game.model.tower.CannonTower;
 import com.kingdom.game.util.Assets;
 import com.kingdom.game.util.SoundManager;
 import javafx.application.Application;
@@ -55,10 +57,16 @@ public class Main extends Application {
         controller.setUnitSound(sounds);
         controller.setCombatSound(sounds);
         controller.setEndSound(sounds);
-        // 塔登记（防御塔负责人交付 ArrowTower）：
+        // 塔登记（防御塔负责人交付 ArrowTower / CannonTower / Barrack）：
         controller.registerTower(TowerType.ARROW,
                 new TowerSpec(TowerType.ARROW, "箭塔", ArrowTower.BUILD_COST),
                 ArrowTower::new);
+        controller.registerTower(TowerType.CANNON,
+                new TowerSpec(TowerType.CANNON, "炮塔", CannonTower.BUILD_COST),
+                CannonTower::new);
+        controller.registerTower(TowerType.BARRACK,
+                new TowerSpec(TowerType.BARRACK, "兵营", Barrack.BUILD_COST),
+                Barrack::new);
         controller.refreshUI();               // 推送初始生命/金币/波次到 HUD
 
         Assets.preload();                     // 预加载贴图（无图自动跳过）
