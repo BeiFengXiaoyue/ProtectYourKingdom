@@ -20,6 +20,12 @@
             <artifactId>javafx-controls</artifactId>
             <version>17.0.14</version>
         </dependency>
+        <!-- JavaFX 媒体库：音效 AudioClip 所在模块（素材负责人 E 添加） -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-media</artifactId>
+            <version>17.0.14</version>
+        </dependency>
     </dependencies>
 
     <build>
