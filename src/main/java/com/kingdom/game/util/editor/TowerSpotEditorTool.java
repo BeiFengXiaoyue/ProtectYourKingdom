@@ -1,5 +1,7 @@
-package com.kingdom.game.util;
+package com.kingdom.game.util.editor;
 
+import com.kingdom.game.util.map.MapLibrary;
+import com.kingdom.game.util.map.TowerSpots;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -42,7 +44,7 @@ import java.util.Map;
  * TowerSpotEditorTool —— 可视化【塔位手动标点工具】（本类不继承 Application）。
  *
  * 与 PathEditorTool 同一套模式（嵌套 App 解决 JavaFX classpath 运行问题）。
- * 使用：把 pom 的 javafx mainClass 改为 com.kingdom.game.util.TowerSpotEditorTool 后 mvn javafx:run。
+ * 使用：把 pom 的 javafx mainClass 改为 com.kingdom.game.util.editor.TowerSpotEditorTool 后 mvn javafx:run。
  *
  * 操作：
  * 1. 顶栏选「地图」（maps/index.json 已有地图）或「新建地图…」；

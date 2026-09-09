@@ -1,4 +1,4 @@
-package com.kingdom.game.util;
+package com.kingdom.game.util.editor;
 
 import javafx.application.Application;
 

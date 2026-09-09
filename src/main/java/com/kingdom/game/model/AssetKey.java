@@ -5,7 +5,7 @@ package com.kingdom.game.model;
  *
  * 素材插入通道契约：
  * 1. 素材收集者按 {@link #getFileName()} 命名的文件放入 src/main/resources/assets/；
- * 2. 实体 render 用 {@link com.kingdom.game.util.Assets#get(AssetKey)} 取图，
+ * 2. 实体 render 用 {@link com.kingdom.game.util.asset.Assets#get(AssetKey)} 取图，
  *    取不到（未提供素材）时回退为色块/形状，游戏不受阻。
  */
 public enum AssetKey {

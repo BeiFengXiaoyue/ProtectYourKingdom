@@ -5,8 +5,8 @@ import com.kingdom.game.controller.IFloatingTextFx;
 import com.kingdom.game.controller.IParticleFx;
 import com.kingdom.game.controller.IScreenFx;
 import com.kingdom.game.controller.ISelectionFx;
-import com.kingdom.game.util.Assets;
-import com.kingdom.game.util.FxNop;
+import com.kingdom.game.util.asset.Assets;
+import com.kingdom.game.util.fx.FxNop;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 
@@ -16,7 +16,7 @@ import javafx.scene.image.Image;
  *
  * 契约：
  * - 事件槽字段由 GameController 在实体注册/放置时通过 {@link #attachEffects(...)} 注入；
- *   缺省为 util.FxNop 空实现，任何阶段调用都不会 NPE。
+ *   缺省为 util.fx.FxNop 空实现，任何阶段调用都不会 NPE。
  * - destroy() 只表示"实体自身宣告结束"，把实体移出注册表(list)的动作**唯一由 GameController 完成**。
  */
 public abstract class GameObject {

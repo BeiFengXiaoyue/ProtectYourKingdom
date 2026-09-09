@@ -1,5 +1,7 @@
-package com.kingdom.game.util;
+package com.kingdom.game.util.editor;
 
+import com.kingdom.game.util.map.MapLibrary;
+import com.kingdom.game.util.map.MapRoute;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -44,7 +46,7 @@ import java.util.Map;
  * 而非 module-path）下运行会报“错误: 缺少 JavaFX 运行时组件”。因此把真正窗口逻辑放在嵌套的
  * {@link PathEditorToolApp}，本类 main 只做一次 Application.launch 转发即可直接运行。
  *
- * 使用：把 pom 的 javafx mainClass 改为 com.kingdom.game.util.PathEditorTool 后 mvn javafx:run；
+ * 使用：把 pom 的 javafx mainClass 改为 com.kingdom.game.util.editor.PathEditorTool 后 mvn javafx:run；
  * IDE 直接运行不可用（JavaFX 模块检查）。
  *
  * 操作：

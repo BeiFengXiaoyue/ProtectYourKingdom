@@ -2,9 +2,9 @@ package com.kingdom.game.config;
 
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
-import com.kingdom.game.util.MapLibrary;
-import com.kingdom.game.util.MapRoute;
-import com.kingdom.game.util.TowerSpots;
+import com.kingdom.game.util.map.MapLibrary;
+import com.kingdom.game.util.map.MapRoute;
+import com.kingdom.game.util.map.TowerSpots;
 
 import java.util.ArrayList;
 import java.util.Collections;
