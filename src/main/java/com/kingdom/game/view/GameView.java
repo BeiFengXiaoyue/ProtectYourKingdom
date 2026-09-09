@@ -116,13 +116,15 @@ public class GameView implements IRenderNotifier,
         draw();
     }
 
-    /** 按 config.mapImageName 从 /maps/ 加载底图；缺失/失败保持 null（回退配色渲染） */
+    /** 按 config 的 mapKey + mapImageName 从 /maps/<key>/ 加载底图；缺失/失败保持 null（回退配色渲染） */
     private void loadMapBackground() {
+        String key = config.getMapKey();
         String name = config.getMapImageName();
-        if (name == null || name.isBlank()) return;
-        try (java.io.InputStream in = GameView.class.getResourceAsStream("/maps/" + name)) {
+        if (key == null || name == null || name.isBlank()) return;
+        String resource = "/maps/" + key + "/" + name;
+        try (java.io.InputStream in = GameView.class.getResourceAsStream(resource)) {
             if (in == null) {
-                System.err.println("[GameView] 未找到地图底图 /maps/" + name + "，回退配色渲染");
+                System.err.println("[GameView] 未找到地图底图 " + resource + "，回退配色渲染");
                 return;
             }
             mapBackground = new Image(in);

@@ -1,5 +1,6 @@
 {
-  "name": "normal_enemy",
+  "kind": "allies",
+  "name": "soldier",
   "interval": 6,
   "modes": {
     "idle": [],
