@@ -1,4 +1,4 @@
-package com.kingdom.game.util;
+package com.kingdom.game.util.fx;
 
 import com.kingdom.game.controller.ICombatSound;
 import com.kingdom.game.controller.IEndSound;

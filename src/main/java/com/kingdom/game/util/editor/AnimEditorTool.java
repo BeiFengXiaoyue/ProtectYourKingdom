@@ -1,5 +1,7 @@
-package com.kingdom.game.util;
+package com.kingdom.game.util.editor;
 
+import com.kingdom.game.util.anim.AnimLibrary;
+import com.kingdom.game.util.anim.AnimTable;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.geometry.Insets;

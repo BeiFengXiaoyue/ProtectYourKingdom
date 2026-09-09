@@ -1,5 +1,6 @@
-package com.kingdom.game.util;
+package com.kingdom.game.util.anim;
 
+import com.kingdom.game.util.json.MiniJson;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,7 +26,7 @@ import java.util.Map;
  * - kind：类别（决定存放子目录与默认模式组）；
  * - interval：每张关键帧停留的游戏 tick 数（默认 6，约 0.1s/帧）；
  * - modes 的键即“行为模式”，**可随意增删**，加载器自动适配。
- * JSON 读写复用同包 MapRoute.MiniJson（极简解析器）。
+ * JSON 读写复用 util.json.MiniJson（极简解析器）。
  */
 public final class AnimTable {
 
@@ -157,7 +158,7 @@ public final class AnimTable {
     }
 
     public static AnimTable fromJson(String json) {
-        Object root = new MapRoute.MiniJson(json).parse();
+        Object root = new MiniJson(json).parse();
         if (!(root instanceof Map)) {
             throw new IllegalArgumentException("动画 JSON 顶层必须是对象");
         }

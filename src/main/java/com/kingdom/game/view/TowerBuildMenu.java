@@ -8,6 +8,7 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -32,6 +33,9 @@ public class TowerBuildMenu {
 
     private final VBox box = new VBox(6);
     private boolean visible = false;
+
+    /** 最近一次 rebuild() 生成的塔按钮（供 refresh() 按最新金币重算置灰，不重建布局） */
+    private final List<Button> towerButtons = new ArrayList<>();
 
     public TowerBuildMenu(IGameStateReader stateReader, Consumer<TowerSpec> onSelect) {
         this.stateReader = stateReader;
@@ -63,9 +67,20 @@ public class TowerBuildMenu {
         visible = false;
     }
 
+    /** 弹窗打开期间由 GameView 每帧调用：按最新金币重算按钮置灰，不重建布局 */
+    public void refresh() {
+        if (!visible || towerButtons.isEmpty()) return;
+        int gold = stateReader.getCurrentGold();
+        for (Button b : towerButtons) {
+            TowerSpec spec = (TowerSpec) b.getUserData();
+            if (spec != null) b.setDisable(gold < spec.getCost());
+        }
+    }
+
     /** 按当前目录与金币重建条目（每次弹出时调用，保证目录/余额变化后即时生效） */
     private void rebuild() {
         box.getChildren().clear();
+        towerButtons.clear();
         List<TowerSpec> specs = stateReader.getTowerSpecs();
         if (specs.isEmpty()) {
             Label tip = new Label("暂无可建造的塔");
@@ -77,10 +92,12 @@ public class TowerBuildMenu {
         for (TowerSpec spec : specs) {
             Button b = new Button(spec.getDisplayName() + " (" + spec.getCost() + ")");
             b.setDisable(gold < spec.getCost());
+            b.setUserData(spec);                 // refresh() 据此重算置灰
             b.setOnAction(e -> {
                 hide();
                 onSelect.accept(spec);
             });
+            towerButtons.add(b);
             box.getChildren().add(b);
         }
     }

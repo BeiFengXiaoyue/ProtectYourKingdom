@@ -1,5 +1,6 @@
-package com.kingdom.game.util;
+package com.kingdom.game.util.map;
 
+import com.kingdom.game.util.json.MiniJson;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -10,14 +11,14 @@ import java.util.Map;
 /**
  * TowerSpots —— 塔位标点数据 + JSON 读写 + 游戏启动加载器（工具类）。
  *
- * 与 {@link MapRoute} 同一套模式：标点由 util.TowerSpotEditorTool 手工标注并
- * 写入 当前地图 src/main/resources/maps/&lt;key&gt;/spots.json（经 util.MapLibrary），
+ * 与 {@link MapRoute} 同一套模式：标点由 util.editor.TowerSpotEditorTool 手工标注并
+ * 写入 当前地图 src/main/resources/maps/&lt;key&gt;/spots.json（经 util.map.MapLibrary），
  * 游戏启动时经 {@link #loadFromClasspath(String)}（MapLibrary.readSpotsFromClasspath）读取，
  * 建塔菜单/塔位渲染随之生效。
  *
  * 坐标语义与游戏一致：像素坐标、点位为"塔位中心点"。
  *
- * JSON schema（仅支持本子集，复用 MapRoute.MiniJson 解析）：
+ * JSON schema（仅支持本子集，复用 util.json.MiniJson 解析）：
  * <pre>
  * {
  *   "name": "tower_spots",
@@ -96,7 +97,7 @@ public final class TowerSpots {
 
     // ================= JSON 输入 =================
     public static TowerSpots fromJson(String json) {
-        Object root = new MapRoute.MiniJson(json).parse();
+        Object root = new MiniJson(json).parse();
         if (!(root instanceof Map)) {
             throw new IllegalArgumentException("JSON 顶层必须是对象");
         }

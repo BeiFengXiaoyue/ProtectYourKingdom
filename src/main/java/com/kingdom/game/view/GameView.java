@@ -61,6 +61,11 @@ public class GameView implements IRenderNotifier,
     private final TowerBuildMenu buildMenu;
     private int pendingSlotIndex = -1;   // 最近一次弹出目录所对应的点位下标
 
+    // 塔选中 + 详情面板（D：点已占用点位选中塔；出售可用、升级置灰待 A）
+    private final TowerDetailPanel detailPanel;
+    private Tower selectedTower;         // 当前选中塔（null = 未选中）
+    private GameObject highlightTarget;  // 选中高亮目标（ISelectionFx）
+
     // 结束/胜利覆盖层（内嵌本类构建，不新增类；可见即拦截画布点击）
     private final Runnable onRestart;
     private final StackPane endOverlay;
@@ -88,8 +93,10 @@ public class GameView implements IRenderNotifier,
 
         this.buildMenu = new TowerBuildMenu(stateReader, this::onMenuSelect);
         this.endOverlay = buildEndOverlay();
+        this.detailPanel = new TowerDetailPanel(stateReader, builder,
+                config.getViewWidth(), config.getViewHeight());
 
-        this.root = new Pane(canvas, buildMenu.getNode(), endOverlay);
+        this.root = new Pane(canvas, buildMenu.getNode(), detailPanel.getNode(), endOverlay);
         canvas.setOnMouseClicked(this::handleCanvasClick);
 
         this.timer = new AnimationTimer() {
@@ -168,7 +175,7 @@ public class GameView implements IRenderNotifier,
         gc.setFill(Color.web("#5a3a1a"));
         gc.fillOval(pathX[pathX.length - 1] - 20, pathY[pathY.length - 1] - 20, 40, 40);
 
-        // 塔位标点（唯一来源：当前地图 spots.json，经 util.MapLibrary 加载；已占用点位显示为灰）
+        // 塔位标点（唯一来源：当前地图 spots.json，经 util.map.MapLibrary 加载；已占用点位显示为灰）
         drawTowerSpots();
 
         // 渲染顺序：塔 → 友方 → 敌人 → 投射物
@@ -185,10 +192,15 @@ public class GameView implements IRenderNotifier,
             p.render(gc);
         }
 
+        // 选中高亮（实体之上、结束遮罩之下）
+        drawSelectionHighlight();
+
         syncEndOverlay();
+        syncTowerSelection();
+        if (buildMenu.isVisible()) buildMenu.refresh();   // 建塔栏打开时金币实时刷新置灰
     }
 
-    // ================= 塔位交互（唯一来源：当前地图 spots.json，经 util.MapLibrary 加载）=================
+    // ================= 塔位交互（唯一来源：当前地图 spots.json，经 util.map.MapLibrary 加载）=================
 
     /** 距点击点 < SLOT_CLICK_RADIUS 的最近塔位下标；无塔位/无命中返回 -1 */
     private int findSlotIndex(double x, double y) {
@@ -222,23 +234,93 @@ public class GameView implements IRenderNotifier,
         return false;
     }
 
-    /** 画布点击：空闲塔位 → 弹目录；再点同一点位 → 收起；点空白/已占用 → 收起已开弹窗 */
+    /** 画布点击：空闲塔位 → 弹建塔目录；已占用塔位 → 选中/取消详情面板；空白 → 取消选中并收起弹窗 */
     private void handleCanvasClick(MouseEvent e) {
         int idx = findSlotIndex(e.getX(), e.getY());
-        if (buildMenu.isVisible() && idx == pendingSlotIndex) {
+        boolean occupied = idx >= 0 && isSlotOccupied(idx);
+
+        if (idx >= 0 && !occupied) {                     // 空闲塔位 → 建塔目录
+            if (buildMenu.isVisible() && idx == pendingSlotIndex) {   // 再点同一点位 → 收起
+                hideBuildMenu();
+                return;
+            }
+            clearTowerSelection();
             hideBuildMenu();
+            pendingSlotIndex = idx;
+            var spots = config.getTowerSpots();
+            double[] xs = spots.getXs();
+            double[] ys = spots.getYs();
+            buildMenu.show(xs[idx], ys[idx], canvas.getWidth(), canvas.getHeight());
             return;
         }
-        if (idx < 0 || isSlotOccupied(idx)) {
-            if (buildMenu.isVisible()) hideBuildMenu();
+
+        if (occupied) {                                  // 已占用塔位 → 选中 / 再点取消
+            hideBuildMenu();
+            Tower t = towerAtSlot(idx);
+            if (t == null) return;
+            if (t == selectedTower) {
+                clearTowerSelection();
+            } else {
+                selectTower(t);
+            }
             return;
         }
-        hideBuildMenu();
-        pendingSlotIndex = idx;
+
+        // 空白处：取消选中并收起建塔弹窗
+        clearTowerSelection();
+        if (buildMenu.isVisible()) hideBuildMenu();
+    }
+
+    /** 点位中心 SLOT_OCCUPY_RADIUS 内的塔；无则返回 null */
+    private Tower towerAtSlot(int idx) {
         var spots = config.getTowerSpots();
         double[] xs = spots.getXs();
         double[] ys = spots.getYs();
-        buildMenu.show(xs[idx], ys[idx], canvas.getWidth(), canvas.getHeight());
+        if (idx < 0 || idx >= xs.length) return null;
+        double cx = xs[idx];
+        double cy = ys[idx];
+        for (Tower t : stateReader.getTowers()) {
+            if (Math.hypot(t.getX() - cx, t.getY() - cy) < SLOT_OCCUPY_RADIUS) return t;
+        }
+        return null;
+    }
+
+    /** 选中一座塔：记录 + 高亮 + 详情面板展示 */
+    private void selectTower(Tower t) {
+        selectedTower = t;
+        showSelectionHighlight(t);
+        detailPanel.onTowerSelected(t);
+    }
+
+    /** 取消选中：清高亮 + 收起详情面板 */
+    private void clearTowerSelection() {
+        if (selectedTower == null) return;
+        selectedTower = null;
+        clearSelectionHighlight();
+        detailPanel.onTowerDeselected();
+    }
+
+    /** 绘制选中高亮圈（ISelectionFx 表现；双层描边环示意塔位） */
+    private void drawSelectionHighlight() {
+        if (highlightTarget == null) return;
+        double cx = highlightTarget.getX();
+        double cy = highlightTarget.getY();
+        double r = 18;
+        gc.setStroke(Color.web("#00e5ff", 0.30));
+        gc.setLineWidth(7);
+        gc.strokeOval(cx - r, cy - r, r * 2, r * 2);
+        gc.setStroke(Color.web("#00e5ff"));
+        gc.setLineWidth(2.5);
+        gc.strokeOval(cx - r, cy - r, r * 2, r * 2);
+    }
+
+    /** draw() 尾部同步：选中塔已被移除（出售/重开/替换）→ 自动取消；面板可见则刷新 */
+    private void syncTowerSelection() {
+        if (selectedTower != null && !stateReader.getTowers().contains(selectedTower)) {
+            clearTowerSelection();
+            return;
+        }
+        if (detailPanel.isVisible()) detailPanel.refresh();
     }
 
     /** 目录选型：在弹窗所对应塔位中心落塔；成败/扣钱由后端 placeTower 校验并推送 */
@@ -300,6 +382,7 @@ public class GameView implements IRenderNotifier,
 
     private void showEnd(boolean victory) {
         hideBuildMenu();                       // 清掉可能开着的建塔弹窗
+        clearTowerSelection();                 // 结束态清除塔选中
         endTitleLabel.setText(victory ? "胜利！" : "游戏结束");
         endTitleLabel.setTextFill(victory ? Color.web("#ffd700") : Color.web("#ff6b5e"));
         endSubLabel.setText(victory ? "所有波次已击退" : "生命值已耗尽");
@@ -366,11 +449,11 @@ public class GameView implements IRenderNotifier,
 
     @Override
     public void showSelectionHighlight(GameObject target) {
-        // TODO Day6：选中高亮圈
+        highlightTarget = target;
     }
 
     @Override
     public void clearSelectionHighlight() {
-        // TODO Day6：取消高亮
+        highlightTarget = null;
     }
 }

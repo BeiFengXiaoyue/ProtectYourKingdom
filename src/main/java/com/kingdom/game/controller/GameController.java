@@ -9,6 +9,7 @@ import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.enemy.NormalEnemy;
 import com.kingdom.game.model.projectile.Projectile;
+import com.kingdom.game.model.tower.Barrack;
 import com.kingdom.game.model.tower.Tower;
 
 import java.util.ArrayList;
@@ -63,6 +64,9 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
     private boolean waveInProgress = false;
 
+    /** 波间倒计时截止时刻（System.nanoTime）；<0 表示当前不在倒计时 */
+    private long countdownDeadlineNanos = -1;
+
     public GameController(GameState state, WaveManager waveManager, GameConfig config) {
         this.state = state;
         this.waveManager = waveManager;
@@ -102,6 +106,11 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         if (state.isGameOver()) {          // 生命耗尽，冻结世界（仍允许重绘一次）
             if (renderNotifier != null) renderNotifier.requestRender();
             return;
+        }
+
+        // 波间倒计时到期 → 自动开下一波（剩余≤0，无提前奖励；倒计时统一用 System.nanoTime 时钟）
+        if (countdownDeadlineNanos > 0 && System.nanoTime() >= countdownDeadlineNanos) {
+            doStartWave(countdownDeadlineNanos);
         }
 
         waveManager.update(nanoTime, this::spawnEnemy);
@@ -160,6 +169,8 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
                 if (endSound != null) endSound.onVictory();
                 notifyMessage("胜利！所有波次已击退！");
             } else {
+                long intermissionMs = config.getWaveIntermissionMs();
+                countdownDeadlineNanos = System.nanoTime() + intermissionMs * 1_000_000L;
                 notifyMessage("第 " + state.getWave() + " 波结束，可开始下一波");
             }
         }
@@ -198,15 +209,36 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         obj.attachEffects(combatSound, fxText, fxScreen, fxParticle, fxSelection);
     }
 
+    /** 友方（士兵等）入战场：注入事件通道 + 加入注册表 + 出兵音效 */
+    public void addAlly(Ally ally) {
+        if (ally == null) return;
+        attachFx(ally);
+        allies.add(ally);
+        if (unitSound != null) unitSound.onUnitSpawned(ally);
+    }
+
     // ================= IWaveStarter =================
     @Override
     public void startNextWave() {
         if (!canStartNextWave()) return;
+        doStartWave(System.nanoTime());
+    }
+
+    /** 开一波：先按剩余时间结算提前奖励（自动开波时剩余≤0 无奖励），再登记出怪节奏 */
+    private void doStartWave(long nowNanos) {
+        int bonus = earlyStartBonusAt(nowNanos);
+        countdownDeadlineNanos = -1;                  // 开波即清倒计时（防重复触发）
         state.advanceWave();
         waveManager.beginWave(config.getWaveEnemyCount(), config.getWaveSpawnIntervalMs());
         waveInProgress = true;
+        if (bonus > 0) {
+            state.addGold(bonus);
+            notifyGold(state.getGold());
+        }
         if (waveSound != null) waveSound.onWaveStarted(state.getWave());
-        notifyMessage("第 " + state.getWave() + " 波来袭！");
+        String msg = "第 " + state.getWave() + " 波来袭！";
+        if (bonus > 0) msg += " +" + bonus + " 金币";
+        notifyMessage(msg);
         if (state.getWave() >= state.getTotalWaves() && fxScreen != null) {
             fxScreen.showBossWarning();   // 最终波 Boss 预警
         }
@@ -215,6 +247,16 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     @Override
     public boolean canStartNextWave() {
         return !state.isGameOver() && !waveInProgress && state.getWave() < state.getTotalWaves();
+    }
+
+    /** 提前奖励 = 剩余比例 × 上限（round 到整金币）；非倒计时 / 已到期返回 0 */
+    private int earlyStartBonusAt(long nowNanos) {
+        if (countdownDeadlineNanos <= 0 || nowNanos >= countdownDeadlineNanos) return 0;
+        long totalMs = config.getWaveIntermissionMs();
+        if (totalMs <= 0) return 0;
+        double remainMs = (countdownDeadlineNanos - nowNanos) / 1_000_000.0;
+        double ratio = Math.min(1.0, Math.max(0.0, remainMs / totalMs));
+        return (int) Math.round(config.getEarlyStartRewardCap() * ratio);
     }
 
     // ================= IGameStateReader =================
@@ -226,6 +268,16 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     public int getCurrentWave() { return state.getWave(); }
     @Override
     public int getTotalWaves() { return state.getTotalWaves(); }
+    @Override
+    public long getNextWaveCountdownMs() {
+        if (countdownDeadlineNanos < 0) return 0;
+        long remainNanos = countdownDeadlineNanos - System.nanoTime();
+        return Math.max(0, remainNanos / 1_000_000L);
+    }
+    @Override
+    public int getEarlyStartBonus() {
+        return earlyStartBonusAt(System.nanoTime());
+    }
     @Override
     public List<Enemy> getEnemies() { return enemies; }
     @Override
@@ -278,6 +330,10 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         tower.setY(y);
         tower.setProjectileSink(p -> projectiles.add(p));
         attachFx(tower);
+        // 兵营：注入“友方出口”→ 产出的士兵加入 allies 注册表（A 接线）
+        if (tower instanceof Barrack) {
+            ((Barrack) tower).setAllySink(this::addAlly);
+        }
         towers.add(tower);
 
         if (towerSound != null) towerSound.onTowerPlaced(type);
@@ -340,6 +396,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         state.reset();
         waveManager.reset();
         waveInProgress = false;
+        countdownDeadlineNanos = -1;
         notifyGold(state.getGold());
         notifyLives(state.getLives());
         notifyMessage("游戏已重置，点击「开始波次」开战！");

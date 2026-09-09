@@ -9,7 +9,8 @@ import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.tower.ArrowTower;
 import com.kingdom.game.model.tower.Barrack;
 import com.kingdom.game.model.tower.CannonTower;
-import com.kingdom.game.util.Assets;
+import com.kingdom.game.util.asset.Assets;
+import com.kingdom.game.util.audio.SoundManager;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.layout.BorderPane;
@@ -49,8 +50,14 @@ public class Main extends Application {
         controller.setScreenFx(view);
         controller.setParticleFx(view);
         controller.setSelectionFx(view);
-        // TODO 音效接口：素材负责人实现 SoundManager 后在此 setWaveSound/setCombatSound... 注入
-        // 塔登记（防御塔负责人交付 ArrowTower/CannonTower/Barrack）：
+        // 音效注入（素材负责人 E）：SoundManager 一次实现 5 个音效接口
+        SoundManager sounds = SoundManager.getInstance();
+        controller.setWaveSound(sounds);
+        controller.setTowerSound(sounds);
+        controller.setUnitSound(sounds);
+        controller.setCombatSound(sounds);
+        controller.setEndSound(sounds);
+        // 塔登记（防御塔负责人交付 ArrowTower / CannonTower / Barrack）：
         controller.registerTower(TowerType.ARROW,
                 new TowerSpec(TowerType.ARROW, "箭塔", ArrowTower.BUILD_COST),
                 ArrowTower::new);

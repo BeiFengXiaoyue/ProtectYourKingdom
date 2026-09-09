@@ -1,4 +1,4 @@
-package com.kingdom.game.util;
+package com.kingdom.game.util.asset;
 
 import com.kingdom.game.model.AssetKey;
 import javafx.scene.image.Image;
