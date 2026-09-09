@@ -168,7 +168,7 @@ public class GameView implements IRenderNotifier,
         gc.setFill(Color.web("#5a3a1a"));
         gc.fillOval(pathX[pathX.length - 1] - 20, pathY[pathY.length - 1] - 20, 40, 40);
 
-        // 塔位标点（唯一来源：util.TowerSpots / maps/tower_spots.json；已占用点位显示为灰）
+        // 塔位标点（唯一来源：当前地图 spots.json，经 util.MapLibrary 加载；已占用点位显示为灰）
         drawTowerSpots();
 
         // 渲染顺序：塔 → 友方 → 敌人 → 投射物
@@ -188,7 +188,7 @@ public class GameView implements IRenderNotifier,
         syncEndOverlay();
     }
 
-    // ================= 塔位交互（唯一来源：util.TowerSpots / maps/tower_spots.json）=================
+    // ================= 塔位交互（唯一来源：当前地图 spots.json，经 util.MapLibrary 加载）=================
 
     /** 距点击点 < SLOT_CLICK_RADIUS 的最近塔位下标；无塔位/无命中返回 -1 */
     private int findSlotIndex(double x, double y) {

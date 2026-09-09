@@ -44,14 +44,15 @@ import java.util.Map;
  * 而非 module-path）下运行会报“错误: 缺少 JavaFX 运行时组件”。因此把真正窗口逻辑放在嵌套的
  * {@link PathEditorToolApp}，本类 main 只做一次 Application.launch 转发即可直接运行。
  *
- * 使用：运行本类（com.kingdom.game.util.PathEditorTool）或 PathEditorLauncher。
+ * 使用：把 pom 的 javafx mainClass 改为 com.kingdom.game.util.PathEditorTool 后 mvn javafx:run；
+ * IDE 直接运行不可用（JavaFX 模块检查）。
  *
  * 操作：
- * 1. 「载入图片」选择地图底图，或填宽/高后「新建空白画布」；
+ * 1. 顶栏选「地图」（maps/index.json 已有地图）或「新建地图…」；
  * 2. 左键标路径点（首点=出生点，末点=终点）；右键删最近点；
  *    Backspace/Delete 撤销最后一个点，Esc 清空，拖拽微调已有；
- * 3. 「保存到游戏资源」写 src/main/resources/maps/default_path.json；
- *    游戏启动时（GameConfig 构造器）自动读取该文件，敌人/渲染/出生点随之更新。
+ * 3. 「保存到该地图」写 当前地图 maps/&lt;key&gt;/path.json；
+ *    游戏启动时（GameConfig/MapLibrary 按默认地图）读取，敌人/渲染/出生点随之更新。
  *
  * 坐标语义与游戏一致：像素坐标、路径点为“中心点”。
  */
@@ -565,17 +566,6 @@ public final class PathEditorTool {
             fc.setTitle(title);
             fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("路线 JSON", "*.json"));
             return fc;
-        }
-
-        /** 从当前工作目录向上查找 src/main/resources 目录（仓库根运行即可找到） */
-        private File findResourcesDir() {
-            File dir = new File(System.getProperty("user.dir"));
-            for (int i = 0; i < 8 && dir != null; i++) {
-                File candidate = new File(dir, "src/main/resources");
-                if (candidate.isDirectory()) return candidate;
-                dir = dir.getParentFile();
-            }
-            return null;
         }
 
         private void error(String title, String msg) {

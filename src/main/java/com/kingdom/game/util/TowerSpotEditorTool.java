@@ -42,13 +42,13 @@ import java.util.Map;
  * TowerSpotEditorTool —— 可视化【塔位手动标点工具】（本类不继承 Application）。
  *
  * 与 PathEditorTool 同一套模式（嵌套 App 解决 JavaFX classpath 运行问题）。
- * 使用：运行本类 main（com.kingdom.game.util.TowerSpotEditorTool）。
+ * 使用：把 pom 的 javafx mainClass 改为 com.kingdom.game.util.TowerSpotEditorTool 后 mvn javafx:run。
  *
  * 操作：
- * 1. 「载入地图」选择底图（默认自动加载 resources/maps/default_map.png）；
+ * 1. 顶栏选「地图」（maps/index.json 已有地图）或「新建地图…」；
  * 2. 左键标塔位点；右键删最近点；Backspace/Delete 撤销最后一点；Esc 清空；拖拽微调；
- * 3. 「保存到游戏资源」写 src/main/resources/maps/tower_spots.json，
- *    游戏启动时（GameConfig）自动读取并在画布上渲染塔位标记。
+ * 3. 「保存到该地图」写 当前地图 maps/&lt;key&gt;/spots.json，
+ *    游戏启动时（GameConfig/MapLibrary）读取并在画布上渲染塔位标记。
  *
  * 坐标语义与游戏一致：像素坐标、点位为"塔位中心点"。
  */
@@ -65,9 +65,6 @@ public final class TowerSpotEditorTool {
      * 实际的 JavaFX 应用（public static，供 Application.launch 反射实例化）。
      */
     public static final class TowerSpotEditorApp extends Application {
-
-        private static final String DEFAULT_MAP_RESOURCE_NAME = "default_map.png";
-        private static final String DEFAULT_SPOTS_NAME = "tower_spots.json";
 
         private final List<double[]> spots = new ArrayList<>();
         private final Canvas canvas = new Canvas();
@@ -488,17 +485,6 @@ public final class TowerSpotEditorTool {
             fc.setTitle(title);
             fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("塔位 JSON", "*.json"));
             return fc;
-        }
-
-        /** 从当前工作目录向上查找 src/main/resources 目录（仓库根运行即可找到） */
-        private File findResourcesDir() {
-            File dir = new File(System.getProperty("user.dir"));
-            for (int i = 0; i < 8 && dir != null; i++) {
-                File candidate = new File(dir, "src/main/resources");
-                if (candidate.isDirectory()) return candidate;
-                dir = dir.getParentFile();
-            }
-            return null;
         }
 
         private void error(String title, String msg) {
