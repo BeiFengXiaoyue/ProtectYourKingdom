@@ -1,0 +1,9 @@
+{
+  "name": "normal_enemy",
+  "interval": 6,
+  "modes": {
+    "idle": [],
+    "walk": [],
+    "attack": []
+  }
+}

@@ -37,7 +37,7 @@
                 <version>0.0.8</version>
                 <configuration>
                     <!-- 指定入口程序 -->
-                    <mainClass>com.kingdom.game.view.Main</mainClass>
+                    <mainClass>com.kingdom.game.util.AnimEditorLauncher</mainClass>
                     <!-- 指定编码格式，防止中文乱码 -->
                     <options>
                         <option>-Dfile.encoding=UTF-8</option>
