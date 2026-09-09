@@ -44,6 +44,14 @@ public class Main extends Application {
         HUD hud = new HUD(controller, controller);
         GameView view = new GameView(controller, controller, config, controller, controller::resetGame);
 
+        // 单位行为动画登记（外部叠加层）：单位类零改动；JSON 缺帧/缺文件时保持原渲染
+        view.registerUnitAnimation("enemies", "NormalEnemy",
+                "/assets/animations/enemies/normal_enemy.json");
+        view.registerUnitAnimation("allies", "Soldier",
+                "/assets/animations/allies/soldier.json");
+        view.registerUnitAnimation("towers", "ArrowTower",
+                "/assets/animations/towers/arrow_tower.json");
+
         controller.setStatusObserver(hud);
         controller.setRenderNotifier(view);
         controller.setFloatingTextFx(view);   // GameView 实现视觉特效
