@@ -6,6 +6,7 @@ import com.kingdom.game.model.GameState;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.ally.Ally;
+import com.kingdom.game.model.ally.Soldier;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.enemy.NormalEnemy;
 import com.kingdom.game.model.projectile.Projectile;
@@ -130,8 +131,9 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
             }
         }
 
-        // 友方：移动/AI（B 交付 Soldier 后生效）
+        // 友方：索敌 + 移动/AI（契约帧序的"友方 AI"位：视野内最近敌人喂给士兵，无目标时空转）
         for (Ally a : new ArrayList<>(allies)) {
+            a.engage(a.findTarget(enemies));
             a.update();
         }
 
@@ -209,10 +211,14 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         obj.attachEffects(combatSound, fxText, fxScreen, fxParticle, fxSelection);
     }
 
-    /** 友方（士兵等）入战场：注入事件通道 + 加入注册表 + 出兵音效 */
+    /** 友方（士兵等）入战场：注入事件通道 + 驻守点 + 加入注册表 + 出兵音效 */
     public void addAlly(Ally ally) {
         if (ally == null) return;
         attachFx(ally);
+        if (ally instanceof Soldier) {   // 士兵：驻守点=离兵营最近的路径点（上路拦截；仿 placeTower 的 Barrack 装配先例）
+            double[] g = nearestPathPoint(ally.getX(), ally.getY());
+            if (g != null) ((Soldier) ally).setGuardPoint(g[0], g[1]);
+        }
         allies.add(ally);
         if (unitSound != null) unitSound.onUnitSpawned(ally);
     }
@@ -385,6 +391,28 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         double t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
         t = Math.max(0, Math.min(1, t));
         return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    }
+
+    /** 路径折线上离 (x,y) 最近的点（无路径/路径点不足返回 null）；供士兵驻守点注入 */
+    private double[] nearestPathPoint(double x, double y) {
+        double[] px = config.getPathX();
+        double[] py = config.getPathY();
+        if (px == null || py == null || px.length < 2 || py.length < 2) return null;
+        double[] best = null;
+        double min = Double.MAX_VALUE;
+        for (int i = 0; i < px.length - 1 && i < py.length - 1; i++) {
+            double dx = px[i + 1] - px[i], dy = py[i + 1] - py[i];
+            double lenSq = dx * dx + dy * dy;
+            double t = lenSq == 0 ? 0 : ((x - px[i]) * dx + (y - py[i]) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            double gx = px[i] + t * dx, gy = py[i] + t * dy;
+            double d = Math.hypot(x - gx, y - gy);
+            if (d < min) {
+                min = d;
+                best = new double[]{gx, gy};
+            }
+        }
+        return best;
     }
 
     // ================= 重开一局 =================
