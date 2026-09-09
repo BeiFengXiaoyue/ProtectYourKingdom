@@ -38,5 +38,13 @@ public abstract class Ally extends LivingEntity {
         return false;
     }
 
+    /**
+     * 每帧对外索敌：把 {@link #findTarget(List)} 的结果写入 target。
+     * 由 GameController 每帧轮询调用 —— 使友方主动锁定视野内目标，而不仅靠碰撞接触。
+     */
+    public void pollTarget(List<Enemy> enemies) {
+        this.target = findTarget(enemies);
+    }
+
     public Enemy getTarget() { return target; }
 }

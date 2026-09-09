@@ -16,8 +16,9 @@ import java.util.function.Consumer;
 /**
  * Barrack —— 兵营（生产士兵拦截敌人，Day4 v0.8 交付物）。
  *
- * 生产流程：update() 定时生成 {@link Soldier}，经自持友方出口 {@link #produce(Ally)} 交给出口；
- * 未接线时默认 no-op，产出被丢弃。
+ * 生产流程：为每个槽位（共 maxSoldiers 个）独立计时，经自持友方出口 {@link #produce(Ally)} 交给出口；
+ * **士兵阵亡后该槽位独立重新计时 spawnIntervalMillis 再补位**（不再"死亡立即复活"），其它槽位不受影响；
+ * 初始错峰产出（0 / 间隔 / 2×间隔 …）；未接线时默认 no-op，产出被丢弃。
  *
  * 升级链（本类为 1 级，可升级到 {@link EliteBarrack}）：
  * 默认 nextLevelSpec 指向 BARRACK_ELITE；架构师 A 可经 {@link #setNextLevelSpec} 注入/替换链。
@@ -51,11 +52,17 @@ public class Barrack extends Tower implements ITowerUpgrade {
     /** 友方出口（默认 no-op：未接线时产出被丢弃，不报错） */
     private Consumer<Ally> allySink = a -> { };
 
-    /** 本兵营当前在役士兵（用于上限判断与死亡剪除） */
-    private final List<Ally> soldiers = new ArrayList<>();
+    /** 生产槽位（数量 = maxSoldiers）：每个槽位各带独立补位计时器 */
+    private final List<SoldierSlot> slots = new ArrayList<>();
 
-    /** 生产计时（毫秒，负值/0 表示就绪） */
-    private int spawnCooldown = 0;
+    /**
+     * 生产槽位：士兵阵亡后本槽位独立重新计时，归零才补位。
+     * soldier 为当前占用者（null = 空槽/待补）；respawnTimer 仅在本槽位无存活士兵时递减。
+     */
+    private static final class SoldierSlot {
+        Ally soldier;
+        int respawnTimer = 0;
+    }
 
     public Barrack(double x, double y) {
         super(x, y);
@@ -103,20 +110,40 @@ public class Barrack extends Tower implements ITowerUpgrade {
     public void update() {
         super.update();               // 处理眩晕与冷却
         if (isStunned) return;        // 眩晕时暂停生产
+        ensureSlots();
 
-        // 剪除已阵亡的士兵（存活判定依据 isAlive()）
-        soldiers.removeIf(s -> !s.isAlive());
+        // 逐槽维护：每个槽位独立计时，士兵阵亡后本槽位重新计时才补位
+        for (SoldierSlot slot : slots) {
+            if (slot.soldier != null && slot.soldier.isAlive()) continue;  // 该槽位有存活士兵
 
-        // 生产计时
-        if (spawnCooldown > 0) {
-            spawnCooldown -= 16;
+            if (slot.soldier != null) {            // 士兵刚阵亡 → 本槽位开始独立计时
+                slot.soldier = null;
+                slot.respawnTimer = (int) spawnIntervalMillis;
+            }
+            if (slot.respawnTimer > 0) {
+                slot.respawnTimer -= 16;           // 沿用 16ms/帧 约定
+            }
+            if (slot.respawnTimer <= 0) {          // 计时归零 → 补位
+                Soldier soldier = new Soldier(x, y, soldierHp, soldierSpeed,
+                        soldierAttack, soldierCooldown);
+                slot.soldier = soldier;
+                produce(soldier);
+            }
         }
-        if (spawnCooldown <= 0 && soldiers.size() < maxSoldiers) {
-            Soldier soldier = new Soldier(x, y, soldierHp, soldierSpeed,
-                    soldierAttack, soldierCooldown);
-            soldiers.add(soldier);
-            produce(soldier);
-            spawnCooldown = (int) spawnIntervalMillis;
+    }
+
+    /**
+     * 按 maxSoldiers 惰性建槽（子类覆写 maxSoldiers 后仍正确）。
+     * 初始错峰：第 i 个槽位计时 spawnIntervalMillis * i（即 0 / 3s / 6s …）。
+     */
+    private void ensureSlots() {
+        while (slots.size() < maxSoldiers) {
+            SoldierSlot slot = new SoldierSlot();
+            slot.respawnTimer = (int) spawnIntervalMillis * slots.size();
+            slots.add(slot);
+        }
+        while (slots.size() > maxSoldiers) {
+            slots.remove(slots.size() - 1);
         }
     }
 

@@ -130,8 +130,9 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
             }
         }
 
-        // 友方：移动/AI（B 交付 Soldier 后生效）
+        // 友方：索敌 + 移动/AI（每帧轮询 findTarget，使士兵主动拦截）
         for (Ally a : new ArrayList<>(allies)) {
+            a.pollTarget(enemies);
             a.update();
         }
 
