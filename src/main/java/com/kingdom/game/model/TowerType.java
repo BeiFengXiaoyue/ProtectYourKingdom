@@ -17,5 +17,7 @@ public enum TowerType {
     ARROW,
     ARROW_ELITE,
     CANNON,
-    BARRACK
+    CANNON_ELITE,
+    BARRACK,
+    BARRACK_ELITE
 }
