@@ -41,6 +41,10 @@ public class GameConfig {
     private int waveEnemyCount = 3;        // 每波敌人数（Day1 固定 3 只验收）
     private long waveSpawnIntervalMs = 1000; // 出场间隔(ms)
 
+    // ===== 波间倒计时（Kingdom Rush 式：第 2 波起每波前倒计时，可提前开始得金币）=====
+    private long waveIntermissionMs = 5000;   // 临时数值：波间倒计时暂定 5s（待定稿调整）
+    private int earlyStartRewardCap = 10;     // 临时数值：提前开始奖励上限（金币），可调
+
     // ===== 敌人移动路径（预设拐点）=====
     private double[] pathX = {60, 300, 300, 620, 620, 860};
     private double[] pathY = {160, 160, 360, 360, 240, 240};
@@ -135,6 +139,17 @@ public class GameConfig {
     public GameConfig setWave(int enemyCount, long spawnIntervalMs) {
         this.waveEnemyCount = enemyCount;
         this.waveSpawnIntervalMs = spawnIntervalMs;
+        return this;
+    }
+
+    public long getWaveIntermissionMs() { return waveIntermissionMs; }
+    public int getEarlyStartRewardCap() { return earlyStartRewardCap; }
+    public GameConfig setWaveIntermissionMs(long intermissionMs) {
+        this.waveIntermissionMs = Math.max(0, intermissionMs);
+        return this;
+    }
+    public GameConfig setEarlyStartRewardCap(int cap) {
+        this.earlyStartRewardCap = Math.max(0, cap);
         return this;
     }
 

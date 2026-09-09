@@ -23,6 +23,12 @@ public interface IGameStateReader {
 
     int getTotalWaves();
 
+    /** 波间倒计时剩余毫秒；无倒计时（第 1 波前 / 波次进行中 / 已结束）返回 0 */
+    long getNextWaveCountdownMs();
+
+    /** 此刻提前开始下一波的金币奖励预览（按剩余比例×上限计算）；不可提前返回 0 */
+    int getEarlyStartBonus();
+
     List<Enemy> getEnemies();
 
     List<Tower> getTowers();
