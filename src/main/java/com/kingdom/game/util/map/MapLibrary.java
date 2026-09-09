@@ -1,5 +1,6 @@
-package com.kingdom.game.util;
+package com.kingdom.game.util.map;
 
+import com.kingdom.game.util.json.MiniJson;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -103,7 +104,7 @@ public final class MapLibrary {
     // ================= index 读写 =================
     private static List<MapEntry> parseIndex(String json) {
         List<MapEntry> out = new ArrayList<>();
-        Object root = new MapRoute.MiniJson(json).parse();
+        Object root = new MiniJson(json).parse();
         if (!(root instanceof Map)) return out;
         @SuppressWarnings("unchecked")
         Map<String, Object> obj = (Map<String, Object>) root;

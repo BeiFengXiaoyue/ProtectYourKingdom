@@ -19,23 +19,23 @@
 
 ```xml
 <!-- pom.xml javafx-maven-plugin 配置里 -->
-<mainClass>com.kingdom.game.util.PathEditorTool</mainClass>   <!-- 示例：运行路径标注工具 -->
+<mainClass>com.kingdom.game.util.editor.PathEditorTool</mainClass>   <!-- 示例：运行路径标注工具 -->
 ```
 命令：`mvn javafx:run`
 
 | 工具 | pom 填的 mainClass |
 |---|---|
 | 游戏（默认） | `com.kingdom.game.view.Main` |
-| 路径标注（路线编辑器） | `com.kingdom.game.util.PathEditorTool` |
-| 塔位标注 | `com.kingdom.game.util.TowerSpotEditorTool` |
-| 单位动画编辑器（敌人/友方/防御塔） | `com.kingdom.game.util.AnimEditorTool` |
+| 路径标注（路线编辑器） | `com.kingdom.game.util.editor.PathEditorTool` |
+| 塔位标注 | `com.kingdom.game.util.editor.TowerSpotEditorTool` |
+| 单位动画编辑器（敌人/友方/防御塔） | `com.kingdom.game.util.editor.AnimEditorTool` |
 
 > 注意：本环境**不支持在 IDE 直接运行工具类**（JavaFX 模块检查会报“缺少 JavaFX 运行时组件”）。
 > 统一做法：把 pom 的 mainClass 改为目标工具类 → `mvn javafx:run` → 跑完改回 `com.kingdom.game.view.Main`。
 
 ## 路径标注工具（路线编辑器）
-类：`com.kingdom.game.util.PathEditorTool`（窗口本体为嵌套类 PathEditorToolApp）。
-启动：**把 pom 的 `<mainClass>` 改成 `com.kingdom.game.util.PathEditorTool` 后执行 `mvn javafx:run`**
+类：`com.kingdom.game.util.editor.PathEditorTool`（窗口本体为嵌套类 PathEditorToolApp）。
+启动：**把 pom 的 `<mainClass>` 改成 `com.kingdom.game.util.editor.PathEditorTool` 后执行 `mvn javafx:run`**
 （IDE 直接运行不可用，见上方“运行工具”说明）。
 
 使用步骤：
@@ -74,8 +74,8 @@ src/main/resources/maps/
 - `width / height`：画布尺寸（随地图）；`points`：路径拐点（≥2），首点为出生点、末点为终点。
 
 ## 单位动画编辑器（敌人 / 友方 / 防御塔）
-类：`com.kingdom.game.util.AnimEditorTool`（窗口本体为嵌套类 AnimEditorApp）。
-启动：**把 pom 的 `<mainClass>` 改成 `com.kingdom.game.util.AnimEditorTool` 后执行 `mvn javafx:run`**
+类：`com.kingdom.game.util.editor.AnimEditorTool`（窗口本体为嵌套类 AnimEditorApp）。
+启动：**把 pom 的 `<mainClass>` 改成 `com.kingdom.game.util.editor.AnimEditorTool` 后执行 `mvn javafx:run`**
 （IDE 直接运行不可用，见“运行工具”说明）。
 
 用途：给“敌人 / 友方 / 防御塔”任一单位的每种行为模式配一组关键帧并轮播；

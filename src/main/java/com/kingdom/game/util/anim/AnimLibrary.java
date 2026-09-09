@@ -1,4 +1,4 @@
-package com.kingdom.game.util;
+package com.kingdom.game.util.anim;
 
 import java.io.File;
 import java.io.IOException;
