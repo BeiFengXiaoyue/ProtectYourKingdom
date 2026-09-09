@@ -197,6 +197,7 @@ public class GameView implements IRenderNotifier,
 
         syncEndOverlay();
         syncTowerSelection();
+        if (buildMenu.isVisible()) buildMenu.refresh();   // 建塔栏打开时金币实时刷新置灰
     }
 
     // ================= 塔位交互（唯一来源：当前地图 spots.json，经 util.MapLibrary 加载）=================
