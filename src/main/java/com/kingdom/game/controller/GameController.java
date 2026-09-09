@@ -9,6 +9,7 @@ import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.enemy.NormalEnemy;
 import com.kingdom.game.model.projectile.Projectile;
+import com.kingdom.game.model.tower.Barrack;
 import com.kingdom.game.model.tower.Tower;
 
 import java.util.ArrayList;
@@ -198,6 +199,14 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         obj.attachEffects(combatSound, fxText, fxScreen, fxParticle, fxSelection);
     }
 
+    /** 友方（士兵等）入战场：注入事件通道 + 加入注册表 + 出兵音效 */
+    public void addAlly(Ally ally) {
+        if (ally == null) return;
+        attachFx(ally);
+        allies.add(ally);
+        if (unitSound != null) unitSound.onUnitSpawned(ally);
+    }
+
     // ================= IWaveStarter =================
     @Override
     public void startNextWave() {
@@ -278,6 +287,10 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         tower.setY(y);
         tower.setProjectileSink(p -> projectiles.add(p));
         attachFx(tower);
+        // 兵营：注入“友方出口”→ 产出的士兵加入 allies 注册表（A 接线）
+        if (tower instanceof Barrack) {
+            ((Barrack) tower).setAllySink(this::addAlly);
+        }
         towers.add(tower);
 
         if (towerSound != null) towerSound.onTowerPlaced(type);
