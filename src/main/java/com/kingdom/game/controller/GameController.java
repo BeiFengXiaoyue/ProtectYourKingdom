@@ -6,11 +6,16 @@ import com.kingdom.game.model.GameState;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.ally.Ally;
+import com.kingdom.game.model.ally.Soldier;
+import com.kingdom.game.model.enemy.BossEnemy;
 import com.kingdom.game.model.enemy.Enemy;
+import com.kingdom.game.model.enemy.FastEnemy;
 import com.kingdom.game.model.enemy.NormalEnemy;
+import com.kingdom.game.model.enemy.TankEnemy;
 import com.kingdom.game.model.projectile.Projectile;
 import com.kingdom.game.model.tower.Barrack;
 import com.kingdom.game.model.tower.Tower;
+import com.kingdom.game.util.map.LevelWaves;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -66,6 +71,9 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
     /** 波间倒计时截止时刻（System.nanoTime）；<0 表示当前不在倒计时 */
     private long countdownDeadlineNanos = -1;
+
+    /** 本次倒计时的总时长（ms）：下一波 maxPrepMs ≥0 用之，否则全局默认；提前奖励比例与其同源（§3.2/§6.2.4） */
+    private long activeIntermissionMs = 0;
 
     public GameController(GameState state, WaveManager waveManager, GameConfig config) {
         this.state = state;
@@ -130,8 +138,9 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
             }
         }
 
-        // 友方：移动/AI（B 交付 Soldier 后生效）
+        // 友方：索敌 + 移动/AI（契约帧序的"友方 AI"位：视野内最近敌人喂给士兵，无目标时空转）
         for (Ally a : new ArrayList<>(allies)) {
+            a.engage(a.findTarget(enemies));
             a.update();
         }
 
@@ -169,8 +178,9 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
                 if (endSound != null) endSound.onVictory();
                 notifyMessage("胜利！所有波次已击退！");
             } else {
-                long intermissionMs = config.getWaveIntermissionMs();
-                countdownDeadlineNanos = System.nanoTime() + intermissionMs * 1_000_000L;
+                // 下一波准备时长：波次表该波 maxPrepMs ≥0 用之，否则全局默认（§3.2/§6.2.4）
+                activeIntermissionMs = nextIntermissionMs();
+                countdownDeadlineNanos = System.nanoTime() + activeIntermissionMs * 1_000_000L;
                 notifyMessage("第 " + state.getWave() + " 波结束，可开始下一波");
             }
         }
@@ -193,15 +203,68 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         }
     }
 
-    /** 生成一只敌人并加入战场（数值/路径取自 config） */
-    private void spawnEnemy() {
+    /**
+     * 生成一只敌人并加入战场（规范 §6.2.2/§4）：按词汇表 id 建对应类型，
+     * 数值从 GameConfig 按 id 槽位现取；出生点=路径起点。
+     */
+    private void spawnEnemy(String typeId) {
         double[] px = config.getPathX();
         double[] py = config.getPathY();
-        NormalEnemy enemy = new NormalEnemy(px[0], py[0],
-                config.getNormalHp(), config.getNormalSpeed(), config.getNormalGoldReward());
+        Enemy enemy;
+        switch (typeId) {
+            case "fast_enemy":
+                enemy = new FastEnemy(px[0], py[0],
+                        config.getFastHp(), config.getFastSpeed(), config.getFastGoldReward());
+                break;
+            case "tank_enemy":
+                enemy = new TankEnemy(px[0], py[0],
+                        config.getTankHp(), config.getTankSpeed(), config.getTankGoldReward());
+                break;
+            case "boss_enemy":
+                enemy = new BossEnemy(px[0], py[0],
+                        config.getBossHp(), config.getBossSpeed(), config.getBossGoldReward());
+                break;
+            case "normal_enemy":
+                enemy = new NormalEnemy(px[0], py[0],
+                        config.getNormalHp(), config.getNormalSpeed(), config.getNormalGoldReward());
+                break;
+            default:   // 编辑器已拦截未知 id（§3.4），此为防御性兜底：按普通敌人处理
+                System.err.println("[GameController] 未知敌人 id：" + typeId + "，按普通敌人兜底");
+                enemy = new NormalEnemy(px[0], py[0],
+                        config.getNormalHp(), config.getNormalSpeed(), config.getNormalGoldReward());
+        }
         enemy.setPath(px.clone(), py.clone());
         attachFx(enemy);
         enemies.add(enemy);
+    }
+
+    /**
+     * 把一波的出怪组按 §3.3 时间轴展开为逐只出怪队列：
+     * 第 1 只于本波开始（T+0）出生，此后每一只 = 上一只出生时刻 +「它所在组的 intervalMs」
+     * （跨组空隙 = 后一组自身的间隔，无缝接力；与规范示例表/工具时间轴预览同一条公式）。
+     */
+    private List<WaveManager.SpawnOrder> expandOrders(LevelWaves.Wave wave) {
+        List<WaveManager.SpawnOrder> orders = new ArrayList<>();
+        long lastNanos = -1;
+        for (LevelWaves.SpawnGroup group : wave.getGroups()) {
+            long stepNanos = group.getIntervalMs() * 1_000_000L;
+            for (int i = 0; i < group.getCount(); i++) {
+                long at = lastNanos < 0 ? 0 : lastNanos + stepNanos;
+                orders.add(new WaveManager.SpawnOrder(group.getType(), at));
+                lastNanos = at;
+            }
+        }
+        return orders;
+    }
+
+    /** 下一波的准备时长（ms，§3.2/§6.2.4）：波次表下一波 maxPrepMs ≥ 0 用之，否则全局默认 */
+    private long nextIntermissionMs() {
+        LevelWaves waves = config.getLevelWaves();
+        if (waves != null && state.getWave() < waves.getWaves().size()) {
+            long prepMs = waves.getWaves().get(state.getWave()).getMaxPrepMs();
+            if (prepMs >= 0) return prepMs;
+        }
+        return config.getWaveIntermissionMs();
     }
 
     /** 向实体注入事件通道（注册/放置时调用） */
@@ -209,10 +272,14 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         obj.attachEffects(combatSound, fxText, fxScreen, fxParticle, fxSelection);
     }
 
-    /** 友方（士兵等）入战场：注入事件通道 + 加入注册表 + 出兵音效 */
+    /** 友方（士兵等）入战场：注入事件通道 + 驻守点 + 加入注册表 + 出兵音效 */
     public void addAlly(Ally ally) {
         if (ally == null) return;
         attachFx(ally);
+        if (ally instanceof Soldier) {   // 士兵：驻守点=离兵营最近的路径点（上路拦截；仿 placeTower 的 Barrack 装配先例）
+            double[] g = nearestPathPoint(ally.getX(), ally.getY());
+            if (g != null) ((Soldier) ally).setGuardPoint(g[0], g[1]);
+        }
         allies.add(ally);
         if (unitSound != null) unitSound.onUnitSpawned(ally);
     }
@@ -229,7 +296,15 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         int bonus = earlyStartBonusAt(nowNanos);
         countdownDeadlineNanos = -1;                  // 开波即清倒计时（防重复触发）
         state.advanceWave();
-        waveManager.beginWave(config.getWaveEnemyCount(), config.getWaveSpawnIntervalMs());
+        // 出怪队列（§6.2.3）：波次表已载入 → 按当前波 groups 展开的 §3.3 时间轴；
+        // 否则回退全局"数量+统一间隔"（普通敌人）
+        LevelWaves waves = config.getLevelWaves();
+        if (waves != null && !waves.getWaves().isEmpty()) {
+            int waveIndex = Math.min(state.getWave() - 1, waves.getWaves().size() - 1);
+            waveManager.beginWave(expandOrders(waves.getWaves().get(waveIndex)));
+        } else {
+            waveManager.beginWave(config.getWaveEnemyCount(), config.getWaveSpawnIntervalMs());
+        }
         waveInProgress = true;
         if (bonus > 0) {
             state.addGold(bonus);
@@ -252,7 +327,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     /** 提前奖励 = 剩余比例 × 上限（round 到整金币）；非倒计时 / 已到期返回 0 */
     private int earlyStartBonusAt(long nowNanos) {
         if (countdownDeadlineNanos <= 0 || nowNanos >= countdownDeadlineNanos) return 0;
-        long totalMs = config.getWaveIntermissionMs();
+        long totalMs = activeIntermissionMs;   // 与实际倒计时总长同源（下一波 maxPrepMs 或全局默认）
         if (totalMs <= 0) return 0;
         double remainMs = (countdownDeadlineNanos - nowNanos) / 1_000_000.0;
         double ratio = Math.min(1.0, Math.max(0.0, remainMs / totalMs));
@@ -387,6 +462,28 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
     }
 
+    /** 路径折线上离 (x,y) 最近的点（无路径/路径点不足返回 null）；供士兵驻守点注入 */
+    private double[] nearestPathPoint(double x, double y) {
+        double[] px = config.getPathX();
+        double[] py = config.getPathY();
+        if (px == null || py == null || px.length < 2 || py.length < 2) return null;
+        double[] best = null;
+        double min = Double.MAX_VALUE;
+        for (int i = 0; i < px.length - 1 && i < py.length - 1; i++) {
+            double dx = px[i + 1] - px[i], dy = py[i + 1] - py[i];
+            double lenSq = dx * dx + dy * dy;
+            double t = lenSq == 0 ? 0 : ((x - px[i]) * dx + (y - py[i]) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            double gx = px[i] + t * dx, gy = py[i] + t * dy;
+            double d = Math.hypot(x - gx, y - gy);
+            if (d < min) {
+                min = d;
+                best = new double[]{gx, gy};
+            }
+        }
+        return best;
+    }
+
     // ================= 重开一局 =================
     public void resetGame() {
         enemies.clear();
@@ -397,6 +494,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         waveManager.reset();
         waveInProgress = false;
         countdownDeadlineNanos = -1;
+        activeIntermissionMs = 0;
         notifyGold(state.getGold());
         notifyLives(state.getLives());
         notifyMessage("游戏已重置，点击「开始波次」开战！");

@@ -21,7 +21,8 @@ import java.util.Map;
  * └── &lt;key&gt;/
  *     ├── &lt;image&gt;                底图
  *     ├── path.json                 敌人路径（MapRoute 结构）
- *     └── spots.json                塔位（TowerSpots 结构）
+ *     ├── spots.json                塔位（TowerSpots 结构）
+ *     └── waves.json                波次（LevelWaves 结构，缺省回退 GameConfig 全局波次）
  * </pre>
  * - index 是“已有地图”的唯一事实来源（列表/顺序/描述）；
  * - 编辑器/开发期读写走文件系统；游戏运行期只读用 classpath 版。
@@ -32,6 +33,7 @@ public final class MapLibrary {
     public static final String INDEX_FILE = "index.json";
     public static final String PATH_FILE = "path.json";
     public static final String SPOTS_FILE = "spots.json";
+    public static final String WAVES_FILE = "waves.json";
 
     /** 一个地图的注册条目 */
     public static final class MapEntry {
@@ -99,6 +101,11 @@ public final class MapLibrary {
     public static File spotsFile(String key) {
         File d = mapDir(key);
         return d == null ? null : new File(d, SPOTS_FILE);
+    }
+
+    public static File wavesFile(String key) {
+        File d = mapDir(key);
+        return d == null ? null : new File(d, WAVES_FILE);
     }
 
     // ================= index 读写 =================
@@ -294,6 +301,37 @@ public final class MapLibrary {
         }
     }
 
+    /**
+     * 读波次表：仓库文件优先，文件缺失时退回 classpath（规范 §5.1）。
+     * 仓库文件存在但解析失败 → 返回 null（不退 classpath，避免编辑器读到另一份内容后覆盖）；
+     * 两者皆无 → 返回 null，调用方回退 GameConfig 全局波次（规范 §3.5.1）。
+     */
+    public static LevelWaves readWaves(String key) {
+        File f = wavesFile(key);
+        if (f != null && f.isFile()) {
+            try {
+                return LevelWaves.fromJson(Files.readString(f.toPath(), StandardCharsets.UTF_8));
+            } catch (IOException | RuntimeException e) {
+                System.err.println("[MapLibrary] 读取波次失败: " + f + " -> " + e.getMessage());
+                return null;
+            }
+        }
+        return readWavesFromClasspath(key);
+    }
+
+    public static boolean writeWaves(String key, LevelWaves waves) {
+        File f = wavesFile(key);
+        if (f == null) return false;
+        if (!f.getParentFile().exists() && !f.getParentFile().mkdirs()) return false;
+        try {
+            Files.writeString(f.toPath(), waves.toJson(), StandardCharsets.UTF_8);
+            return true;
+        } catch (IOException e) {
+            System.err.println("[MapLibrary] 写入波次失败: " + e.getMessage());
+            return false;
+        }
+    }
+
     // ================= classpath 只读（运行期用）=================
     /** 运行期从 classpath 读默认 index（供 GameConfig 选图） */
     public static List<MapEntry> listMapsFromClasspath() {
@@ -311,6 +349,11 @@ public final class MapLibrary {
 
     public static TowerSpots readSpotsFromClasspath(String key) {
         return TowerSpots.loadFromClasspath("/maps/" + key + "/" + SPOTS_FILE);
+    }
+
+    /** 运行期从 classpath 读某关波次（供 GameConfig 构造时用，规范 §6.1；缺失/失败返回 null） */
+    public static LevelWaves readWavesFromClasspath(String key) {
+        return LevelWaves.loadFromClasspath("/maps/" + key + "/" + WAVES_FILE);
     }
 
     /** 供界面组合用 */

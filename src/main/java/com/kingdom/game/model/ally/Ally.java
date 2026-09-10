@@ -27,6 +27,16 @@ public abstract class Ally extends LivingEntity {
     /** 索敌策略（最近敌人/血量最低等），子类实现 */
     public abstract Enemy findTarget(List<Enemy> enemies);
 
+    /**
+     * 控制层每帧喂目标（契约帧序预留的"友方 AI"位）：
+     * 仅当无目标或目标已死时才接新目标，防逐帧换目标抖动；null 无操作。
+     * 碰撞直接锁定的目标（handleEntityCollision）优先级不变。
+     */
+    public void engage(Enemy e) {
+        if (e == null) return;
+        if (target == null || !target.isAlive()) target = e;
+    }
+
     /** 碰撞反应：碰到敌人则近战攻击 */
     @Override
     protected boolean handleEntityCollision(LivingEntity other) {
