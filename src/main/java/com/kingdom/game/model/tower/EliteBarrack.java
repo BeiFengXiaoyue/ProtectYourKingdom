@@ -3,6 +3,8 @@ package com.kingdom.game.model.tower;
 import com.kingdom.game.model.AssetKey;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
+import com.kingdom.game.model.ally.Ally;
+import com.kingdom.game.model.ally.EliteSoldier;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -31,6 +33,15 @@ public class EliteBarrack extends Barrack {
         this.soldierHp = 80;                         // 士兵 HP 50 → 80
         this.totalCost = Barrack.BUILD_COST + Barrack.UPGRADE_COST;      // 100 + 100 = 200
         this.nextLevelSpec = new TowerSpec(TowerType.BARRACK_MASTER, "大师兵营", UPGRADE_COST);
+    }
+
+    /**
+     * 产出兵种：2 级 → {@link EliteSoldier}。
+     * 数值仍取本兵营的等级字段（HP 80 / 速度 40 / 伤害 8 / 冷却 800），**不改任何数值**。
+     */
+    @Override
+    protected Ally createSoldier() {
+        return new EliteSoldier(x, y, soldierHp, soldierSpeed, soldierAttack, soldierCooldown);
     }
 
     @Override
