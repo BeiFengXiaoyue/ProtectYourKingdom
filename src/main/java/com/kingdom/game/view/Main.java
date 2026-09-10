@@ -12,6 +12,9 @@ import com.kingdom.game.model.tower.CannonTower;
 import com.kingdom.game.model.tower.EliteArrowTower;
 import com.kingdom.game.model.tower.EliteBarrack;
 import com.kingdom.game.model.tower.EliteCannonTower;
+import com.kingdom.game.model.tower.MasterArrowTower;
+import com.kingdom.game.model.tower.MasterBarrack;
+import com.kingdom.game.model.tower.MasterCannonTower;
 import com.kingdom.game.util.asset.Assets;
 import com.kingdom.game.util.asset.SizeTable;
 import com.kingdom.game.util.audio.SoundManager;
@@ -86,9 +89,13 @@ public class Main extends Application {
                 new TowerSpec(TowerType.BARRACK, "兵营", Barrack.BUILD_COST),
                 Barrack::new);
         // 升级链工厂登记（《防御塔子系统说明》§10）：不进建塔目录，仅供 upgradeTower 原位替换取下一级工厂
+        // 覆盖 TowerType 三族的 2 级精英与 3 级大师（缺任一登记，对应等级升级会提示"下一级尚未开放"）
         controller.registerUpgradeFactory(TowerType.ARROW_ELITE, EliteArrowTower::new);
         controller.registerUpgradeFactory(TowerType.CANNON_ELITE, EliteCannonTower::new);
         controller.registerUpgradeFactory(TowerType.BARRACK_ELITE, EliteBarrack::new);
+        controller.registerUpgradeFactory(TowerType.ARROW_MASTER, MasterArrowTower::new);
+        controller.registerUpgradeFactory(TowerType.CANNON_MASTER, MasterCannonTower::new);
+        controller.registerUpgradeFactory(TowerType.BARRACK_MASTER, MasterBarrack::new);
         controller.refreshUI();               // 推送初始生命/金币/波次到 HUD
 
         Assets.preload();                     // 预加载贴图（无图自动跳过）
