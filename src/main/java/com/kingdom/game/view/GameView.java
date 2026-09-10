@@ -15,6 +15,7 @@ import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.projectile.Projectile;
 import com.kingdom.game.model.tower.Tower;
+import com.kingdom.game.util.anim.UnitAnimator;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -77,6 +78,9 @@ public class GameView implements IRenderNotifier,
 
     private final AnimationTimer timer;
 
+    /** 单位行为动画叠加层（外部观察 + 叠加绘制；未注册/无帧图时不影响原渲染） */
+    private final UnitAnimator animator = new UnitAnimator();
+
     /** 地图底图（resources/maps/<config.mapImageName>），缺失时回退配色画法 */
     private Image mapBackground;
 
@@ -116,6 +120,14 @@ public class GameView implements IRenderNotifier,
     public void startLoop() { timer.start(); }
 
     public void stopLoop() { timer.stop(); }
+
+    /**
+     * 登记单位动画（kind + 单位类名 → 动画表 JSON 资源地址）。
+     * 未登记 / JSON 缺失 / 模式无帧 → 该单位保持自身原渲染（回归无损）。
+     */
+    public void registerUnitAnimation(String kind, String unitClassName, String descriptorResource) {
+        animator.register(kind, unitClassName, descriptorResource);
+    }
 
     /** IRenderNotifier：后端请求重绘 */
     @Override
@@ -178,15 +190,18 @@ public class GameView implements IRenderNotifier,
         // 塔位标点（唯一来源：当前地图 spots.json，经 util.map.MapLibrary 加载；已占用点位显示为灰）
         drawTowerSpots();
 
-        // 渲染顺序：塔 → 友方 → 敌人 → 投射物
+        // 渲染顺序：塔 → 友方 → 敌人 → 投射物；单位在自身 render() 之后叠加行为动画帧
         for (Tower t : stateReader.getTowers()) {
             t.render(gc);
+            animator.overlay(gc, t);
         }
         for (Ally a : stateReader.getAllies()) {
             a.render(gc);
+            animator.overlay(gc, a);
         }
         for (Enemy e : stateReader.getEnemies()) {
             e.render(gc);
+            animator.overlay(gc, e);
         }
         for (Projectile p : stateReader.getProjectiles()) {
             p.render(gc);
