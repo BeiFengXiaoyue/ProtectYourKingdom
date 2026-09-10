@@ -117,6 +117,34 @@ public class Barrack extends Tower implements ITowerUpgrade {
         return new Soldier(x, y, soldierHp, soldierSpeed, soldierAttack, soldierCooldown);
     }
 
+    /**
+     * 当前在役士兵快照（只读，不含已阵亡待剪除的占用者）。
+     * 供装配层（GameController）在升级/出售兵营前盘点旧兵；返回副本，改动不影响本兵营槽位。
+     */
+    public List<Ally> getSoldiers() {
+        List<Ally> result = new ArrayList<>(slots.size());
+        for (SoldierSlot slot : slots) {
+            if (slot.soldier != null && slot.soldier.isAlive()) {
+                result.add(slot.soldier);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 交出全部在役士兵并清空本兵营的槽位记录（升级/出售兵营时由装配层调用，P1-9）。
+     *
+     * 后置：返回交出的士兵列表（存活者）；本兵营槽位清零，之后 {@link #update()} 会按
+     * 初始错峰节奏（首个计时 0）重新补位 —— 因此调用方应在本兵营被移除/替换前调用，
+     * 并自行决定交出的旧兵去留（如从 allies 注册表移除，避免升级后新旧两批兵并存）。
+     * 本方法只清兵营侧记录，**不动 allies 注册表**（注册表归 GameController）。
+     */
+    public List<Ally> releaseSoldiers() {
+        List<Ally> handed = getSoldiers();
+        slots.clear();
+        return handed;
+    }
+
     @Override
     public Enemy findTarget(List<Enemy> enemies) {
         return null;   // 兵营不直接索敌开火
