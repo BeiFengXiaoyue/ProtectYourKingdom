@@ -21,6 +21,12 @@ public class MasterBarrack extends EliteBarrack implements IHealAura {
     /** 光环半径（px） */
     private static final double AURA_RADIUS = 80;
 
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 3;
+
+    @Override
+    public int getLevel() { return LEVEL; }
+
     public MasterBarrack(double x, double y) {
         super(x, y);
         this.maxSoldiers = 4;                        // 士兵数 3 → 4

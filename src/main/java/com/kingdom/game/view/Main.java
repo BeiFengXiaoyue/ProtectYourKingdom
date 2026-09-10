@@ -12,6 +12,9 @@ import com.kingdom.game.model.tower.CannonTower;
 import com.kingdom.game.model.tower.EliteArrowTower;
 import com.kingdom.game.model.tower.EliteBarrack;
 import com.kingdom.game.model.tower.EliteCannonTower;
+import com.kingdom.game.model.tower.MasterArrowTower;
+import com.kingdom.game.model.tower.MasterBarrack;
+import com.kingdom.game.model.tower.MasterCannonTower;
 import com.kingdom.game.util.asset.Assets;
 import com.kingdom.game.util.asset.SizeTable;
 import com.kingdom.game.util.audio.SoundManager;
@@ -59,6 +62,12 @@ public class Main extends Application {
                 "/assets/animations/enemies/boss_enemy.json");
         view.registerUnitAnimation("allies", "Soldier",
                 "/assets/animations/allies/soldier.json");
+        // 精英 / 皇家兵复用士兵帧（1-3：soldier.json 帧图齐备，尺寸按 sizes.json 缩放）：
+        // 登记后 GameView 跳过静态渲染、改画动画帧，再叠 renderPostAnim 的精英标记
+        view.registerUnitAnimation("allies", "EliteSoldier",
+                "/assets/animations/allies/soldier.json");
+        view.registerUnitAnimation("allies", "RoyalSoldier",
+                "/assets/animations/allies/soldier.json");
         view.registerUnitAnimation("towers", "ArrowTower",
                 "/assets/animations/towers/arrow_tower.json");
 
@@ -89,6 +98,11 @@ public class Main extends Application {
         controller.registerUpgradeFactory(TowerType.ARROW_ELITE, EliteArrowTower::new);
         controller.registerUpgradeFactory(TowerType.CANNON_ELITE, EliteCannonTower::new);
         controller.registerUpgradeFactory(TowerType.BARRACK_ELITE, EliteBarrack::new);
+        // L2→L3 工厂（2-1）：不登记则 upgradeTower 取不到下一级工厂，会提示"下一级尚未开放"。
+        // ⚠️ L3 尺寸仍回退 20×20，直到 E-2 在 assets/sizes.json 补 3 条 Master 塔条目
+        controller.registerUpgradeFactory(TowerType.ARROW_MASTER, MasterArrowTower::new);
+        controller.registerUpgradeFactory(TowerType.CANNON_MASTER, MasterCannonTower::new);
+        controller.registerUpgradeFactory(TowerType.BARRACK_MASTER, MasterBarrack::new);
         controller.refreshUI();               // 推送初始生命/金币/波次到 HUD
 
         Assets.preload();                     // 预加载贴图（无图自动跳过）

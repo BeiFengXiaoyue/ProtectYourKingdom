@@ -70,7 +70,7 @@ public class GameView implements IRenderNotifier,
     private final TowerBuildMenu buildMenu;
     private int pendingSlotIndex = -1;   // 最近一次弹出目录所对应的点位下标
 
-    // 塔选中 + 详情面板（D：点已占用点位选中塔；出售可用、升级置灰待 A）
+    // 塔选中 + 详情面板（D：点已占用点位选中塔；升级/出售均可用；L2→L3 待补 *_MASTER 工厂）
     private final TowerDetailPanel detailPanel;
     private Tower selectedTower;         // 当前选中塔（null = 未选中）
     private GameObject highlightTarget;  // 选中高亮目标（ISelectionFx）
@@ -725,7 +725,7 @@ public class GameView implements IRenderNotifier,
 
     @Override
     public void showBossWarning() {
-        // TODO Day8：Boss 登场预警
+        // TODO：Boss 登场预警（接口已定义、最终波每局都会调用，实现待补；见《整改方案》§7 P1-7）
     }
 
     @Override

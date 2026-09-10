@@ -20,7 +20,7 @@ import javafx.scene.text.Font;
  * TowerDetailPanel —— 选中塔的锚定详情面板（D 分工，实现 ITowerSelectionNotifier）。
  *
  * 交互（由 GameView 驱动）：点已占用塔位 → onTowerSelected(tower) → 面板锚定塔旁展示
- * 攻击/射程/出售返还；「出售」经 ITowerBuilder.sellTower 结算（后端负责退款/移除）；
+ * 等级（经 ITowerUpgrade.getLevel()）/攻击/射程/出售返还；「出售」经 ITowerBuilder.sellTower 结算（后端负责退款/移除）；
  * 「升级」只经 ITowerUpgrade 预览（可升级 → 「升级为 <显示名>（-<造价>）」，满级隐藏，
  * 金币不足实时置灰），点击经 ITowerBuilder.upgradeTower 由后端原位替换（§11/§13）。
  * 全程不 import 具体塔类、不做塔类 instanceof 分派。
@@ -90,9 +90,11 @@ public class TowerDetailPanel implements ITowerSelectionNotifier {
         // 标题暂显示英文类名（开发期/演示自检够用：零映射表、永不失配，由 C 重命名类时文案随之变）；
         // TODO 待 model 侧有正式塔名通道（塔类常量 / TowerSpec 注入）后替换为中文名
         titleLabel.setText(tower.getClass().getSimpleName());
-        // 不显示"等级 Lv."：精英塔构造未维护 level（升级替换后仍=1，显示会误导）；
-        // 待 C 在三个精英塔构造补 this.level = 2 后可恢复此行
-        infoLabel.setText("攻击 " + tower.getBaseAttackDamage()
+        // 等级经 ITowerUpgrade.getLevel() 取：由类身份决定（1/2/3 级各是独立塔类，见《防御塔子系统说明》§8）；
+        // Tower 基类已无 level 字段，非可升级塔兜底 1
+        int level = tower instanceof ITowerUpgrade ? ((ITowerUpgrade) tower).getLevel() : 1;
+        infoLabel.setText("等级 Lv." + level
+                + "\n攻击 " + tower.getBaseAttackDamage()
                 + "\n射程 " + Math.round(tower.getAttackRange())
                 + "\n出售返还 " + (tower.getTotalCost() / 2));
         refresh();

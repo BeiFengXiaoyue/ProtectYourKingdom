@@ -38,6 +38,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
     private static final double PATH_CLEARANCE = 30;   // 塔中心离路径中线的最近距离下限
     private static final double TOWER_SPACING = 40;    // 塔之间最小间距
+    private static final int BOSS_STOMP_STUN_MS = 3000; // Boss 震地 → 全塔眩晕时长（《整改方案》§7 P1-3）
 
     private final GameState state;
     private final WaveManager waveManager;
@@ -132,6 +133,9 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
         waveManager.update(nanoTime, this::spawnEnemy);
 
+        // Boss 震地结算（须在塔循环之前：本帧眩晕立即生效）
+        settleBossStompRequests();
+
         // 塔：索敌开火（A 交付具体塔后生效）
         for (Tower t : new ArrayList<>(towers)) {
             t.update();
@@ -195,6 +199,19 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         }
 
         if (renderNotifier != null) renderNotifier.requestRender();
+    }
+
+    /**
+     * Boss 震地结算：实体只把请求记在 {@link BossEnemy#consumeStompRequest()} 标记里，
+     * 控制层每帧轮询一次，命中则全塔眩晕 3 秒（契约：实体不改全局列表，结算权归 GameController）。
+     * 现状：仅半血狂暴触发一次；B 的"狂暴后每 15s"计时落地后本方法自动变周期性，无需再改。
+     */
+    private void settleBossStompRequests() {
+        for (Enemy e : enemies) {
+            if (e instanceof BossEnemy && ((BossEnemy) e).consumeStompRequest()) {
+                for (Tower t : towers) t.stun(BOSS_STOMP_STUN_MS);
+            }
+        }
     }
 
     /** 敌我近战碰撞检测（O(n*m)，规模小可接受；后续可换网格优化） */

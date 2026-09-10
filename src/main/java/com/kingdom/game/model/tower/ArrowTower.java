@@ -32,6 +32,12 @@ public class ArrowTower extends Tower implements ITowerUpgrade {
     /** 1 级 → 2 级的升级投入（《建筑与怪物机制策划》：75；A 可经 setNextLevelSpec 覆盖） */
     public static final int UPGRADE_COST = 75;
 
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 1;
+
+    @Override
+    public int getLevel() { return LEVEL; }
+
     /** 下一级塔目录条目（默认指向 2 级精英箭塔；null = 满级） */
     protected TowerSpec nextLevelSpec;
 
@@ -43,7 +49,6 @@ public class ArrowTower extends Tower implements ITowerUpgrade {
         this.attackRange = 120;
         this.attackCooldown = 550;
         this.baseAttackDamage = 18;
-        this.upgradeCostBase = 45;
         this.totalCost = BUILD_COST;
         this.nextLevelSpec = new TowerSpec(TowerType.ARROW_ELITE, "精英箭塔", UPGRADE_COST);
     }

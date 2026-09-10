@@ -20,14 +20,12 @@ public abstract class Tower extends GameObject {
     protected double attackRange;
     protected int attackCooldown;
     protected int currentCooldown = 0;
-    protected int level = 1;
     protected int baseAttackDamage;
-    protected int upgradeCostBase;
     protected int totalCost = 0;
     protected boolean isStunned = false;
     protected int stunTimer = 0;
 
-    /** 投射物出口（默认空：未接线时发射动作丢弃，不报错） */
+    /** 投射物出口（由 GameController 于 placeTower/upgradeTower 注入；未注入时发射动作丢弃、不报错） */
     protected Consumer<Projectile> projectileSink = p -> { };
 
     public Tower(double x, double y) {
@@ -70,13 +68,6 @@ public abstract class Tower extends GameObject {
         }
     }
 
-    /** 升级：伤害 *1.3，后续升级成本 *1.2（数值由 GameController 校验/结算） */
-    public void upgrade() {
-        level++;
-        baseAttackDamage = (int) (baseAttackDamage * 1.3);
-        upgradeCostBase = (int) (upgradeCostBase * 1.2);
-    }
-
     /** 出售返还 50% 投入（返回退款额；列表移除由 GameController 完成） */
     public int sell() {
         destroy();
@@ -90,8 +81,6 @@ public abstract class Tower extends GameObject {
 
     // ===== Getter =====
     public double getAttackRange() { return attackRange; }
-    public int getLevel() { return level; }
-    public int getUpgradeCost() { return upgradeCostBase * level; }
     public int getBaseAttackDamage() { return baseAttackDamage; }
     public boolean isStunned() { return isStunned; }
     public int getTotalCost() { return totalCost; }
