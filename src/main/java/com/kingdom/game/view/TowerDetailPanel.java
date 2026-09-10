@@ -3,6 +3,8 @@ package com.kingdom.game.view;
 import com.kingdom.game.controller.IGameStateReader;
 import com.kingdom.game.controller.ITowerBuilder;
 import com.kingdom.game.controller.ITowerSelectionNotifier;
+import com.kingdom.game.model.TowerSpec;
+import com.kingdom.game.model.tower.ITowerUpgrade;
 import com.kingdom.game.model.tower.Tower;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -19,8 +21,9 @@ import javafx.scene.text.Font;
  *
  * 交互（由 GameView 驱动）：点已占用塔位 → onTowerSelected(tower) → 面板锚定塔旁展示
  * 攻击/射程/出售返还；「出售」经 ITowerBuilder.sellTower 结算（后端负责退款/移除）；
- * 「升级」当前置灰（仅文字「升级」，无说明）——换类升级机制（ITowerUpgrade）属 A 的交付，
- * 本类不 import 尚未存在的接口，待其落地后在 upgradeEntry 单点点亮。
+ * 「升级」只经 ITowerUpgrade 预览（可升级 → 「升级为 <显示名>（-<造价>）」，满级隐藏，
+ * 金币不足实时置灰），点击经 ITowerBuilder.upgradeTower 由后端原位替换（§11/§13）。
+ * 全程不 import 具体塔类、不做塔类 instanceof 分派。
  *
  * 本类只依赖 IGameStateReader / ITowerBuilder / 接口定义，不 import GameController 具体类。
  */
@@ -60,7 +63,10 @@ public class TowerDetailPanel implements ITowerSelectionNotifier {
         infoLabel.setFont(Font.font(13));
         infoLabel.setTextFill(Color.web("#dddddd"));
 
-        upgradeButton.setDisable(true);   // 置灰：换类升级机制（A 的 ITowerUpgrade）落地后由 upgradeEntry 点亮
+        upgradeButton.setVisible(false);   // 由 upgradeEntry 按升级链状态显隐
+        upgradeButton.setOnAction(e -> {
+            if (current != null) builder.upgradeTower(current);   // 校验/扣费/替换由后端负责
+        });
         sellButton.setOnAction(e -> {
             if (current == null) return;
             builder.sellTower(current);
@@ -81,6 +87,11 @@ public class TowerDetailPanel implements ITowerSelectionNotifier {
     public void onTowerSelected(Tower tower) {
         if (tower == null) return;
         current = tower;
+        // 标题暂显示英文类名（开发期/演示自检够用：零映射表、永不失配，由 C 重命名类时文案随之变）；
+        // TODO 待 model 侧有正式塔名通道（塔类常量 / TowerSpec 注入）后替换为中文名
+        titleLabel.setText(tower.getClass().getSimpleName());
+        // 不显示"等级 Lv."：精英塔构造未维护 level（升级替换后仍=1，显示会误导）；
+        // 待 C 在三个精英塔构造补 this.level = 2 后可恢复此行
         infoLabel.setText("攻击 " + tower.getBaseAttackDamage()
                 + "\n射程 " + Math.round(tower.getAttackRange())
                 + "\n出售返还 " + (tower.getTotalCost() / 2));
@@ -106,14 +117,23 @@ public class TowerDetailPanel implements ITowerSelectionNotifier {
     }
 
     /**
-     * 升级入口（单点切换）：
-     * 当前无"下一级"数据 → 按钮恒置灰；文字仅「升级」、无说明。
-     * TODO 等 A 交付 model.tower.ITowerUpgrade 后，此处改为经
-     * getNextLevelSpec()/isMaxLevel() 点亮——可升级时按钮文字
-     * 「升级为 <下一级显示名>（-<造价>）」并启用，满级时隐藏该按钮。
+     * 升级入口（经 ITowerUpgrade 预览，不 import 具体塔类）：
+     * 满级/不支持升级 → 隐藏按钮；可升级 → 「升级为 <下一级显示名>（-<造价>）」，
+     * 金币不足实时置灰（本方法经 refresh() 每帧调用，与建塔菜单金币置灰同款先例）。
      */
     private void upgradeEntry(Tower tower) {
-        upgradeButton.setDisable(true);
+        if (!(tower instanceof ITowerUpgrade)) {
+            upgradeButton.setVisible(false);
+            return;
+        }
+        TowerSpec next = ((ITowerUpgrade) tower).getNextLevelSpec();
+        if (next == null) {
+            upgradeButton.setVisible(false);   // 满级：隐藏
+            return;
+        }
+        upgradeButton.setVisible(true);
+        upgradeButton.setText("升级为 " + next.getDisplayName() + "（-" + next.getCost() + "）");
+        upgradeButton.setDisable(stateReader.getCurrentGold() < next.getCost());
     }
 
     /** 优先放选中塔右下方；放不下则翻到左侧/贴底，确保整块在画布内 */

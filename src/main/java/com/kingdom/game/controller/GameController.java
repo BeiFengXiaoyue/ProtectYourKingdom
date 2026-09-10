@@ -14,6 +14,7 @@ import com.kingdom.game.model.enemy.NormalEnemy;
 import com.kingdom.game.model.enemy.TankEnemy;
 import com.kingdom.game.model.projectile.Projectile;
 import com.kingdom.game.model.tower.Barrack;
+import com.kingdom.game.model.tower.ITowerUpgrade;
 import com.kingdom.game.model.tower.Tower;
 import com.kingdom.game.util.map.LevelWaves;
 
@@ -106,6 +107,14 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     public void registerTower(TowerType type, TowerSpec spec, BiFunction<Double, Double, Tower> factory) {
         config.addTowerSpec(spec);
         towerFactories.put(type, factory);
+    }
+
+    /**
+     * 登记升级链工厂（《防御塔子系统说明》§10）：只进工厂表、不进 config.towerSpecs，
+     * 升级级塔不会出现在建塔目录；供 upgradeTower 原位替换取下一级工厂。
+     */
+    public void registerUpgradeFactory(TowerType type, BiFunction<Double, Double, Tower> factory) {
+        if (type != null && factory != null) towerFactories.put(type, factory);
     }
 
     // ================= IGameLoop =================
@@ -272,6 +281,20 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         obj.attachEffects(combatSound, fxText, fxScreen, fxParticle, fxSelection);
     }
 
+    /** 建塔/升级共用接线（§11 一致性要求）：投射物出口（含投射物事件通道）+ 塔事件槽 + 兵营友方出口 */
+    private void injectTowerChannels(Tower tower) {
+        // 投射物入注册表时注入事件通道：命中音效/飘字经事件槽发出（缺注入则静默落到 FxNop）
+        tower.setProjectileSink(p -> {
+            attachFx(p);
+            projectiles.add(p);
+        });
+        attachFx(tower);
+        // 兵营：注入“友方出口”→ 产出的士兵加入 allies 注册表
+        if (tower instanceof Barrack) {
+            ((Barrack) tower).setAllySink(this::addAlly);
+        }
+    }
+
     /** 友方（士兵等）入战场：注入事件通道 + 驻守点 + 加入注册表 + 出兵音效 */
     public void addAlly(Ally ally) {
         if (ally == null) return;
@@ -403,12 +426,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         Tower tower = factory.apply(x, y);
         tower.setX(x);
         tower.setY(y);
-        tower.setProjectileSink(p -> projectiles.add(p));
-        attachFx(tower);
-        // 兵营：注入“友方出口”→ 产出的士兵加入 allies 注册表（A 接线）
-        if (tower instanceof Barrack) {
-            ((Barrack) tower).setAllySink(this::addAlly);
-        }
+        injectTowerChannels(tower);
         towers.add(tower);
 
         if (towerSound != null) towerSound.onTowerPlaced(type);
@@ -417,16 +435,39 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         return true;
     }
 
+    /**
+     * 升级 = 原位替换（《防御塔子系统说明》§11）：校验满级/工厂/金币 → 扣下一级造价 →
+     * 同坐标经工厂建下一级塔 → 注入通道 → 注册表原位替换 → 旧塔 destroy（不走 sell() 防误退款）。
+     * 费用语义（§12）：升级价 = nextSpec.getCost()；替换后 totalCost 由下一级塔构造函数
+     * 按"累计投入"设定（精英塔类已内置，与默认升级链一致）。
+     */
     @Override
     public void upgradeTower(Tower tower) {
-        if (tower == null) return;
-        int cost = tower.getUpgradeCost();
-        if (!state.spendGold(cost)) {
-            notifyMessage("金币不足，无法升级");
+        int idx = tower == null ? -1 : towers.indexOf(tower);
+        if (idx < 0) return;                          // stale 引用（已替换/已出售）防重复扣费
+        if (!(tower instanceof ITowerUpgrade)) {
+            notifyMessage("该塔不支持升级");
             return;
         }
-        tower.upgrade();
-        if (towerSound != null) towerSound.onTowerUpgraded(tower);
+        TowerSpec next = ((ITowerUpgrade) tower).getNextLevelSpec();
+        if (next == null) {
+            notifyMessage("该塔已满级");
+            return;
+        }
+        BiFunction<Double, Double, Tower> factory = towerFactories.get(next.getType());
+        if (factory == null) {
+            notifyMessage("下一级尚未开放");
+            return;
+        }
+        if (!state.spendGold(next.getCost())) {
+            notifyMessage("金币不足！升级需要 " + next.getCost());
+            return;
+        }
+        Tower upgraded = factory.apply(tower.getX(), tower.getY());
+        injectTowerChannels(upgraded);
+        towers.set(idx, upgraded);
+        tower.destroy();
+        if (towerSound != null) towerSound.onTowerUpgraded(upgraded);
         notifyGold(state.getGold());
         if (renderNotifier != null) renderNotifier.requestRender();
     }
