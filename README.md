@@ -29,6 +29,8 @@
 | 路径标注（路线编辑器） | `com.kingdom.game.util.editor.PathEditorTool` |
 | 塔位标注 | `com.kingdom.game.util.editor.TowerSpotEditorTool` |
 | 单位动画编辑器（敌人/友方/防御塔） | `com.kingdom.game.util.editor.AnimEditorTool` |
+| 实体尺寸配置 | `com.kingdom.game.util.editor.SizeEditorTool` |
+| 关卡波次配置 | `com.kingdom.game.util.editor.WaveEditorTool` |
 
 > 注意：本环境**不支持在 IDE 直接运行工具类**（JavaFX 模块检查会报“缺少 JavaFX 运行时组件”）。
 > 统一做法：把 pom 的 mainClass 改为目标工具类 → `mvn javafx:run` → 跑完改回 `com.kingdom.game.view.Main`。
@@ -107,7 +109,7 @@ JSON 结构（帧路径相对 `assets/`，前缀为类别子目录）：
 }
 ```
 
-> 提示：当前提供“编辑器 + 动画表 JSON（三类通用）”，**游戏内渲染叠加尚未接入**——配好的帧图暂不影响运行表现（详见 `docs/接口契约与抽象类说明.md` §4.6/§4.7）。
+> 提示：当前提供“编辑器 + 动画表 JSON（三类通用）”，**游戏内渲染叠加已接入**（`util.anim.UnitAnimator` + `Main` 登记 6 类单位，帧图已入库）——配好的帧图会按 idle/walk/attack 轮播（详见 `docs/接口契约与抽象类说明.md` §4.6/§4.7）。
 
-设计说明：`docs/单位行为动画-渲染层设计.md`（外部推导模式 + 叠加渲染方案，敌/友/塔通用，未实现）。
+设计说明：`docs/单位行为动画-渲染层设计.md`（外部推导模式 + 叠加渲染方案，敌/友/塔通用，已实现）。
 说明文档：`docs/接口契约与抽象类说明.md`（接口契约与抽象类说明）。

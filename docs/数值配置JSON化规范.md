@@ -4,6 +4,7 @@
 > 适用版本：dev（feature 分支）
 > 任务性质：把**当前写在 Java 里、只能改代码重编译的玩法数值**改为**一份可编辑的 JSON 配置文件**；
 > 新增 `util.balance` 工具类负责“改文件”，`GameConfig` 负责“读文件”。**本文档即派工单**，按 §五 实施、§八 验收。
+> **状态：派工中（尚未实现）**——`util.balance`、`resources/config/balance.json` 与 `GameConfig` 接入均未落地；未落地前玩法数值仍在 `GameConfig` 的 Java 字段中。
 
 ---
 
