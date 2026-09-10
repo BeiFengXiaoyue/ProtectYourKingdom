@@ -2,6 +2,7 @@ package com.kingdom.game.config;
 
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
+import com.kingdom.game.util.map.LevelWaves;
 import com.kingdom.game.util.map.MapLibrary;
 import com.kingdom.game.util.map.MapRoute;
 import com.kingdom.game.util.map.TowerSpots;
@@ -37,6 +38,17 @@ public class GameConfig {
     private double normalSpeed = 60;   // px/s
     private int normalGoldReward = 10;
 
+    // ===== 快速/重甲/首领敌人数值（规范 §4：按敌人 id 补齐的槽位；临时数值待《游戏规则说明书》核对）=====
+    private int fastHp = 40;             // 骚扰型：血薄
+    private double fastSpeed = 120;      // ≈2×普通
+    private int fastGoldReward = 8;
+    private int tankHp = 240;            // ≈3×普通
+    private double tankSpeed = 40;
+    private int tankGoldReward = 25;
+    private int bossHp = 800;
+    private double bossSpeed = 35;
+    private int bossGoldReward = 150;
+
     // ===== 波次 =====
     private int waveEnemyCount = 3;        // 每波敌人数（Day1 固定 3 只验收）
     private long waveSpawnIntervalMs = 1000; // 出场间隔(ms)
@@ -57,6 +69,9 @@ public class GameConfig {
     private String mapKey;                  // 活动地图 key（默认取 index 第一条）
     private String mapImageName;            // 底图文件名（位于 maps/<key>/ 下；null=无底图回退配色）
     private TowerSpots towerSpots = TowerSpots.of(900, 560, new double[0], new double[0]);
+
+    // ===== 关卡波次表（maps/<key>/waves.json；null=无波次表，运行期回退全局波次配置）=====
+    private LevelWaves levelWaves;
 
     // ===== 塔目录（逐步开发：开始只有 ARROW，后续 addTowerSpec 追加）=====
     private final List<TowerSpec> towerSpecs = new ArrayList<>();
@@ -89,6 +104,17 @@ public class GameConfig {
             TowerSpots spots = MapLibrary.readSpotsFromClasspath(active.getKey());
             if (spots != null) {
                 this.towerSpots = spots;
+            }
+
+            // 波次表（规范 §3.5.1/§6.1/§6.2.1）：读取成功则波数由文件唯一决定；
+            // 缺失/为空/解析失败 → 回退全局波次配置并告警，运行期不崩
+            LevelWaves waves = MapLibrary.readWavesFromClasspath(active.getKey());
+            if (waves != null && !waves.getWaves().isEmpty()) {
+                this.levelWaves = waves;
+                this.totalWaves = waves.getWaves().size();
+            } else {
+                System.err.println("[GameConfig] maps/" + active.getKey()
+                        + "/waves.json 缺失/为空/解析失败，回退全局波次配置（规范 §3.5.1）");
             }
         }
     }
@@ -133,7 +159,40 @@ public class GameConfig {
         return this;
     }
 
+    // ===== 快速/重甲/首领敌人数值（id 词汇表见 LevelWaves.VOCABULARY，规范 §4）=====
+    public int getFastHp() { return fastHp; }
+    public double getFastSpeed() { return fastSpeed; }
+    public int getFastGoldReward() { return fastGoldReward; }
+    public GameConfig setFastStats(int hp, double speed, int goldReward) {
+        this.fastHp = hp;
+        this.fastSpeed = speed;
+        this.fastGoldReward = goldReward;
+        return this;
+    }
+
+    public int getTankHp() { return tankHp; }
+    public double getTankSpeed() { return tankSpeed; }
+    public int getTankGoldReward() { return tankGoldReward; }
+    public GameConfig setTankStats(int hp, double speed, int goldReward) {
+        this.tankHp = hp;
+        this.tankSpeed = speed;
+        this.tankGoldReward = goldReward;
+        return this;
+    }
+
+    public int getBossHp() { return bossHp; }
+    public double getBossSpeed() { return bossSpeed; }
+    public int getBossGoldReward() { return bossGoldReward; }
+    public GameConfig setBossStats(int hp, double speed, int goldReward) {
+        this.bossHp = hp;
+        this.bossSpeed = speed;
+        this.bossGoldReward = goldReward;
+        return this;
+    }
+
     // ===== 波次 =====
+    /** 关卡波次表（null=无波次表，运行期回退全局波次配置）；敌人数值仍按 id 从本类现取（规范 §4） */
+    public LevelWaves getLevelWaves() { return levelWaves; }
     public int getWaveEnemyCount() { return waveEnemyCount; }
     public long getWaveSpawnIntervalMs() { return waveSpawnIntervalMs; }
     public GameConfig setWave(int enemyCount, long spawnIntervalMs) {
