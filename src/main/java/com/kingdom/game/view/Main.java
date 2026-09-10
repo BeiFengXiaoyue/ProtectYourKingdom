@@ -32,9 +32,9 @@ public class Main extends Application {
 
     @Override
     public void start(Stage stage) {
-        // ===== 数值配置（开发期可在此微调）=====
+        // ===== 数值配置：改数值请编辑 src/main/resources/config/balance.json，重启生效 =====
         GameConfig config = new GameConfig();
-        // 例：config.setInitialLives(30).setNormalStats(120, 80, 10);
+        // 运行期瞬时覆盖（可选）：config.setInitialLives(30).setNormalStats(120, 80, 10);
 
         GameState state = new GameState(config);
         WaveManager waveManager = new WaveManager();
@@ -43,14 +43,6 @@ public class Main extends Application {
         // ===== UI 组装与依赖注入 =====
         HUD hud = new HUD(controller, controller);
         GameView view = new GameView(controller, controller, config, controller, controller::resetGame);
-
-        // 单位行为动画登记（外部叠加层）：单位类零改动；JSON 缺帧/缺文件时保持原渲染
-        view.registerUnitAnimation("enemies", "NormalEnemy",
-                "/assets/animations/enemies/normal_enemy.json");
-        view.registerUnitAnimation("allies", "Soldier",
-                "/assets/animations/allies/soldier.json");
-        view.registerUnitAnimation("towers", "ArrowTower",
-                "/assets/animations/towers/arrow_tower.json");
 
         controller.setStatusObserver(hud);
         controller.setRenderNotifier(view);
