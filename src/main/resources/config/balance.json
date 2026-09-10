@@ -1,0 +1,17 @@
+{
+  "initialGold": 100,
+  "initialLives": 20,
+  "totalWaves": 10,
+  "normalHp": 80,
+  "normalSpeed": 60,
+  "normalGoldReward": 10,
+  "fastHp": 50,
+  "fastSpeed": 120,
+  "fastGoldReward": 15,
+  "tankHp": 240,
+  "tankSpeed": 35,
+  "tankGoldReward": 25,
+  "bossHp": 1500,
+  "bossSpeed": 40,
+  "bossGoldReward": 200
+}
