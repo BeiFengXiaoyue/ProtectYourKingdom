@@ -10,11 +10,13 @@ import com.kingdom.game.controller.IScreenFx;
 import com.kingdom.game.controller.ISelectionFx;
 import com.kingdom.game.controller.ITowerBuilder;
 import com.kingdom.game.model.GameObject;
+import com.kingdom.game.model.LivingEntity;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.projectile.Projectile;
 import com.kingdom.game.model.tower.Tower;
+import com.kingdom.game.util.anim.UnitAnimator;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -89,6 +91,9 @@ public class GameView implements IRenderNotifier,
     private static final long FLOATING_TEXT_LIFE_MS = 900;
     /** 全程上浮距离（px） */
     private static final double FLOATING_TEXT_RISE_PX = 26;
+
+    /** 单位行为动画叠加层（外部观察 + 叠加绘制；未注册/无帧图时不影响原渲染） */
+    private final UnitAnimator animator = new UnitAnimator();
 
     /** 一条飘字记录：绘制状态（偏移/透明度）按 now−birth 现算，不存可变状态 */
     private static final class FloatingText {
@@ -206,6 +211,14 @@ public class GameView implements IRenderNotifier,
 
     public void stopLoop() { timer.stop(); }
 
+    /**
+     * 登记单位动画（kind + 单位类名 → 动画表 JSON 资源地址）。
+     * 未登记 / JSON 缺失 / 模式无帧 → 该单位保持自身原渲染（回归无损）。
+     */
+    public void registerUnitAnimation(String kind, String unitClassName, String descriptorResource) {
+        animator.register(kind, unitClassName, descriptorResource);
+    }
+
     /** IRenderNotifier：后端请求重绘 */
     @Override
     public void requestRender() {
@@ -275,15 +288,33 @@ public class GameView implements IRenderNotifier,
         drawTowerSpots();
 
         // 渲染顺序：塔 → 友方 → 敌人 → 投射物
+        // 有动画叠加的单位跳过静态渲染（底图+动画帧透明叠加会产生残影）；动画缺失时保持原渲染
         for (Tower t : stateReader.getTowers()) {
-            t.render(gc);
+            if (!animator.hasOverlay(t)) {
+                t.render(gc);
+            }
+            animator.overlay(gc, t);
         }
         for (Ally a : stateReader.getAllies()) {
-            a.render(gc);
+            boolean animated = animator.hasOverlay(a);
+            if (!animated) {
+                a.render(gc);
+            }
+            animator.overlay(gc, a);
             a.renderPostAnim(gc);   // 压在动画帧之上的单位标记（如精英兵种的金环/盔缨）
+            if (animated) {
+                drawHpBar(a);   // 静态渲染被跳过时补画血条
+            }
         }
         for (Enemy e : stateReader.getEnemies()) {
-            e.render(gc);
+            boolean animated = animator.hasOverlay(e);
+            if (!animated) {
+                e.render(gc);
+            }
+            animator.overlay(gc, e);
+            if (animated) {
+                drawHpBar(e);   // 静态渲染被跳过时补画血条
+            }
         }
         for (Projectile p : stateReader.getProjectiles()) {
             p.render(gc);
@@ -535,6 +566,16 @@ public class GameView implements IRenderNotifier,
     }
 
     /** 绘制塔位标点（半透明圆台 + 锤位示意，与 TowerSpotEditorTool 内画法一致；已占用变灰） */
+    /** 头顶血条（样式与各实体 render 内一致）：黑底 + 绿色当前血量；仅动画跳过静态渲染时使用 */
+    private void drawHpBar(LivingEntity u) {
+        double r = u.getWidth() / 2.0;
+        double ratio = u.getMaxHp() > 0 ? Math.max(0, (double) u.getCurrentHp() / u.getMaxHp()) : 0;
+        gc.setFill(Color.BLACK);
+        gc.fillRect(u.getX() - r, u.getY() - r - 8, u.getWidth(), 4);
+        gc.setFill(Color.LIMEGREEN);
+        gc.fillRect(u.getX() - r, u.getY() - r - 8, u.getWidth() * ratio, 4);
+    }
+
     private void drawTowerSpots() {
         var spots = config.getTowerSpots();
         int n = spots.spotCount();

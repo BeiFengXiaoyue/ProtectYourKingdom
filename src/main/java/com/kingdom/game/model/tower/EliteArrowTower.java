@@ -1,27 +1,32 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.TowerSpec;
+import com.kingdom.game.model.TowerType;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
- * EliteArrowTower —— 精英箭塔（箭塔 2 级，满级）。
+ * EliteArrowTower —— 精英箭塔（箭塔 2 级）。
  *
  * 继承 {@link ArrowTower}（复用 findTarget/attack/render），仅覆写构造数值与渲染加金色标记作区分。
- * 满级：nextLevelSpec = null，isMaxLevel() 为 true。
+ * 可继续升级到 {@link MasterArrowTower}（3 级）。
  *
- * 数值说明（升级费/累计投入为占位，语义由架构师 A 在 GameController 回填，见《防御塔子系统说明》）。
+ * 数值（《建筑与怪物机制策划》L2）：伤害 27 / 间隔 550ms / 射程 140。
  */
 public class EliteArrowTower extends ArrowTower {
 
+    /** 2 级 → 3 级的升级投入（《策划》：120） */
+    public static final int UPGRADE_COST = 120;
+
     public EliteArrowTower(double x, double y) {
         super(x, y);
-        this.attackRange = 135;                      // 射程更长
-        this.attackCooldown = 450;                   // 冷却更快
-        this.baseAttackDamage = 24;                  // 伤害 18 → 24
+        this.attackRange = 140;                      // 射程 120 → 140
+        this.attackCooldown = 550;                   // 间隔不变
+        this.baseAttackDamage = 27;                  // 伤害 18 → 27
         this.upgradeCostBase = 60;
-        this.totalCost = ArrowTower.BUILD_COST + ArrowTower.UPGRADE_COST;  // 累计投入（占位）
-        this.nextLevelSpec = null;                   // 已是满级
+        this.totalCost = ArrowTower.BUILD_COST + ArrowTower.UPGRADE_COST;      // 50 + 75 = 125
+        this.nextLevelSpec = new TowerSpec(TowerType.ARROW_MASTER, "大师箭塔", UPGRADE_COST);
     }
 
     @Override

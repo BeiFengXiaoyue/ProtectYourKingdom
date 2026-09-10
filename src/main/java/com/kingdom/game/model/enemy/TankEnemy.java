@@ -17,9 +17,8 @@ public class TankEnemy extends Enemy {
      * @param goldReward 击杀赏金
      */
     public TankEnemy(double x, double y, int hp, double speed, int goldReward) {
+        // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, hp, speed, goldReward);
-        setWidth(30);   // 未随普通敌人（60）同步放大，已比普通敌人小；如需保持"重甲更大"请上调
-        setHeight(30);
         this.attackDamage = 9;
         this.maxAttackCooldown = 1400;
     }

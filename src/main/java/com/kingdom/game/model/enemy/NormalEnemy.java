@@ -11,9 +11,8 @@ import javafx.scene.paint.Color;
 public final class NormalEnemy extends Enemy {
 
     public NormalEnemy(double x, double y, int hp, double speed, int goldReward) {
+        // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, hp, speed, goldReward);
-        setWidth(60);   // 基类默认 20×20，按需求放大至 60×60
-        setHeight(60);
     }
 
     @Override

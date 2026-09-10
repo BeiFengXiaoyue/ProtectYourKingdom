@@ -28,9 +28,8 @@ public class Bomb extends Projectile {
      * @param speed   飞行速度 px/s
      */
     public Bomb(double x, double y, double targetX, double targetY, int damage, double speed) {
+        // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, targetX, targetY, damage, speed);
-        setWidth(14);   // 炮弹体型（略大于箭矢）
-        setHeight(14);
     }
 
     /**
