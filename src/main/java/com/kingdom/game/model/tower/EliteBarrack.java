@@ -19,6 +19,12 @@ public class EliteBarrack extends Barrack {
     /** 2 级 → 3 级的升级投入（《策划》：180） */
     public static final int UPGRADE_COST = 180;
 
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 2;
+
+    @Override
+    public int getLevel() { return LEVEL; }
+
     public EliteBarrack(double x, double y) {
         super(x, y);
         this.maxSoldiers = 3;                        // 士兵数 2 → 3

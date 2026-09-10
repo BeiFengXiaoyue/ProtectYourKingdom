@@ -21,12 +21,17 @@ public class MasterArrowTower extends EliteArrowTower implements IChainShot {
     /** 连锁伤害比例 */
     private static final double CHAIN_DAMAGE_RATIO = 0.5;
 
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 3;
+
+    @Override
+    public int getLevel() { return LEVEL; }
+
     public MasterArrowTower(double x, double y) {
         super(x, y);
         this.attackRange = 140;                      // 射程保持 140
         this.attackCooldown = 440;                   // 间隔 550 → 440（+20% 攻速）
         this.baseAttackDamage = 41;                  // 伤害 27 → 41
-        this.upgradeCostBase = 70;
         this.totalCost = ArrowTower.BUILD_COST
                 + ArrowTower.UPGRADE_COST
                 + EliteArrowTower.UPGRADE_COST;      // 50 + 75 + 120 = 245

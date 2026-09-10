@@ -20,7 +20,8 @@ import java.util.List;
  * 默认 nextLevelSpec 指向 CANNON_ELITE；架构师 A 可经 {@link #setNextLevelSpec} 注入/替换链。
  *
  * 数值说明（《建筑与怪物机制策划》炮塔基础：伤害45/间隔1500ms/射程140/溅射50；造价沿用 PRD 80）：
- * - 溅射半径落在 Bomb.onHit()（B 侧，待其支持半径参数后接入 `splashRadius`）；造价与装配处 TowerSpec 保持一致。
+ * - 溅射半径：Bomb.onHit() 内**硬编码 60px**（B 侧尚未支持半径参数），故本类 splashRadius(50/65/80)
+ *   当前**未生效**（见《整改方案-文档与代码一致性》§7 P1-1）；造价与装配处 TowerSpec 保持一致。
  */
 public class CannonTower extends Tower implements ITowerUpgrade {
 
@@ -29,6 +30,12 @@ public class CannonTower extends Tower implements ITowerUpgrade {
 
     /** 1 级 → 2 级的升级投入（《建筑与怪物机制策划》：150；A 可经 setNextLevelSpec 覆盖） */
     public static final int UPGRADE_COST = 150;
+
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 1;
+
+    @Override
+    public int getLevel() { return LEVEL; }
 
     /** 下一级塔目录条目（默认指向 2 级精英炮塔；null = 满级） */
     protected TowerSpec nextLevelSpec;
@@ -44,7 +51,6 @@ public class CannonTower extends Tower implements ITowerUpgrade {
         this.attackRange = 140;
         this.attackCooldown = 1500;
         this.baseAttackDamage = 45;
-        this.upgradeCostBase = 50;
         this.totalCost = BUILD_COST;
         this.nextLevelSpec = new TowerSpec(TowerType.CANNON_ELITE, "精英炮塔", UPGRADE_COST);
     }

@@ -12,12 +12,15 @@ import java.util.Set;
 /**
  * BalanceTable —— 玩法数值数据类（唯一内置默认持有者）。
  *
- * 当前纳入 JSON 化的字段（15 个，分 5 组）：
+ * 当前纳入 JSON 化的字段（24 个，分 7 组）：
  * - ① 玩家开局：initialGold / initialLives / totalWaves
  * - ② 普通敌人：normalHp / normalSpeed / normalGoldReward
  * - ③ 快速敌人：fastHp / fastSpeed / fastGoldReward
  * - ④ 重甲敌人：tankHp / tankSpeed / tankGoldReward
  * - ⑤ Boss：bossHp / bossSpeed / bossGoldReward
+ * - ⑥ 敌人近战（《整改方案》§7 P0-1）：
+ *      {normal|fast|tank|boss}AttackDamage / …AttackCooldownMs
+ * - ⑦ 重甲减伤（《整改方案》§7 P0-3）：tankPhysicalReduction，范围 [0,1)
  *
  * 波次节奏字段（waveEnemyCount / waveSpawnIntervalMs / waveIntermissionMs /
  * earlyStartRewardCap）不纳入 JSON 化，仍由 GameConfig 字面量默认值管理，
@@ -25,7 +28,8 @@ import java.util.Set;
  *
  * 职责：
  * - 承载 config/balance.json 的固定数值字段（强类型，有 getter/setter）；
- * - 额外支持动态扩展字段（extra Map），供编辑器添加未来新增的变量；
+ * - 额外支持动态扩展字段（extra Map），供编辑器添加未来新增的变量
+ *   （⚠️ 这些字段**运行期无人读取**，fromJson 遇到未知键会打印 `[BalanceTable]` 告警）；
  * - toJson() / fromJson() 读写（复用 util.json.MiniJson，不引第三方库）；
  * - defaults() 提供内置默认，文件缺失/字段非法时回退；
  * - loadFromClasspath() 供运行期 GameConfig 读取，缺失返回 null（不抛异常）。
@@ -57,6 +61,19 @@ public final class BalanceTable {
     private double bossSpeed;
     private int bossGoldReward;
 
+    // ===== ⑥ 敌人近战：攻击力 / 攻击冷却（ms）=====
+    private int normalAttackDamage;
+    private int normalAttackCooldownMs;
+    private int fastAttackDamage;
+    private int fastAttackCooldownMs;
+    private int tankAttackDamage;
+    private int tankAttackCooldownMs;
+    private int bossAttackDamage;
+    private int bossAttackCooldownMs;
+
+    // ===== ⑦ 重甲物理减伤（比例，0 ≤ v < 1；0 = 不减伤）=====
+    private double tankPhysicalReduction;
+
     /** 动态扩展字段：编辑器添加的未来变量，fromJson 未知键自动收入此 Map，toJson 一并写出 */
     private final Map<String, Object> extra = new LinkedHashMap<>();
 
@@ -87,6 +104,17 @@ public final class BalanceTable {
         b.bossHp = 1500;
         b.bossSpeed = 40.0;
         b.bossGoldReward = 200;
+        // 敌人近战：攻击力 / 攻击冷却（= 实体类原有写死值，改造后表现不变）
+        b.normalAttackDamage = 5;
+        b.normalAttackCooldownMs = 1000;
+        b.fastAttackDamage = 4;
+        b.fastAttackCooldownMs = 700;
+        b.tankAttackDamage = 9;
+        b.tankAttackCooldownMs = 1400;
+        b.bossAttackDamage = 22;
+        b.bossAttackCooldownMs = 1100;
+        // 重甲物理减伤（30%，仅普通箭矢吃减伤；炮塔破甲无视）
+        b.tankPhysicalReduction = 0.3;
         return b;
     }
 
@@ -145,6 +173,37 @@ public final class BalanceTable {
     public int getBossGoldReward() { return bossGoldReward; }
     public void setBossGoldReward(int v) { this.bossGoldReward = v; }
 
+    // ================= ⑥ 敌人近战 Getter / Setter =================
+
+    public int getNormalAttackDamage() { return normalAttackDamage; }
+    public void setNormalAttackDamage(int v) { this.normalAttackDamage = v; }
+
+    public int getNormalAttackCooldownMs() { return normalAttackCooldownMs; }
+    public void setNormalAttackCooldownMs(int v) { this.normalAttackCooldownMs = v; }
+
+    public int getFastAttackDamage() { return fastAttackDamage; }
+    public void setFastAttackDamage(int v) { this.fastAttackDamage = v; }
+
+    public int getFastAttackCooldownMs() { return fastAttackCooldownMs; }
+    public void setFastAttackCooldownMs(int v) { this.fastAttackCooldownMs = v; }
+
+    public int getTankAttackDamage() { return tankAttackDamage; }
+    public void setTankAttackDamage(int v) { this.tankAttackDamage = v; }
+
+    public int getTankAttackCooldownMs() { return tankAttackCooldownMs; }
+    public void setTankAttackCooldownMs(int v) { this.tankAttackCooldownMs = v; }
+
+    public int getBossAttackDamage() { return bossAttackDamage; }
+    public void setBossAttackDamage(int v) { this.bossAttackDamage = v; }
+
+    public int getBossAttackCooldownMs() { return bossAttackCooldownMs; }
+    public void setBossAttackCooldownMs(int v) { this.bossAttackCooldownMs = v; }
+
+    // ================= ⑦ 重甲减伤 Getter / Setter =================
+
+    public double getTankPhysicalReduction() { return tankPhysicalReduction; }
+    public void setTankPhysicalReduction(double v) { this.tankPhysicalReduction = v; }
+
     // ================= 动态扩展字段 =================
 
     /** 已知的固定字段键集合（fromJson 时用于区分固定字段与扩展字段） */
@@ -153,7 +212,12 @@ public final class BalanceTable {
             "normalHp", "normalSpeed", "normalGoldReward",
             "fastHp", "fastSpeed", "fastGoldReward",
             "tankHp", "tankSpeed", "tankGoldReward",
-            "bossHp", "bossSpeed", "bossGoldReward");
+            "bossHp", "bossSpeed", "bossGoldReward",
+            "normalAttackDamage", "normalAttackCooldownMs",
+            "fastAttackDamage", "fastAttackCooldownMs",
+            "tankAttackDamage", "tankAttackCooldownMs",
+            "bossAttackDamage", "bossAttackCooldownMs",
+            "tankPhysicalReduction");
 
     public Object getExtra(String key) { return extra.get(key); }
 
@@ -197,7 +261,18 @@ public final class BalanceTable {
         // ⑤ Boss
         sb.append("  \"bossHp\": ").append(num(bossHp)).append(",\n");
         sb.append("  \"bossSpeed\": ").append(num(bossSpeed)).append(",\n");
-        sb.append("  \"bossGoldReward\": ").append(num(bossGoldReward));
+        sb.append("  \"bossGoldReward\": ").append(num(bossGoldReward)).append(",\n");
+        // ⑥ 敌人近战：攻击力 / 攻击冷却
+        sb.append("  \"normalAttackDamage\": ").append(num(normalAttackDamage)).append(",\n");
+        sb.append("  \"normalAttackCooldownMs\": ").append(num(normalAttackCooldownMs)).append(",\n");
+        sb.append("  \"fastAttackDamage\": ").append(num(fastAttackDamage)).append(",\n");
+        sb.append("  \"fastAttackCooldownMs\": ").append(num(fastAttackCooldownMs)).append(",\n");
+        sb.append("  \"tankAttackDamage\": ").append(num(tankAttackDamage)).append(",\n");
+        sb.append("  \"tankAttackCooldownMs\": ").append(num(tankAttackCooldownMs)).append(",\n");
+        sb.append("  \"bossAttackDamage\": ").append(num(bossAttackDamage)).append(",\n");
+        sb.append("  \"bossAttackCooldownMs\": ").append(num(bossAttackCooldownMs)).append(",\n");
+        // ⑦ 重甲物理减伤
+        sb.append("  \"tankPhysicalReduction\": ").append(num(tankPhysicalReduction));
         // 动态扩展字段追加在后面
         if (!extra.isEmpty()) {
             sb.append(",\n");
@@ -270,10 +345,23 @@ public final class BalanceTable {
         b.bossHp = readInt(obj, "bossHp", def.bossHp, 1);
         b.bossSpeed = readDouble(obj, "bossSpeed", def.bossSpeed, 0.0, false);
         b.bossGoldReward = readInt(obj, "bossGoldReward", def.bossGoldReward, 0);
+        // ⑥ 敌人近战：攻击力（≥1）/ 冷却（≥1；0 冷却 = 无限攻速，禁止）
+        b.normalAttackDamage = readInt(obj, "normalAttackDamage", def.normalAttackDamage, 1);
+        b.normalAttackCooldownMs = readInt(obj, "normalAttackCooldownMs", def.normalAttackCooldownMs, 1);
+        b.fastAttackDamage = readInt(obj, "fastAttackDamage", def.fastAttackDamage, 1);
+        b.fastAttackCooldownMs = readInt(obj, "fastAttackCooldownMs", def.fastAttackCooldownMs, 1);
+        b.tankAttackDamage = readInt(obj, "tankAttackDamage", def.tankAttackDamage, 1);
+        b.tankAttackCooldownMs = readInt(obj, "tankAttackCooldownMs", def.tankAttackCooldownMs, 1);
+        b.bossAttackDamage = readInt(obj, "bossAttackDamage", def.bossAttackDamage, 1);
+        b.bossAttackCooldownMs = readInt(obj, "bossAttackCooldownMs", def.bossAttackCooldownMs, 1);
+        // ⑦ 重甲物理减伤（比例，必须 0 ≤ v < 1）
+        b.tankPhysicalReduction = readRatio(obj, "tankPhysicalReduction", def.tankPhysicalReduction);
 
-        // 未知键 → 收入动态扩展字段
+        // 未知键 → 收入动态扩展字段（打印告警：这些字段运行期无人读取，避免"配了不生效却无提示"）
         for (Map.Entry<String, Object> e : obj.entrySet()) {
             if (!FIXED_KEYS.contains(e.getKey())) {
+                System.err.println("[BalanceTable] 未知字段 \"" + e.getKey()
+                        + "\" 已忽略（运行期不读取，请勿在此写无对应实现的数值）");
                 b.extra.put(e.getKey(), e.getValue());
             }
         }
@@ -299,6 +387,19 @@ public final class BalanceTable {
             double val = ((Number) v).doubleValue();
             if (allowEq ? val >= min : val > min) return val;
             warn(key, v, allowEq ? "小于最小值 " + min : "必须大于 " + min);
+        } else if (v != null) {
+            warn(key, v, "非数字");
+        }
+        return def;
+    }
+
+    /** 比例字段：必须 0 ≤ v < 1（上界为开区间，readDouble 无法表达，故单列） */
+    private static double readRatio(Map<String, Object> obj, String key, double def) {
+        Object v = obj.get(key);
+        if (v instanceof Number) {
+            double val = ((Number) v).doubleValue();
+            if (val >= 0.0 && val < 1.0) return val;
+            warn(key, v, "必须位于 [0, 1)");
         } else if (v != null) {
             warn(key, v, "非数字");
         }

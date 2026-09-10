@@ -93,7 +93,8 @@ public final class BalanceEditorTool {
         // ===== 自定义变量（动态扩展）=====
         private final Map<String, TextField> customFields = new LinkedHashMap<>();
         private final VBox customFieldsBox = new VBox(6);
-        private final Label customEmptyLabel = new Label("暂无自定义变量，点击下方「+ 新增变量」添加。\n自定义变量会写入 balance.json，供未来游戏扩展使用。");
+        private final Label customEmptyLabel = new Label("暂无自定义变量，点击下方「+ 新增变量」添加。\n"
+                + "⚠ 注意：自定义变量只写入 balance.json，运行期无人读取、不影响游戏。");
 
         private final Label statusLabel = new Label("就绪：点击「载入」读取当前 balance.json，或直接填写后「保存」。");
 
@@ -174,13 +175,18 @@ public final class BalanceEditorTool {
             // ⑥ 自定义变量
             customEmptyLabel.setWrapText(true);
             customEmptyLabel.setStyle("-fx-text-fill: #999; -fx-font-size: 11px;");
+            // 醒目提示：这些字段运行期无人读取，避免"配了不生效却无提示"（见 BalanceTable.fromJson 告警）
+            Label customWarnLabel = new Label("⚠ 这些字段运行期无人读取，仅随文件保存——"
+                    + "在此新增的变量不会影响游戏（启动时会打印 [BalanceTable] 未知字段告警）。");
+            customWarnLabel.setWrapText(true);
+            customWarnLabel.setStyle("-fx-text-fill: #d9534f; -fx-font-size: 12px; -fx-font-weight: bold;");
             Button addCustomBtn = new Button("+ 新增变量");
             addCustomBtn.setStyle("-fx-background-color: #5cb85c; -fx-text-fill: white;");
             addCustomBtn.setOnAction(e -> addCustomVariable());
 
-            VBox customContent = new VBox(8, customEmptyLabel, customFieldsBox, addCustomBtn);
+            VBox customContent = new VBox(8, customWarnLabel, customEmptyLabel, customFieldsBox, addCustomBtn);
             customContent.setAlignment(Pos.CENTER_LEFT);
-            TitledPane group6 = new TitledPane("⑥ 自定义变量（未来扩展用）", customContent);
+            TitledPane group6 = new TitledPane("⑥ 自定义变量（未来扩展用 · 运行期不生效）", customContent);
             group6.setCollapsible(false);
 
             form.getChildren().addAll(group1, group2, group3, group4, group5, group6);

@@ -19,11 +19,16 @@ public class EliteCannonTower extends CannonTower {
     /** 2 级 → 3 级的升级投入（《策划》：250） */
     public static final int UPGRADE_COST = 250;
 
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 2;
+
+    @Override
+    public int getLevel() { return LEVEL; }
+
     public EliteCannonTower(double x, double y) {
         super(x, y);
         this.baseAttackDamage = 70;                  // 伤害 45 → 70
         this.splashRadius = 65;                      // 溅射 50 → 65
-        this.upgradeCostBase = 70;
         this.totalCost = CannonTower.BUILD_COST + CannonTower.UPGRADE_COST;    // 80 + 150 = 230
         this.nextLevelSpec = new TowerSpec(TowerType.CANNON_MASTER, "大师炮塔", UPGRADE_COST);
     }

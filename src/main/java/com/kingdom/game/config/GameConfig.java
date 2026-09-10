@@ -17,7 +17,8 @@ import java.util.List;
  * GameConfig —— 运行期唯一数值入口（合并版：JSON 化 + LevelWaves 波次表）。
  *
  * 数值来源分三类：
- * 1. JSON 化字段（15 个）：玩家开局 + 四类敌人（normal/fast/tank/boss 的 HP/speed/goldReward），
+ * 1. JSON 化字段（24 个）：玩家开局 + 四类敌人（normal/fast/tank/boss 的 HP/speed/goldReward）
+ *    + 四类敌人近战（攻击力 / 攻击冷却）+ 重甲物理减伤比例，
  *    构造期从 classpath:/config/balance.json 读取（util.balance.BalanceLibrary），
  *    文件缺失/字段非法 → 回退 BalanceTable.defaults() 内置默认，不抛异常。
  * 2. 关卡波次表（LevelWaves）：从 maps/&lt;key&gt;/waves.json 读取（feature/UIinteraction 分支功能），
@@ -59,6 +60,19 @@ public class GameConfig {
     private double bossSpeed;
     private int bossGoldReward;
 
+    // ===== ⑥ 敌人近战：攻击力 / 攻击冷却（由 balance.json 读取）=====
+    private int normalAttackDamage;
+    private int normalAttackCooldownMs;
+    private int fastAttackDamage;
+    private int fastAttackCooldownMs;
+    private int tankAttackDamage;
+    private int tankAttackCooldownMs;
+    private int bossAttackDamage;
+    private int bossAttackCooldownMs;
+
+    // ===== ⑦ 重甲物理减伤比例（由 balance.json 读取，0 ≤ v < 1）=====
+    private double tankPhysicalReduction;
+
     // ===== 波次（不纳入 JSON 化，保持字面量默认，避免与波次模块合并冲突）=====
     private int waveEnemyCount = 3;        // 每波敌人数
     private long waveSpawnIntervalMs = 1000; // 出场间隔(ms)
@@ -88,7 +102,7 @@ public class GameConfig {
 
     /**
      * 无参构造（合并版）：
-     * 1. 从 classpath 读取 /config/balance.json（15 个 JSON 化字段），缺失/非法回退内置默认；
+     * 1. 从 classpath 读取 /config/balance.json（24 个 JSON 化字段），缺失/非法回退内置默认；
      * 2. 从 classpath 读 maps/index.json 选择"默认地图"（可用 -Dmap.key=&lt;key&gt; 指定），
      *    再从 maps/&lt;key&gt;/ 读取 path.json / spots.json / 底图文件名；
      * 3. 读取 maps/&lt;key&gt;/waves.json 波次表，成功则总波数由波次表决定（覆盖 JSON 的 totalWaves），
@@ -119,6 +133,17 @@ public class GameConfig {
         this.bossHp = bt.getBossHp();
         this.bossSpeed = bt.getBossSpeed();
         this.bossGoldReward = bt.getBossGoldReward();
+        // ⑥ 敌人近战：攻击力 / 冷却（数值由 F 定稿；BalanceTable 内置默认 = 原实体类写死值）
+        this.normalAttackDamage = bt.getNormalAttackDamage();
+        this.normalAttackCooldownMs = bt.getNormalAttackCooldownMs();
+        this.fastAttackDamage = bt.getFastAttackDamage();
+        this.fastAttackCooldownMs = bt.getFastAttackCooldownMs();
+        this.tankAttackDamage = bt.getTankAttackDamage();
+        this.tankAttackCooldownMs = bt.getTankAttackCooldownMs();
+        this.bossAttackDamage = bt.getBossAttackDamage();
+        this.bossAttackCooldownMs = bt.getBossAttackCooldownMs();
+        // ⑦ 重甲物理减伤
+        this.tankPhysicalReduction = bt.getTankPhysicalReduction();
         // 波次节奏 4 个字段不读 JSON，保持上方字面量默认值
 
         // ===== 第 2 步：地图分包读取（原有逻辑不动）=====
@@ -223,6 +248,20 @@ public class GameConfig {
         this.bossGoldReward = goldReward;
         return this;
     }
+
+    // ===== ⑥ 敌人近战：攻击力 / 攻击冷却 =====
+    // 注：仅暴露 getter（消费方 spawnEnemy 只读）；写入通道仍是 balance.json / BalanceTable。
+    public int getNormalAttackDamage() { return normalAttackDamage; }
+    public int getNormalAttackCooldownMs() { return normalAttackCooldownMs; }
+    public int getFastAttackDamage() { return fastAttackDamage; }
+    public int getFastAttackCooldownMs() { return fastAttackCooldownMs; }
+    public int getTankAttackDamage() { return tankAttackDamage; }
+    public int getTankAttackCooldownMs() { return tankAttackCooldownMs; }
+    public int getBossAttackDamage() { return bossAttackDamage; }
+    public int getBossAttackCooldownMs() { return bossAttackCooldownMs; }
+
+    // ===== ⑦ 重甲物理减伤比例（0 ≤ v < 1）=====
+    public double getTankPhysicalReduction() { return tankPhysicalReduction; }
 
     // ===== 波次 =====
     /** 关卡波次表（null=无波次表，运行期回退全局波次配置）；敌人数值仍按 id 从本类现取 */

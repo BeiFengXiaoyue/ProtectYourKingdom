@@ -18,17 +18,18 @@ import java.util.function.Consumer;
  *
  * 生产流程：为每个槽位（共 maxSoldiers 个）独立计时，经自持友方出口 {@link #produce(Ally)} 交给出口；
  * **士兵阵亡后该槽位独立重新计时 spawnIntervalMillis 再补位**（不再"死亡立即复活"），其它槽位不受影响；
- * 初始错峰产出（0 / 间隔 / 2×间隔 …）；未接线时默认 no-op，产出被丢弃。
+ * 初始错峰产出（0 / 间隔 / 2×间隔 …）；产出经友方出口交给装配层（出口默认 no-op，未注入时丢弃、不报错）。
  *
  * 升级链（本类为 1 级，可升级到 {@link EliteBarrack}）：
  * 默认 nextLevelSpec 指向 BARRACK_ELITE；架构师 A 可经 {@link #setNextLevelSpec} 注入/替换链。
  * 生产参数（上限/间隔/士兵属性）为**实例字段**（默认值即 1 级数值），以便 2 级子类覆写差异化。
  *
- * ⚠ 接口状态：本类自带友方出口（仿 Tower.projectileSink 的写法，但**不改 Tower 基类**）。
- * 装配层（GameController.placeTower）接入 {@link #setAllySink(Consumer)} 后，士兵才会真正加入战斗；
- * 在 A 接线前，单独放置的兵营产出的士兵不会进战场。
+ * 友方出口：本类自带友方出口（仿 Tower.projectileSink 的写法，但**不改 Tower 基类**）。
+ * **已接线**：GameController 放置/升级兵营时经 injectTowerChannels 调用 {@link #setAllySink(Consumer)}
+ * （注入 {@code this::addAlly}），产出的士兵会进 allies 注册表并注入事件通道。
  *
- * 数值说明（PRD 给定造价 100、3秒/个、上限 3；士兵属性为占位，待《游戏规则说明书》核对）。
+ * 数值说明（《建筑与怪物机制策划》兵营基础：造价 100 / 士兵上限 2（2、3 级为 3、4）/
+ * 出场·补位间隔 5s / 士兵 HP50·速度40·伤害8·攻击间隔800ms）。
  */
 public class Barrack extends Tower implements ITowerUpgrade {
 
@@ -37,6 +38,12 @@ public class Barrack extends Tower implements ITowerUpgrade {
 
     /** 1 级 → 2 级的升级投入（《建筑与怪物机制策划》：100；A 可经 setNextLevelSpec 覆盖） */
     public static final int UPGRADE_COST = 100;
+
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 1;
+
+    @Override
+    public int getLevel() { return LEVEL; }
 
     /** 下一级塔目录条目（默认指向 2 级精英兵营；null = 满级） */
     protected TowerSpec nextLevelSpec;
@@ -50,7 +57,7 @@ public class Barrack extends Tower implements ITowerUpgrade {
     protected int soldierAttack = 8;
     protected int soldierCooldown = 800;
 
-    /** 友方出口（默认 no-op：未接线时产出被丢弃，不报错） */
+    /** 友方出口（默认 no-op：未被装配层注入时产出被丢弃、不报错；GameController 放置兵营时已注入） */
     private Consumer<Ally> allySink = a -> { };
 
     /** 生产槽位（数量 = maxSoldiers）：每个槽位各带独立补位计时器 */
@@ -68,7 +75,6 @@ public class Barrack extends Tower implements ITowerUpgrade {
     public Barrack(double x, double y) {
         super(x, y);
         this.totalCost = BUILD_COST;
-        this.upgradeCostBase = 60;
         // 兵营不直接攻击：射程/冷却/伤害均为 0
         this.attackRange = 0;
         this.attackCooldown = 0;

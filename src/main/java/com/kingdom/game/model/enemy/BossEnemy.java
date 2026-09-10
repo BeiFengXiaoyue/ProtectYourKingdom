@@ -12,8 +12,10 @@ import javafx.scene.paint.Color;
  * 半血狂暴机制（实体侧已就绪）：
  * - 血量降至 50% 以下时仅触发一次：速度 +50%；
  * - 同时经事件槽发出震地表现（onBossStomp 音效 + 全屏红闪/震屏）；
- * - "眩晕全塔 + 伤害所有活体"需要注册表，属 GameController（A）轮询结算职责：
- *   实体只把请求记录在 stompRequested 标记中，由 {@link #consumeStompRequest()} 读取并清除。
+ * - "眩晕全塔"需要注册表，属 GameController（A）轮询结算职责：实体只把请求记录在 stompRequested 标记中，
+ *   由 {@link #consumeStompRequest()} 读取并清除。
+ *   ⚠ 现状：GameController 尚未轮询 consumeStompRequest()，"眩晕全塔 3 秒"的全局效果**未生效**
+ *   （见《整改方案-文档与代码一致性》§7 P1-3）。
  */
 public class BossEnemy extends Enemy {
 

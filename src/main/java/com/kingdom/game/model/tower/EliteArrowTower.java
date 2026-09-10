@@ -19,12 +19,17 @@ public class EliteArrowTower extends ArrowTower {
     /** 2 级 → 3 级的升级投入（《策划》：120） */
     public static final int UPGRADE_COST = 120;
 
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 2;
+
+    @Override
+    public int getLevel() { return LEVEL; }
+
     public EliteArrowTower(double x, double y) {
         super(x, y);
         this.attackRange = 140;                      // 射程 120 → 140
         this.attackCooldown = 550;                   // 间隔不变
         this.baseAttackDamage = 27;                  // 伤害 18 → 27
-        this.upgradeCostBase = 60;
         this.totalCost = ArrowTower.BUILD_COST + ArrowTower.UPGRADE_COST;      // 50 + 75 = 125
         this.nextLevelSpec = new TowerSpec(TowerType.ARROW_MASTER, "大师箭塔", UPGRADE_COST);
     }

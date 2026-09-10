@@ -1,7 +1,7 @@
 # 项目简介
 **项目名称**：王国保卫战：前线哨站（Kingdom Defense: Frontline Outpost）
 本项目为一款基于 **JavaFX** 开发的塔防策略游戏，
-玩家在预设路径旁建造箭塔、炮塔和兵营，抵御10波敌人进攻，
+玩家在预设路径旁建造箭塔、炮塔和兵营，抵御多波敌人进攻（波数与组合由 `maps/<key>/waves.json` 唯一决定），
 通过击杀敌人获取金币来升级或出售防御塔，最终击败Boss赢得胜利。
 
 ---
@@ -10,8 +10,9 @@
 - 默认 `pom.xml` 的 javafx 插件 mainClass 为 `com.kingdom.game.view.Main`，直接执行 `mvn javafx:run` 运行游戏。
 - IDE 直接运行不可用（JavaFX 模块检查），工具/游戏都请走 `mvn javafx:run`（工具见下节）。
 - 点击「开始波次」出怪；生命值归零即失败，守住全部波次即胜利。
-- 启动时会自动读取路线文件 `src/main/resources/maps/default_path.json`
-  （若存在则按导出内容设置画布尺寸与敌人路径，不存在则使用内置默认路径）。
+- 启动时会自动读取**默认地图**（`maps/index.json` 第一条，可用 `-Dmap.key=<key>` 指定）的
+  `maps/<key>/path.json` 与 `spots.json`（若存在则按导出内容设置画布尺寸、敌人路径与可建塔位；不存在则回退内置默认）。
+- ℹ️ 当前默认地图的波次（`maps/default/waves.json`）为**测试用例**数据（9 波、首波含 Boss），用于联调，**非最终关卡设计**；波数与组合由该文件决定，后续按游戏性需要调整。
 
 ## 运行工具（改 pom 后 mvn javafx:run）
 所有工具/编辑器都通过**修改 `pom.xml` 的 javafx 插件 mainClass** 后用 `mvn javafx:run` 启动。
@@ -30,6 +31,7 @@
 | 塔位标注 | `com.kingdom.game.util.editor.TowerSpotEditorTool` |
 | 单位动画编辑器（敌人/友方/防御塔） | `com.kingdom.game.util.editor.AnimEditorTool` |
 | 实体尺寸配置 | `com.kingdom.game.util.editor.SizeEditorTool` |
+| 数值配置（balance.json） | `com.kingdom.game.util.editor.BalanceEditorTool` |
 | 关卡波次配置 | `com.kingdom.game.util.editor.WaveEditorTool` |
 
 > 注意：本环境**不支持在 IDE 直接运行工具类**（JavaFX 模块检查会报“缺少 JavaFX 运行时组件”）。
@@ -57,11 +59,12 @@ src/main/resources/maps/
 └── <key>/                          一张地图一个目录
     ├── map.png                     底图（名称以 index 的 image 为准）
     ├── path.json                   敌人路径（MapRoute）
-    └── spots.json                  塔位（TowerSpots）
+    ├── spots.json                  塔位（TowerSpots）
+    └── waves.json                  关卡波次（LevelWaves，波数与出怪组合的唯一来源）
 ```
-- 工具经 `maps/index.json` 列“已有地图”并可选择/新建；`PathEditorTool` 写 `path.json`，`TowerSpotEditorTool` 写 `spots.json`；
-- 游戏启动时 `GameConfig` 读取默认地图（index 第一条，可用 `-Dmap.key=<key>` 指定）并加载 `path/spots/底图`；
-- 缺少某文件则该部分回退内置默认。
+- 工具经 `maps/index.json` 列“已有地图”并可选择/新建；`PathEditorTool` 写 `path.json`，`TowerSpotEditorTool` 写 `spots.json`，`WaveEditorTool` 写 `waves.json`；
+- 游戏启动时 `GameConfig` 读取默认地图（index 第一条，可用 `-Dmap.key=<key>` 指定）并加载 `path/spots/waves/底图`；
+- 缺少某文件则该部分回退内置默认（缺 `waves.json` 时回退 `GameConfig` 的全局波次配置并告警）。
 
 `path.json` 结构示例（沿用原 schema，仅“存放目录按地图分包”）：
 ```json

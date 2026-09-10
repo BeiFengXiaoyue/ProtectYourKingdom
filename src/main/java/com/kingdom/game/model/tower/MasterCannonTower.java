@@ -21,11 +21,16 @@ public class MasterCannonTower extends EliteCannonTower implements IBurnEffect {
     /** 燃烧持续时间（毫秒） */
     private static final int BURN_DURATION_MILLIS = 3000;
 
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 3;
+
+    @Override
+    public int getLevel() { return LEVEL; }
+
     public MasterCannonTower(double x, double y) {
         super(x, y);
         this.baseAttackDamage = 110;                 // 伤害 70 → 110
         this.splashRadius = 80;                      // 溅射 65 → 80
-        this.upgradeCostBase = 90;
         this.totalCost = CannonTower.BUILD_COST
                 + CannonTower.UPGRADE_COST
                 + EliteCannonTower.UPGRADE_COST;     // 80 + 150 + 250 = 480
