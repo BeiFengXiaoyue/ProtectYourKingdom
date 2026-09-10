@@ -29,8 +29,8 @@ public class ArrowTower extends Tower implements ITowerUpgrade {
     /** 建造成本（Main 登记 TowerSpec 时引用，保持一致） */
     public static final int BUILD_COST = 50;
 
-    /** 1 级 → 2 级的升级投入（占位，待《游戏规则说明书》核对；A 可经 setNextLevelSpec 覆盖） */
-    public static final int UPGRADE_COST = 90;
+    /** 1 级 → 2 级的升级投入（《建筑与怪物机制策划》：75；A 可经 setNextLevelSpec 覆盖） */
+    public static final int UPGRADE_COST = 75;
 
     /** 下一级塔目录条目（默认指向 2 级精英箭塔；null = 满级） */
     protected TowerSpec nextLevelSpec;
