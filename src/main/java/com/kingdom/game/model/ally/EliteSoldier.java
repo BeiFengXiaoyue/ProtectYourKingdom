@@ -59,9 +59,8 @@ public class EliteSoldier extends Ally {
     /** 全参构造：由生产方注入数值，签名与 {@link Soldier} 一致，便于兵营替换生产对象 */
     public EliteSoldier(double x, double y, int hp, double speed,
                         int attackDamage, int attackCooldown) {
+        // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, hp, speed, attackDamage, attackCooldown);
-        setWidth(20);
-        setHeight(20);
         this.homeX = x;
         this.homeY = y;
     }
@@ -120,6 +119,20 @@ public class EliteSoldier extends Ally {
         // 死亡音效 onUnitDied 已在基类 LivingEntity.takeDamage() 触发；
         // 移除与结算由 GameController 完成，实体不做列表/金币操作。
         fxParticle.spawnExplosionParticles(x, y, "#ffd75e", 12);
+    }
+
+    /**
+     * 动画帧叠加之后的精英标记：叠加层会把行为动画帧画满整个身体框，
+     * 无素材时 render() 里那套标记会被盖住，故在帧之上再画一遍（同一套形状，颜色/位置完全一致）。
+     */
+    @Override
+    public void renderPostAnim(GraphicsContext gc) {
+        double r = width / 2;
+        gc.setStroke(Color.web("#8a6d1f"));      // 精英金环
+        gc.setLineWidth(2);
+        gc.strokeOval(x - r, y - r, width, height);
+        gc.setFill(Color.web("#ffd75e"));        // 肩章金星
+        gc.fillOval(x - 2, y - r - 4, 4, 4);
     }
 
     @Override

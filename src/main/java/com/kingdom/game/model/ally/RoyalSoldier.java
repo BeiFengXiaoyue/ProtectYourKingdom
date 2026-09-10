@@ -59,9 +59,8 @@ public class RoyalSoldier extends Ally {
     /** 全参构造：由生产方注入数值，签名与 {@link Soldier} 一致，便于兵营替换生产对象 */
     public RoyalSoldier(double x, double y, int hp, double speed,
                         int attackDamage, int attackCooldown) {
+        // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, hp, speed, attackDamage, attackCooldown);
-        setWidth(22);
-        setHeight(22);
         this.homeX = x;
         this.homeY = y;
     }
@@ -120,6 +119,19 @@ public class RoyalSoldier extends Ally {
         // 死亡音效 onUnitDied 已在基类 LivingEntity.takeDamage() 触发；
         // 移除与结算由 GameController 完成，实体不做列表/金币操作。
         fxParticle.spawnExplosionParticles(x, y, "#ffd75e", 16);
+    }
+
+    /** 动画帧叠加之后的 3 级标记：动画帧会画满身体框，故在帧之上补画加粗金环 + 盔缨（与色块回退同一套形状）。 */
+    @Override
+    public void renderPostAnim(GraphicsContext gc) {
+        double r = width / 2;
+        gc.setStroke(Color.web("#b8860b"));
+        gc.setLineWidth(2.5);
+        gc.strokeOval(x - r, y - r, width, height);
+        gc.setFill(Color.web("#ffd75e"));
+        gc.fillOval(x - 2, y - r - 4, 4, 4);
+        gc.setFill(Color.web("#e74c3c"));
+        gc.fillOval(x - 2.5, y - r - 9, 5, 5);
     }
 
     @Override

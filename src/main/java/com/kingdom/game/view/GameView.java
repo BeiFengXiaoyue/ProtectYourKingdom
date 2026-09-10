@@ -18,6 +18,7 @@ import com.kingdom.game.model.tower.Tower;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.VPos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -32,6 +33,11 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.text.Font;
+import javafx.scene.text.TextAlignment;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * GameView —— 主画布（UI 层核心）。
@@ -74,6 +80,32 @@ public class GameView implements IRenderNotifier,
 
     /** 地图底图（resources/maps/<config.mapImageName>），缺失时回退配色画法 */
     private Image mapBackground;
+
+    // ===== 飘字（IFloatingTextFx 实现；寿命按 draw 帧推进，与逻辑帧同频）=====
+    /** 一条飘字：世界坐标 + 文本 + 颜色 + 剩余寿命（帧） */
+    private static final class FloatingText {
+        double x, y;
+        final String text;
+        final Color color;
+        int life;
+
+        FloatingText(double x, double y, String text, Color color, int life) {
+            this.x = x;
+            this.y = y;
+            this.text = text;
+            this.color = color;
+            this.life = life;
+        }
+    }
+
+    /** 飘字存活帧数（≈0.75 秒 @60fps） */
+    private static final int FLOAT_TEXT_LIFE = 45;
+    /** 飘字每帧上浮像素 */
+    private static final double FLOAT_TEXT_RISE = 0.6;
+    /** 飘字字号 */
+    private static final int FLOAT_TEXT_SIZE = 13;
+
+    private final List<FloatingText> floatingTexts = new ArrayList<>();
 
     public GameView(IGameLoop gameLoop, IGameStateReader stateReader, GameConfig config,
                     ITowerBuilder builder, Runnable onRestart) {
@@ -177,6 +209,7 @@ public class GameView implements IRenderNotifier,
         }
         for (Ally a : stateReader.getAllies()) {
             a.render(gc);
+            a.renderPostAnim(gc);   // 压在动画帧之上的单位标记（如精英兵种的金环/盔缨）
         }
         for (Enemy e : stateReader.getEnemies()) {
             e.render(gc);
@@ -184,6 +217,9 @@ public class GameView implements IRenderNotifier,
         for (Projectile p : stateReader.getProjectiles()) {
             p.render(gc);
         }
+
+        // 飘字（实体之上、结束遮罩之下）
+        drawFloatingTexts();
 
         syncEndOverlay();
     }
@@ -338,10 +374,52 @@ public class GameView implements IRenderNotifier,
         }
     }
 
-    // ================= 视觉特效接口（骨架，D 后续填充实际绘制）=================
+    // ================= 视觉特效接口 =================
     @Override
     public void showFloatingText(double x, double y, String text, String color) {
-        // TODO Day3+：维护一个"飘字"列表并在 draw() 中绘制
+        if (text == null) return;
+        floatingTexts.add(new FloatingText(x, y, text, parseColor(color), FLOAT_TEXT_LIFE));
+    }
+
+    /** 颜色名 → 颜色；兼容调用方传入的 "#RRGGBB"，无法识别时回退白色 */
+    private static Color parseColor(String color) {
+        if (color == null || color.isBlank()) return Color.WHITE;
+        String c = color.trim();
+        if (c.startsWith("#")) return Color.web(c);
+        switch (c.toUpperCase()) {
+            case "RED": return Color.web("#ff4d4d");
+            case "GREEN": return Color.web("#4dff88");
+            case "BLUE": return Color.web("#4da6ff");
+            case "GOLD": return Color.web("#ffd700");
+            case "ORANGE": return Color.web("#ffa53c");
+            case "YELLOW": return Color.web("#ffee58");
+            case "WHITE":
+            default: return Color.WHITE;
+        }
+    }
+
+    /** 绘制飘字：每帧上浮 + 尾段淡出（黑描边保证在底图上可读），寿命耗尽移除 */
+    private void drawFloatingTexts() {
+        if (floatingTexts.isEmpty()) return;
+        gc.setFont(Font.font(FLOAT_TEXT_SIZE));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+        for (Iterator<FloatingText> it = floatingTexts.iterator(); it.hasNext(); ) {
+            FloatingText ft = it.next();
+            if (--ft.life <= 0) {
+                it.remove();
+                continue;
+            }
+            ft.y -= FLOAT_TEXT_RISE;
+            double alpha = Math.min(1.0, ft.life / (double) (FLOAT_TEXT_LIFE * 0.5));
+            gc.setLineWidth(3);
+            gc.setStroke(Color.color(0, 0, 0, 0.55 * alpha));
+            gc.strokeText(ft.text, ft.x, ft.y);
+            gc.setFill(Color.color(ft.color.getRed(), ft.color.getGreen(), ft.color.getBlue(), alpha));
+            gc.fillText(ft.text, ft.x, ft.y);
+        }
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.setTextBaseline(VPos.BASELINE);
     }
 
     @Override
