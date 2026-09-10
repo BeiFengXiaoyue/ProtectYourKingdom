@@ -10,8 +10,10 @@
     "EliteArrowTower": {"width":48,"height":48},
     "EliteBarrack": {"width":48,"height":48},
     "EliteCannonTower": {"width":48,"height":48},
+    "EliteSoldier": {"width":36,"height":36},
     "FastEnemy": {"width":44,"height":44},
     "NormalEnemy": {"width":48,"height":48},
+    "RoyalSoldier": {"width":40,"height":40},
     "Soldier": {"width":32,"height":32},
     "TankEnemy": {"width":44,"height":44}
   }
