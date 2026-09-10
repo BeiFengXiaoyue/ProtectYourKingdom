@@ -10,6 +10,7 @@ import com.kingdom.game.controller.IScreenFx;
 import com.kingdom.game.controller.ISelectionFx;
 import com.kingdom.game.controller.ITowerBuilder;
 import com.kingdom.game.model.GameObject;
+import com.kingdom.game.model.LivingEntity;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.enemy.Enemy;
@@ -190,18 +191,33 @@ public class GameView implements IRenderNotifier,
         // 塔位标点（唯一来源：当前地图 spots.json，经 util.map.MapLibrary 加载；已占用点位显示为灰）
         drawTowerSpots();
 
-        // 渲染顺序：塔 → 友方 → 敌人 → 投射物；单位在自身 render() 之后叠加行为动画帧
+        // 渲染顺序：塔 → 友方 → 敌人 → 投射物
+        // 有动画叠加的单位跳过静态渲染（底图+动画帧透明叠加会产生残影）；动画缺失时保持原渲染
         for (Tower t : stateReader.getTowers()) {
-            t.render(gc);
+            if (!animator.hasOverlay(t)) {
+                t.render(gc);
+            }
             animator.overlay(gc, t);
         }
         for (Ally a : stateReader.getAllies()) {
-            a.render(gc);
+            boolean animated = animator.hasOverlay(a);
+            if (!animated) {
+                a.render(gc);
+            }
             animator.overlay(gc, a);
+            if (animated) {
+                drawHpBar(a);   // 静态渲染被跳过时补画血条
+            }
         }
         for (Enemy e : stateReader.getEnemies()) {
-            e.render(gc);
+            boolean animated = animator.hasOverlay(e);
+            if (!animated) {
+                e.render(gc);
+            }
             animator.overlay(gc, e);
+            if (animated) {
+                drawHpBar(e);   // 静态渲染被跳过时补画血条
+            }
         }
         for (Projectile p : stateReader.getProjectiles()) {
             p.render(gc);
@@ -414,6 +430,16 @@ public class GameView implements IRenderNotifier,
     }
 
     /** 绘制塔位标点（半透明圆台 + 锤位示意，与 TowerSpotEditorTool 内画法一致；已占用变灰） */
+    /** 头顶血条（样式与各实体 render 内一致）：黑底 + 绿色当前血量；仅动画跳过静态渲染时使用 */
+    private void drawHpBar(LivingEntity u) {
+        double r = u.getWidth() / 2.0;
+        double ratio = u.getMaxHp() > 0 ? Math.max(0, (double) u.getCurrentHp() / u.getMaxHp()) : 0;
+        gc.setFill(Color.BLACK);
+        gc.fillRect(u.getX() - r, u.getY() - r - 8, u.getWidth(), 4);
+        gc.setFill(Color.LIMEGREEN);
+        gc.fillRect(u.getX() - r, u.getY() - r - 8, u.getWidth() * ratio, 4);
+    }
+
     private void drawTowerSpots() {
         var spots = config.getTowerSpots();
         int n = spots.spotCount();
