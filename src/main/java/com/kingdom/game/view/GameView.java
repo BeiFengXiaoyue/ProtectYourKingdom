@@ -18,6 +18,7 @@ import com.kingdom.game.model.tower.Tower;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.VPos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -32,6 +33,12 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.TextAlignment;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 /**
  * GameView —— 主画布（UI 层核心）。
@@ -76,6 +83,88 @@ public class GameView implements IRenderNotifier,
     private boolean endShown = false;    // 防每帧重复 show 的幂等开关
 
     private final AnimationTimer timer;
+
+    // ================= 飘字（IFloatingTextFx）：时间驱动，绘制时现算、过期自清 =================
+    /** 单条飘字寿命（ms）：随进度上浮并淡出 */
+    private static final long FLOATING_TEXT_LIFE_MS = 900;
+    /** 全程上浮距离（px） */
+    private static final double FLOATING_TEXT_RISE_PX = 26;
+
+    /** 一条飘字记录：绘制状态（偏移/透明度）按 now−birth 现算，不存可变状态 */
+    private static final class FloatingText {
+        final double x, y;
+        final String text;
+        final Color color;
+        final long birthNanos;
+
+        FloatingText(double x, double y, String text, Color color, long birthNanos) {
+            this.x = x;
+            this.y = y;
+            this.text = text;
+            this.color = color;
+            this.birthNanos = birthNanos;
+        }
+    }
+
+    private final List<FloatingText> floatingTexts = new ArrayList<>();
+
+    // ================= 爆炸粒子（IParticleFx）：同上，时间驱动，绘制时现算、过期自清 =================
+    /** 单颗粒子寿命范围（ms）：随机取值让爆散更自然 */
+    private static final long PARTICLE_LIFE_MIN_MS = 320;
+    private static final long PARTICLE_LIFE_MAX_MS = 560;
+    /** 粒子初速范围（px/s）：自爆心各向同性向外辐射 */
+    private static final double PARTICLE_SPEED_MIN = 40;
+    private static final double PARTICLE_SPEED_MAX = 130;
+    /** 初始半径范围（px） */
+    private static final double PARTICLE_RADIUS_MIN = 1.6;
+    private static final double PARTICLE_RADIUS_MAX = 3.2;
+    /** 生命末期收缩到的半径比例 */
+    private static final double PARTICLE_SHRINK_TO = 0.25;
+    /** 单次爆炸的粒子数上限（防异常入参刷爆列表） */
+    private static final int PARTICLE_COUNT_MAX = 60;
+
+    /** 一颗粒子：位置/速度/寿命在入口随机生成，绘制时按 now−birth 现算，不存可变状态 */
+    private static final class Particle {
+        final double x, y;        // 爆心（世界坐标）
+        final double vx, vy;      // 速度 px/s
+        final Color color;
+        final double radius;      // 初始半径 px
+        final long birthNanos;
+        final long lifeNanos;
+
+        Particle(double x, double y, double vx, double vy, Color color,
+                 double radius, long birthNanos, long lifeNanos) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.color = color;
+            this.radius = radius;
+            this.birthNanos = birthNanos;
+            this.lifeNanos = lifeNanos;
+        }
+    }
+
+    private final List<Particle> particles = new ArrayList<>();
+    private final Random particleRandom = new Random();
+
+    // ================= 屏幕级特效（IScreenFx）：闪屏/震屏，均为时间驱动 =================
+    /** 背景向外多画的边距（px）：震屏平移时不露边 */
+    private static final double BACKGROUND_OVERSCAN_PX = 16;
+    /** 震屏强度上限（px）：防异常入参把画面推出画布 */
+    private static final double SCREEN_SHAKE_MAX_PX = 14;
+    /** 震屏抖动频率（Hz）；纵向用 1.7 倍频，避免只沿对角线晃动 */
+    private static final double SHAKE_FREQ_HZ = 22;
+    /** 闪屏最大不透明度（随进度线性衰减到 0） */
+    private static final double SCREEN_FLASH_MAX_ALPHA = 0.45;
+
+    private Color flashTint;              // null = 当前无闪屏
+    private long flashStartNanos;
+    private long flashDurationNanos;
+
+    private long shakeStartNanos;
+    private long shakeDurationNanos;
+    private double shakeIntensity;
 
     /** 地图底图（resources/maps/<config.mapImageName>），缺失时回退配色画法 */
     private Image mapBackground;
@@ -143,14 +232,21 @@ public class GameView implements IRenderNotifier,
     private void draw() {
         double w = canvas.getWidth();
         double h = canvas.getHeight();
+        long now = System.nanoTime();
+
+        // 震屏：世界层整体平移绘制，背景外扩 BACKGROUND_OVERSCAN_PX 防露边（屏幕级特效在还原后画）
+        gc.save();
+        gc.translate(shakeOffsetX(now), shakeOffsetY(now));
 
         if (mapBackground != null) {
             // 真实地图底图（含自带道路），不再叠画矢量土路
-            gc.drawImage(mapBackground, 0, 0, w, h);
+            gc.drawImage(mapBackground, -BACKGROUND_OVERSCAN_PX, -BACKGROUND_OVERSCAN_PX,
+                    w + 2 * BACKGROUND_OVERSCAN_PX, h + 2 * BACKGROUND_OVERSCAN_PX);
         } else {
             // 草地背景
             gc.setFill(Color.web(config.getColorBackground()));
-            gc.fillRect(0, 0, w, h);
+            gc.fillRect(-BACKGROUND_OVERSCAN_PX, -BACKGROUND_OVERSCAN_PX,
+                    w + 2 * BACKGROUND_OVERSCAN_PX, h + 2 * BACKGROUND_OVERSCAN_PX);
 
             // 深色路径（粗折线，拐点连线）
             double[] px = config.getPathX();
@@ -192,8 +288,19 @@ public class GameView implements IRenderNotifier,
             p.render(gc);
         }
 
+        // 爆炸粒子（世界坐标层：实体之上、选中环/飘字之下）
+        drawExplosionParticles();
+
         // 选中高亮（实体之上、结束遮罩之下）
         drawSelectionHighlight();
+
+        // 飘字（世界坐标层：实体之上、结束遮罩之下）
+        drawFloatingTexts();
+
+        gc.restore();   // 结束震屏平移
+
+        // 屏幕级特效（在还原后的坐标系绘制，自身不随震屏晃）
+        drawScreenFlash(now);
 
         syncEndOverlay();
         syncTowerSelection();
@@ -314,13 +421,32 @@ public class GameView implements IRenderNotifier,
         gc.strokeOval(cx - r, cy - r, r * 2, r * 2);
     }
 
-    /** draw() 尾部同步：选中塔已被移除（出售/重开/替换）→ 自动取消；面板可见则刷新 */
+    /** draw() 尾部同步：选中塔被移除（出售/重开）→ 自动取消；被升级原位替换（同坐标新塔）→ 选中转移 */
     private void syncTowerSelection() {
         if (selectedTower != null && !stateReader.getTowers().contains(selectedTower)) {
-            clearTowerSelection();
+            Tower replacement = towerNear(selectedTower.getX(), selectedTower.getY());
+            if (replacement != null) {
+                selectTower(replacement);   // 升级替换：选中/详情面板/高亮转移到新塔并即时刷新
+            } else {
+                clearTowerSelection();
+            }
             return;
         }
         if (detailPanel.isVisible()) detailPanel.refresh();
+    }
+
+    /** 距 (x,y) < SLOT_OCCUPY_RADIUS 的最近塔；无则 null（原位替换的新塔必然距离≈0；建塔间距 40 保证出售后无邻塔误命中） */
+    private Tower towerNear(double x, double y) {
+        Tower best = null;
+        double bestDist = SLOT_OCCUPY_RADIUS;
+        for (Tower t : stateReader.getTowers()) {
+            double d = Math.hypot(t.getX() - x, t.getY() - y);
+            if (d < bestDist) {
+                bestDist = d;
+                best = t;
+            }
+        }
+        return best;
     }
 
     /** 目录选型：在弹窗所对应塔位中心落塔；成败/扣钱由后端 placeTower 校验并推送 */
@@ -356,6 +482,7 @@ public class GameView implements IRenderNotifier,
         endRestartButton.setPrefWidth(180);
         endRestartButton.setOnAction(e -> {
             hideEnd();
+            clearTransientEffects();   // 防上一局的飘字/粒子在重开后残留
             onRestart.run();
         });
 
@@ -398,6 +525,14 @@ public class GameView implements IRenderNotifier,
         endShown = false;
     }
 
+    /** 清空时间驱动的临时特效（重开时调用；不清则残留至各自过期为止） */
+    private void clearTransientEffects() {
+        floatingTexts.clear();
+        particles.clear();
+        flashTint = null;
+        shakeDurationNanos = 0;
+    }
+
     /** 绘制塔位标点（半透明圆台 + 锤位示意，与 TowerSpotEditorTool 内画法一致；已占用变灰） */
     private void drawTowerSpots() {
         var spots = config.getTowerSpots();
@@ -421,20 +556,115 @@ public class GameView implements IRenderNotifier,
         }
     }
 
-    // ================= 视觉特效接口（骨架，D 后续填充实际绘制）=================
+    // ================= 视觉特效接口（D：飘字/粒子/闪屏/震屏已落地；Boss 预警待做）=================
     @Override
     public void showFloatingText(double x, double y, String text, String color) {
-        // TODO Day3+：维护一个"飘字"列表并在 draw() 中绘制
+        if (text == null || text.isBlank()) return;
+        floatingTexts.add(new FloatingText(x, y, text, parseColor(color, Color.WHITE),
+                System.nanoTime()));
+    }
+
+    /** 飘字绘制：随进度上浮 + 淡出；黑描边保证亮暗底可读；完成后复位文本相关画笔状态 */
+    private void drawFloatingTexts() {
+        if (floatingTexts.isEmpty()) return;
+        long now = System.nanoTime();
+        floatingTexts.removeIf(ft -> now - ft.birthNanos >= FLOATING_TEXT_LIFE_MS * 1_000_000L);
+        if (floatingTexts.isEmpty()) return;
+
+        gc.setFont(Font.font(null, FontWeight.BOLD, 13));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.BASELINE);
+        for (FloatingText ft : floatingTexts) {
+            double progress = (now - ft.birthNanos) / (double) (FLOATING_TEXT_LIFE_MS * 1_000_000L);
+            gc.setGlobalAlpha(1.0 - progress);
+            double ty = ft.y - FLOATING_TEXT_RISE_PX * progress;
+            gc.setLineWidth(2);
+            gc.setStroke(Color.BLACK);
+            gc.strokeText(ft.text, ft.x, ty);
+            gc.setFill(ft.color);
+            gc.fillText(ft.text, ft.x, ty);
+        }
+        // 复位画笔状态，避免泄漏到后续帧的其他绘制
+        gc.setGlobalAlpha(1.0);
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.setTextBaseline(VPos.BASELINE);
+    }
+
+    /** 粒子绘制：按进度向外平移（末段减速）+ 收缩 + 淡出；完成后复位 globalAlpha */
+    private void drawExplosionParticles() {
+        if (particles.isEmpty()) return;
+        long now = System.nanoTime();
+        particles.removeIf(p -> now - p.birthNanos >= p.lifeNanos);
+        if (particles.isEmpty()) return;
+
+        for (Particle p : particles) {
+            double progress = (now - p.birthNanos) / (double) p.lifeNanos;
+            double ease = 1.0 - (1.0 - progress) * (1.0 - progress);   // 初速快、末段慢
+            double lifeSec = p.lifeNanos / 1e9;
+            double px = p.x + p.vx * lifeSec * ease;
+            double py = p.y + p.vy * lifeSec * ease;
+            double r = p.radius * (1.0 - (1.0 - PARTICLE_SHRINK_TO) * progress);
+            gc.setGlobalAlpha(1.0 - progress);
+            gc.setFill(p.color);
+            gc.fillOval(px - r, py - r, r * 2, r * 2);
+        }
+        gc.setGlobalAlpha(1.0);   // 唯一需复位的状态（fill 泄漏与既有绘制习惯一致）
+    }
+
+    /** CSS 颜色串解析（命名色/hex 均可）；非法串回退 fallback 不崩 */
+    private static Color parseColor(String color, Color fallback) {
+        if (color == null || color.isBlank()) return fallback;
+        try {
+            return Color.web(color);
+        } catch (Exception e) {
+            return fallback;
+        }
     }
 
     @Override
     public void flashScreen(String color, int durationMs) {
-        // TODO Day8：全屏闪烁
+        if (durationMs <= 0) return;
+        flashTint = parseColor(color, Color.WHITE);   // hex 与命名色均可
+        flashStartNanos = System.nanoTime();
+        flashDurationNanos = durationMs * 1_000_000L;
     }
 
     @Override
     public void shakeScreen(int durationMs, int intensity) {
-        // TODO Day8：屏幕震动
+        if (durationMs <= 0 || intensity <= 0) return;
+        shakeStartNanos = System.nanoTime();
+        shakeDurationNanos = durationMs * 1_000_000L;
+        shakeIntensity = Math.min(intensity, SCREEN_SHAKE_MAX_PX);
+    }
+
+    /** 震屏横向偏移：满幅、1 倍频 */
+    private double shakeOffsetX(long now) { return shakeOffset(now, 1.0, 1.0); }
+
+    /** 震屏纵向偏移：6 成幅、1.7 倍频（与横向错开频率，避免只沿对角线晃动） */
+    private double shakeOffsetY(long now) { return shakeOffset(now, 0.6, 1.7); }
+
+    /** 震屏偏移：剩余时间线性衰减 × 正弦抖动；不在震动窗口内（含从未触发）返回 0 */
+    private double shakeOffset(long now, double amplitudeScale, double freqScale) {
+        if (shakeDurationNanos <= 0) return 0;
+        long end = shakeStartNanos + shakeDurationNanos;
+        if (now >= end) return 0;
+        double remain = (end - now) / (double) shakeDurationNanos;   // 1 → 0
+        double phase = (now - shakeStartNanos) / 1e9 * SHAKE_FREQ_HZ * freqScale * 2 * Math.PI;
+        return Math.sin(phase) * shakeIntensity * remain * amplitudeScale;
+    }
+
+    /** 闪屏：整画布铺一层传入颜色，alpha 随进度线性衰减；过期即清并复位画笔状态 */
+    private void drawScreenFlash(long now) {
+        if (flashTint == null) return;
+        if (now >= flashStartNanos + flashDurationNanos) {
+            flashTint = null;
+            return;
+        }
+        double progress = (now - flashStartNanos) / (double) flashDurationNanos;
+        gc.setGlobalAlpha(SCREEN_FLASH_MAX_ALPHA * (1.0 - progress));
+        gc.setFill(flashTint);
+        gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        gc.setGlobalAlpha(1.0);
     }
 
     @Override
@@ -444,7 +674,21 @@ public class GameView implements IRenderNotifier,
 
     @Override
     public void spawnExplosionParticles(double x, double y, String color, int count) {
-        // TODO Day4：爆炸粒子
+        if (count <= 0) return;
+        int n = Math.min(count, PARTICLE_COUNT_MAX);
+        Color base = parseColor(color, Color.ORANGE);   // hex 与命名色（如 "ORANGE"）均可
+        long now = System.nanoTime();
+        for (int i = 0; i < n; i++) {
+            double angle = particleRandom.nextDouble() * Math.PI * 2;   // 各向同性
+            double speed = PARTICLE_SPEED_MIN
+                    + particleRandom.nextDouble() * (PARTICLE_SPEED_MAX - PARTICLE_SPEED_MIN);
+            double lifeMs = PARTICLE_LIFE_MIN_MS
+                    + particleRandom.nextDouble() * (PARTICLE_LIFE_MAX_MS - PARTICLE_LIFE_MIN_MS);
+            double radius = PARTICLE_RADIUS_MIN
+                    + particleRandom.nextDouble() * (PARTICLE_RADIUS_MAX - PARTICLE_RADIUS_MIN);
+            particles.add(new Particle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed,
+                    base, radius, now, (long) (lifeMs * 1_000_000L)));
+        }
     }
 
     @Override
