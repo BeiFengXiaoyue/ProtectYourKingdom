@@ -1,0 +1,67 @@
+{
+  "name": "default_waves",
+  "waves": [
+    {
+      "id": 1,
+      "groups": [
+        {"type":"boss_enemy","count":2,"intervalMs":1000}
+      ]
+    },
+    {
+      "id": 2,
+      "groups": [
+        {"type":"normal_enemy","count":1,"intervalMs":1000},
+        {"type":"normal_enemy","count":1,"intervalMs":1000}
+      ]
+    },
+    {
+      "id": 3,
+      "groups": [
+        {"type":"normal_enemy","count":1,"intervalMs":1000},
+        {"type":"normal_enemy","count":1,"intervalMs":1000}
+      ]
+    },
+    {
+      "id": 4,
+      "groups": [
+        {"type":"normal_enemy","count":1,"intervalMs":1000},
+        {"type":"normal_enemy","count":1,"intervalMs":1000}
+      ]
+    },
+    {
+      "id": 5,
+      "groups": [
+        {"type":"normal_enemy","count":1,"intervalMs":1000},
+        {"type":"normal_enemy","count":1,"intervalMs":1000}
+      ]
+    },
+    {
+      "id": 6,
+      "groups": [
+        {"type":"normal_enemy","count":1,"intervalMs":1000},
+        {"type":"normal_enemy","count":1,"intervalMs":1000}
+      ]
+    },
+    {
+      "id": 7,
+      "groups": [
+        {"type":"normal_enemy","count":1,"intervalMs":1000},
+        {"type":"normal_enemy","count":1,"intervalMs":1000}
+      ]
+    },
+    {
+      "id": 8,
+      "groups": [
+        {"type":"normal_enemy","count":1,"intervalMs":1000},
+        {"type":"normal_enemy","count":1,"intervalMs":1000}
+      ]
+    },
+    {
+      "id": 9,
+      "groups": [
+        {"type":"normal_enemy","count":1,"intervalMs":1000},
+        {"type":"normal_enemy","count":1,"intervalMs":1000}
+      ]
+    }
+  ]
+}
