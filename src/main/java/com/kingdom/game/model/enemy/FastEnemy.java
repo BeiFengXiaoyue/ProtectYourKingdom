@@ -17,9 +17,8 @@ public class FastEnemy extends Enemy {
      * @param goldReward 击杀赏金
      */
     public FastEnemy(double x, double y, int hp, double speed, int goldReward) {
+        // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, hp, speed, goldReward);
-        setWidth(16);   // 比普通敌人（20）更小
-        setHeight(16);
         this.attackDamage = 4;
         this.maxAttackCooldown = 700;
     }

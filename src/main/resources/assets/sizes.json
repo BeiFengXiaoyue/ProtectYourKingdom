@@ -1,0 +1,18 @@
+{
+  "default": {"width":20,"height":20},
+  "entities": {
+    "Arrow": {"width":8,"height":8},
+    "ArrowTower": {"width":48,"height":48},
+    "Barrack": {"width":48,"height":48},
+    "Bomb": {"width":14,"height":14},
+    "BossEnemy": {"width":56,"height":56},
+    "CannonTower": {"width":48,"height":48},
+    "EliteArrowTower": {"width":48,"height":48},
+    "EliteBarrack": {"width":48,"height":48},
+    "EliteCannonTower": {"width":48,"height":48},
+    "FastEnemy": {"width":44,"height":44},
+    "NormalEnemy": {"width":48,"height":48},
+    "Soldier": {"width":32,"height":32},
+    "TankEnemy": {"width":44,"height":44}
+  }
+}

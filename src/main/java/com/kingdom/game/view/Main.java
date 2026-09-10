@@ -10,6 +10,7 @@ import com.kingdom.game.model.tower.ArrowTower;
 import com.kingdom.game.model.tower.Barrack;
 import com.kingdom.game.model.tower.CannonTower;
 import com.kingdom.game.util.asset.Assets;
+import com.kingdom.game.util.asset.SizeTable;
 import com.kingdom.game.util.audio.SoundManager;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -47,6 +48,12 @@ public class Main extends Application {
         // 单位行为动画登记（外部叠加层）：单位类零改动；JSON 缺帧/缺文件时保持原渲染
         view.registerUnitAnimation("enemies", "NormalEnemy",
                 "/assets/animations/enemies/normal_enemy.json");
+        view.registerUnitAnimation("enemies", "FastEnemy",
+                "/assets/animations/enemies/fast_enemy.json");
+        view.registerUnitAnimation("enemies", "TankEnemy",
+                "/assets/animations/enemies/tank_enemy.json");
+        view.registerUnitAnimation("enemies", "BossEnemy",
+                "/assets/animations/enemies/boss_enemy.json");
         view.registerUnitAnimation("allies", "Soldier",
                 "/assets/animations/allies/soldier.json");
         view.registerUnitAnimation("towers", "ArrowTower",
@@ -78,6 +85,7 @@ public class Main extends Application {
         controller.refreshUI();               // 推送初始生命/金币/波次到 HUD
 
         Assets.preload();                     // 预加载贴图（无图自动跳过）
+        SizeTable.getInstance().preload();    // 预加载实体尺寸表（缺文件回退默认，不阻断）
 
         BorderPane root = new BorderPane();
         root.setTop(hud.getNode());

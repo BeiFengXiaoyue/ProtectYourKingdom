@@ -33,9 +33,8 @@ public class Soldier extends Ally {
 
     public Soldier(double x, double y, int hp, double speed,
                    int attackDamage, int attackCooldown) {
+        // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, hp, speed, attackDamage, attackCooldown);
-        setWidth(18);
-        setHeight(18);
         this.homeX = x;
         this.homeY = y;
     }

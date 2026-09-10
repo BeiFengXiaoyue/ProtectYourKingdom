@@ -22,9 +22,8 @@ public class Arrow extends Projectile {
      * @param speed  飞行速度 px/s
      */
     public Arrow(double x, double y, Enemy target, int damage, double speed) {
+        // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, target, damage, speed);
-        setWidth(8);   // 细长形
-        setHeight(8);
     }
 
     /** 命中：目标仍存活则扣血；事件经基类事件槽发出（未接线时为空操作） */

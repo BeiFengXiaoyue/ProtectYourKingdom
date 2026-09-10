@@ -1,0 +1,11 @@
+{
+  "kind": "enemies",
+  "name": "fast_enemy",
+  "interval": 5,
+  "modes": {
+    "idle": ["enemies/fast_enemy/idle_0.png","enemies/fast_enemy/idle_1.png","enemies/fast_enemy/idle_2.png","enemies/fast_enemy/idle_3.png"],
+    "walk": ["enemies/fast_enemy/walk_0.png","enemies/fast_enemy/walk_1.png","enemies/fast_enemy/walk_2.png","enemies/fast_enemy/walk_3.png","enemies/fast_enemy/walk_4.png","enemies/fast_enemy/walk_5.png","enemies/fast_enemy/walk_6.png","enemies/fast_enemy/walk_7.png","enemies/fast_enemy/walk_8.png"],
+    "attack": ["enemies/fast_enemy/attack_0.png","enemies/fast_enemy/attack_1.png","enemies/fast_enemy/attack_2.png","enemies/fast_enemy/attack_3.png","enemies/fast_enemy/attack_4.png","enemies/fast_enemy/attack_5.png","enemies/fast_enemy/attack_6.png","enemies/fast_enemy/attack_7.png","enemies/fast_enemy/attack_8.png","enemies/fast_enemy/attack_9.png","enemies/fast_enemy/attack_10.png","enemies/fast_enemy/attack_11.png"],
+    "death": ["enemies/fast_enemy/death_0.png","enemies/fast_enemy/death_1.png","enemies/fast_enemy/death_2.png","enemies/fast_enemy/death_3.png","enemies/fast_enemy/death_4.png","enemies/fast_enemy/death_5.png","enemies/fast_enemy/death_6.png","enemies/fast_enemy/death_7.png","enemies/fast_enemy/death_8.png","enemies/fast_enemy/death_9.png","enemies/fast_enemy/death_10.png","enemies/fast_enemy/death_11.png","enemies/fast_enemy/death_12.png","enemies/fast_enemy/death_13.png","enemies/fast_enemy/death_14.png"]
+  }
+}

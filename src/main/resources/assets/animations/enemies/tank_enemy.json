@@ -1,0 +1,14 @@
+{
+  "kind": "enemies",
+  "name": "tank_enemy",
+  "interval": 6,
+  "modes": {
+    "attack": [ "enemies/tank_enemy/attack_0.png", "enemies/tank_enemy/attack_1.png", "enemies/tank_enemy/attack_2.png", "enemies/tank_enemy/attack_3.png", "enemies/tank_enemy/attack_4.png", "enemies/tank_enemy/attack_5.png", "enemies/tank_enemy/attack_6.png", "enemies/tank_enemy/attack_7.png", "enemies/tank_enemy/attack_8.png" ]
+,
+    "idle": [ "enemies/tank_enemy/idle_0.png", "enemies/tank_enemy/idle_1.png", "enemies/tank_enemy/idle_2.png", "enemies/tank_enemy/idle_3.png" ]
+,
+    "death": [ "enemies/tank_enemy/death_0.png", "enemies/tank_enemy/death_1.png", "enemies/tank_enemy/death_2.png", "enemies/tank_enemy/death_3.png", "enemies/tank_enemy/death_4.png", "enemies/tank_enemy/death_5.png", "enemies/tank_enemy/death_6.png", "enemies/tank_enemy/death_7.png", "enemies/tank_enemy/death_8.png" ]
+,
+    "walk": [ "enemies/tank_enemy/walk_0.png", "enemies/tank_enemy/walk_1.png", "enemies/tank_enemy/walk_2.png", "enemies/tank_enemy/walk_3.png", "enemies/tank_enemy/walk_4.png", "enemies/tank_enemy/walk_5.png", "enemies/tank_enemy/walk_6.png", "enemies/tank_enemy/walk_7.png", "enemies/tank_enemy/walk_8.png", "enemies/tank_enemy/walk_9.png", "enemies/tank_enemy/walk_10.png", "enemies/tank_enemy/walk_11.png", "enemies/tank_enemy/walk_12.png", "enemies/tank_enemy/walk_13.png" ]
+  }
+}
