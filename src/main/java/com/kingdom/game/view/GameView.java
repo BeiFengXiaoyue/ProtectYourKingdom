@@ -280,6 +280,7 @@ public class GameView implements IRenderNotifier,
         }
         for (Ally a : stateReader.getAllies()) {
             a.render(gc);
+            a.renderPostAnim(gc);   // 压在动画帧之上的单位标记（如精英兵种的金环/盔缨）
         }
         for (Enemy e : stateReader.getEnemies()) {
             e.render(gc);
@@ -611,13 +612,27 @@ public class GameView implements IRenderNotifier,
         gc.setGlobalAlpha(1.0);   // 唯一需复位的状态（fill 泄漏与既有绘制习惯一致）
     }
 
-    /** CSS 颜色串解析（命名色/hex 均可）；非法串回退 fallback 不崩 */
+    /**
+     * 颜色串解析：项目命名色优先（比 CSS 同名色更亮，保证亮暗底都可读），
+     * 其余交 Color.web（hex 与其它 CSS 色名），非法串回退 fallback 不崩。
+     */
     private static Color parseColor(String color, Color fallback) {
         if (color == null || color.isBlank()) return fallback;
-        try {
-            return Color.web(color);
-        } catch (Exception e) {
-            return fallback;
+        String c = color.trim();
+        switch (c.toUpperCase()) {
+            case "RED":    return Color.web("#ff4d4d");
+            case "GREEN":  return Color.web("#4dff88");
+            case "BLUE":   return Color.web("#4da6ff");
+            case "GOLD":   return Color.web("#ffd700");
+            case "ORANGE": return Color.web("#ffa53c");
+            case "YELLOW": return Color.web("#ffee58");
+            case "WHITE":  return Color.WHITE;
+            default:
+                try {
+                    return Color.web(c);
+                } catch (Exception e) {
+                    return fallback;
+                }
         }
     }
 

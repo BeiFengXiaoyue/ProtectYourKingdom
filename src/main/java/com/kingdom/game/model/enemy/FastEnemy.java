@@ -18,7 +18,7 @@ public class FastEnemy extends Enemy {
      */
     public FastEnemy(double x, double y, int hp, double speed, int goldReward) {
         super(x, y, hp, speed, goldReward);
-        setWidth(16);   // 比普通敌人（20）更小
+        setWidth(16);   // 比普通敌人（60）更小
         setHeight(16);
         this.attackDamage = 4;
         this.maxAttackCooldown = 700;

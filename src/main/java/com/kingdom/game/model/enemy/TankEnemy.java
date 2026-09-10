@@ -18,7 +18,7 @@ public class TankEnemy extends Enemy {
      */
     public TankEnemy(double x, double y, int hp, double speed, int goldReward) {
         super(x, y, hp, speed, goldReward);
-        setWidth(30);   // 比普通敌人（20）更大
+        setWidth(30);   // 未随普通敌人（60）同步放大，已比普通敌人小；如需保持"重甲更大"请上调
         setHeight(30);
         this.attackDamage = 9;
         this.maxAttackCooldown = 1400;

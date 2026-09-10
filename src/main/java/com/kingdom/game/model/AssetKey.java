@@ -14,6 +14,8 @@ public enum AssetKey {
     TANK_ENEMY("tank_enemy.png"),
     BOSS_ENEMY("boss_enemy.png"),
     SOLDIER("soldier.png"),
+    ELITE_SOLDIER("elite_soldier.png"),
+    ROYAL_SOLDIER("royal_soldier.png"),
     ARROW_TOWER("arrow_tower.png"),
     CANNON_TOWER("cannon_tower.png"),
     BARRACK("barrack.png"),

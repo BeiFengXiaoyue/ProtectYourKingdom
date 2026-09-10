@@ -5,7 +5,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
- * BossEnemy —— 第 10 波首领敌人（血量高、体型最大），沿预设路径走到终点。
+ * BossEnemy —— 第 10 波首领敌人（血量高、体型偏大），沿预设路径走到终点。
  * 数值（HP/速度/赏金）由 GameController 从 GameConfig 取值后经构造函数传入，类内不写死。
  * 近战手感：高伤（22）中速（1100ms 冷却），本体即威胁。
  *
@@ -36,7 +36,7 @@ public class BossEnemy extends Enemy {
      */
     public BossEnemy(double x, double y, int hp, double speed, int goldReward) {
         super(x, y, hp, speed, goldReward);
-        setWidth(46);   // 全场最大（普通敌人 20，重甲 30）
+        setWidth(46);   // 已小于放大后的普通敌人（60），如需保持"全场最大"请上调
         setHeight(46);
         this.attackDamage = 22;
         this.maxAttackCooldown = 1100;
