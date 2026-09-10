@@ -33,9 +33,9 @@ public class Main extends Application {
 
     @Override
     public void start(Stage stage) {
-        // ===== 数值配置（开发期可在此微调）=====
+        // ===== 数值配置：改数值请编辑 src/main/resources/config/balance.json，重启生效 =====
         GameConfig config = new GameConfig();
-        // 例：config.setInitialLives(30).setNormalStats(120, 80, 10);
+        // 运行期瞬时覆盖（可选）：config.setInitialLives(30).setNormalStats(120, 80, 10);
 
         GameState state = new GameState(config);
         WaveManager waveManager = new WaveManager();
