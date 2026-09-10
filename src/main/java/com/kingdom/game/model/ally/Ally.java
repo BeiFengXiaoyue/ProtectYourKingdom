@@ -29,13 +29,31 @@ public abstract class Ally extends LivingEntity {
     public abstract Enemy findTarget(List<Enemy> enemies);
 
     /**
-     * 近战出手：命中判定沿用基类，命中后补一条伤害飘字。
-     * 判定条件与基类 tryAttack 保持一致（眩晕/目标缺失/目标已死/冷却未到则不飘字）。
+     * 控制层每帧喂目标（契约帧序预留的"友方 AI"位）：
+     * 仅当无目标或目标已死时才接新目标，防逐帧换目标抖动；null 无操作。
+     * 碰撞直接锁定的目标（handleEntityCollision）优先级不变。
+     */
+    public void engage(Enemy e) {
+        if (e == null) return;
+        if (target == null || !target.isAlive()) target = e;
+    }
+
+    /**
+     * 近战出手：命中判定沿用基类，命中后交 {@link #onHit} 出表现。
+     * 判定条件与基类 tryAttack 保持一致（眩晕/目标缺失/目标已死/冷却未到则不处理）。
      */
     @Override
     public void tryAttack(LivingEntity target) {
         if (isStunned || target == null || !target.isAlive() || attackCooldown > 0) return;
         super.tryAttack(target);
+        onHit(target);
+    }
+
+    /**
+     * 命中表现：与 Bomb.onHit 同一套 fxText 写法——在被击中的目标头顶（y-24）
+     * 飘一条白色 "-伤害" 飘字。近战只做这一项，不加粒子/震屏等其它表现。
+     */
+    protected void onHit(LivingEntity target) {
         fxText.showFloatingText(target.getX(), target.getY() - 24, "-" + attackDamage, "WHITE");
     }
 

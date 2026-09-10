@@ -122,8 +122,9 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
             }
         }
 
-        // 友方：移动/AI（B 交付 Soldier 后生效）
+        // 友方：索敌 + 移动/AI（契约帧序的"友方 AI"位：视野内最近敌人喂给士兵，无目标时空转）
         for (Ally a : new ArrayList<>(allies)) {
+            a.engage(a.findTarget(enemies));
             a.update();
         }
 
