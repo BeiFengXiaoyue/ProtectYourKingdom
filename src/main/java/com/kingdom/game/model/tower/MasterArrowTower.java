@@ -31,7 +31,7 @@ public class MasterArrowTower extends EliteArrowTower implements IChainShot {
     @Override
     public void render(GraphicsContext gc) {
         // 贴图优先，未提供素材时回退为塔形色块（三级：金色描边 + 两颗金星）
-        if (!drawSprite(gc, AssetKey.ARROW_TOWER)) {
+        if (!drawSprite(gc, AssetKey.MASTER_ARROW_TOWER)) {
             double r = width / 2;
             gc.setFill(Color.web("#5b4a3a"));        // 底座
             gc.fillRect(x - r, y - r, width, height);

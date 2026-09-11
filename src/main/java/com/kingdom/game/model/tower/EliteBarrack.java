@@ -34,7 +34,7 @@ public class EliteBarrack extends Barrack {
     @Override
     public void render(GraphicsContext gc) {
         // 贴图优先，未提供素材时回退为营房色块（金色屋顶标记，与 1 级区分）
-        if (!drawSprite(gc, AssetKey.BARRACK)) {
+        if (!drawSprite(gc, AssetKey.ELITE_BARRACK)) {
             double r = width / 2;
             gc.setFill(Color.web("#62814a"));        // 营房
             gc.fillRect(x - r, y - r, width, height);

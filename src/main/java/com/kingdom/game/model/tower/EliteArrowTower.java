@@ -23,7 +23,7 @@ public class EliteArrowTower extends ArrowTower {
     @Override
     public void render(GraphicsContext gc) {
         // 贴图优先，未提供素材时回退为塔形色块（加金色描边/塔尖标记，与 1 级区分）
-        if (!drawSprite(gc, AssetKey.ARROW_TOWER)) {
+        if (!drawSprite(gc, AssetKey.ELITE_ARROW_TOWER)) {
             double r = width / 2;
             gc.setFill(Color.web("#5b4a3a"));        // 底座
             gc.fillRect(x - r, y - r, width, height);
