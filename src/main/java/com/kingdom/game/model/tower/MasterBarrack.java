@@ -30,7 +30,7 @@ public class MasterBarrack extends EliteBarrack implements IHealAura {
         this.spawnIntervalMillis = (long) TowerBalance.getInt("barrackL3", "spawnIntervalMs", 5000);
         this.soldierHp = TowerBalance.getInt("barrackL3", "soldierHp", 80);
         this.soldierSpeed = TowerBalance.getDouble("barrackL3", "soldierSpeed", 40);
-        this.soldierAttack = TowerBalance.getInt("barrackL3", "soldierAttack", 8);
+        this.soldierAttack = TowerBalance.getInt("barrackL3", "soldierAttack", 11);
         this.soldierCooldown = TowerBalance.getInt("barrackL3", "soldierCooldown", 800);
         this.totalCost = Barrack.BUILD_COST
                 + Barrack.UPGRADE_COST

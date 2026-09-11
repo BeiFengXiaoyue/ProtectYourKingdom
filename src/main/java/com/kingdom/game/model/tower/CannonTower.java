@@ -53,8 +53,8 @@ public class CannonTower extends Tower implements ITowerUpgrade {
     public CannonTower(double x, double y) {
         super(x, y);
         this.attackRange = TowerBalance.getDouble("cannonL1", "range", 140);
-        this.attackCooldown = TowerBalance.getInt("cannonL1", "cooldownMs", 1500);
-        this.baseAttackDamage = TowerBalance.getInt("cannonL1", "damage", 45);
+        this.attackCooldown = TowerBalance.getInt("cannonL1", "cooldownMs", 1800);
+        this.baseAttackDamage = TowerBalance.getInt("cannonL1", "damage", 63);
         this.totalCost = BUILD_COST;
         this.splashRadius = BalanceTable.runtime().getCannonSplashRadius();
         this.nextLevelSpec = new TowerSpec(TowerType.CANNON_ELITE, "精英炮塔", UPGRADE_COST);

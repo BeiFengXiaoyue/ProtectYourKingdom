@@ -83,7 +83,7 @@ public class Barrack extends Tower implements ITowerUpgrade {
         this.spawnIntervalMillis = (long) TowerBalance.getInt("barrackL1", "spawnIntervalMs", 5000);
         this.soldierHp = TowerBalance.getInt("barrackL1", "soldierHp", 50);
         this.soldierSpeed = TowerBalance.getDouble("barrackL1", "soldierSpeed", 40);
-        this.soldierAttack = TowerBalance.getInt("barrackL1", "soldierAttack", 8);
+        this.soldierAttack = TowerBalance.getInt("barrackL1", "soldierAttack", 11);
         this.soldierCooldown = TowerBalance.getInt("barrackL1", "soldierCooldown", 800);
         this.nextLevelSpec = new TowerSpec(TowerType.BARRACK_ELITE, "精英兵营", UPGRADE_COST);
     }

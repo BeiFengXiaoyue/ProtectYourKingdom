@@ -26,7 +26,7 @@ public class MasterCannonTower extends EliteCannonTower implements IBurnEffect {
 
     public MasterCannonTower(double x, double y) {
         super(x, y);
-        this.baseAttackDamage = TowerBalance.getInt("cannonL3", "damage", 110);
+        this.baseAttackDamage = TowerBalance.getInt("cannonL3", "damage", 154);
         this.splashRadius = BalanceTable.runtime().getMasterCannonSplashRadius();
         this.totalCost = CannonTower.BUILD_COST
                 + CannonTower.UPGRADE_COST

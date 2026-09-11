@@ -30,7 +30,7 @@ public class EliteCannonTower extends CannonTower {
 
     public EliteCannonTower(double x, double y) {
         super(x, y);
-        this.baseAttackDamage = TowerBalance.getInt("cannonL2", "damage", 70);
+        this.baseAttackDamage = TowerBalance.getInt("cannonL2", "damage", 98);
         this.splashRadius = BalanceTable.runtime().getEliteCannonSplashRadius();
         this.totalCost = CannonTower.BUILD_COST + CannonTower.UPGRADE_COST;
         this.nextLevelSpec = new TowerSpec(TowerType.CANNON_MASTER, "大师炮塔", UPGRADE_COST);

@@ -25,8 +25,8 @@ public class MasterArrowTower extends EliteArrowTower implements IChainShot {
     public MasterArrowTower(double x, double y) {
         super(x, y);
         this.attackRange = TowerBalance.getDouble("arrowL3", "range", 140);
-        this.attackCooldown = TowerBalance.getInt("arrowL3", "cooldownMs", 440);
-        this.baseAttackDamage = TowerBalance.getInt("arrowL3", "damage", 41);
+        this.attackCooldown = TowerBalance.getInt("arrowL3", "cooldownMs", 600);
+        this.baseAttackDamage = TowerBalance.getInt("arrowL3", "damage", 57);
         this.totalCost = ArrowTower.BUILD_COST
                 + ArrowTower.UPGRADE_COST
                 + EliteArrowTower.UPGRADE_COST;

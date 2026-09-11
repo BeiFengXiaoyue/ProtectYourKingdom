@@ -46,8 +46,8 @@ public class ArrowTower extends Tower implements ITowerUpgrade {
     public ArrowTower(double x, double y) {
         super(x, y);
         this.attackRange = TowerBalance.getDouble("arrowL1", "range", 120);
-        this.attackCooldown = TowerBalance.getInt("arrowL1", "cooldownMs", 550);
-        this.baseAttackDamage = TowerBalance.getInt("arrowL1", "damage", 18);
+        this.attackCooldown = TowerBalance.getInt("arrowL1", "cooldownMs", 700);
+        this.baseAttackDamage = TowerBalance.getInt("arrowL1", "damage", 25);
         this.totalCost = BUILD_COST;
         this.nextLevelSpec = new TowerSpec(TowerType.ARROW_ELITE, "精英箭塔", UPGRADE_COST);
     }

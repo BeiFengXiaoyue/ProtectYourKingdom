@@ -29,8 +29,8 @@ public class EliteArrowTower extends ArrowTower {
     public EliteArrowTower(double x, double y) {
         super(x, y);
         this.attackRange = TowerBalance.getDouble("arrowL2", "range", 140);
-        this.attackCooldown = TowerBalance.getInt("arrowL2", "cooldownMs", 550);
-        this.baseAttackDamage = TowerBalance.getInt("arrowL2", "damage", 27);
+        this.attackCooldown = TowerBalance.getInt("arrowL2", "cooldownMs", 700);
+        this.baseAttackDamage = TowerBalance.getInt("arrowL2", "damage", 38);
         this.totalCost = ArrowTower.BUILD_COST + ArrowTower.UPGRADE_COST;
         this.nextLevelSpec = new TowerSpec(TowerType.ARROW_MASTER, "大师箭塔", UPGRADE_COST);
     }
