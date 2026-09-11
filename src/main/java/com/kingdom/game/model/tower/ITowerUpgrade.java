@@ -19,4 +19,13 @@ public interface ITowerUpgrade {
 
     /** 是否已满级（无更高一级） */
     boolean isMaxLevel();
+
+    /**
+     * 本塔等级（1 / 2 / 3）。
+     *
+     * 等级由**类身份**决定（每级 = 独立塔类，见《防御塔子系统说明》§8）：各级塔类以
+     * {@code public static final int LEVEL} 声明并由本方法返回；
+     * {@code Tower} 基类**不再持有 level 字段**（旧的可变 level 与其 {@code upgrade()} 已删除）。
+     */
+    int getLevel();
 }

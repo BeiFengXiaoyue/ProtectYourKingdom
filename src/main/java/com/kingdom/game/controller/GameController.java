@@ -14,8 +14,10 @@ import com.kingdom.game.model.enemy.NormalEnemy;
 import com.kingdom.game.model.enemy.TankEnemy;
 import com.kingdom.game.model.projectile.Projectile;
 import com.kingdom.game.model.tower.Barrack;
+import com.kingdom.game.model.tower.ITowerUpgrade;
 import com.kingdom.game.model.tower.Tower;
 import com.kingdom.game.util.map.LevelWaves;
+import com.kingdom.game.util.map.MapLibrary;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +39,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
     private static final double PATH_CLEARANCE = 30;   // 塔中心离路径中线的最近距离下限
     private static final double TOWER_SPACING = 40;    // 塔之间最小间距
+    private static final int BOSS_STOMP_STUN_MS = 3000; // Boss 震地 → 全塔眩晕时长（《整改方案》§7 P1-3）
 
     private final GameState state;
     private final WaveManager waveManager;
@@ -108,6 +111,14 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         towerFactories.put(type, factory);
     }
 
+    /**
+     * 登记升级链工厂（《防御塔子系统说明》§10）：只进工厂表、不进 config.towerSpecs，
+     * 升级级塔不会出现在建塔目录；供 upgradeTower 原位替换取下一级工厂。
+     */
+    public void registerUpgradeFactory(TowerType type, BiFunction<Double, Double, Tower> factory) {
+        if (type != null && factory != null) towerFactories.put(type, factory);
+    }
+
     // ================= IGameLoop =================
     @Override
     public void update(long nanoTime) {
@@ -122,6 +133,9 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         }
 
         waveManager.update(nanoTime, this::spawnEnemy);
+
+        // Boss 震地结算（须在塔循环之前：本帧眩晕立即生效）
+        settleBossStompRequests();
 
         // 塔：索敌开火（A 交付具体塔后生效）
         for (Tower t : new ArrayList<>(towers)) {
@@ -172,7 +186,8 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         allies.removeIf(a -> !a.isAlive());
 
         // 一波结束：出怪完毕且场上清空 → 允许下一波 / 判定胜利
-        if (waveInProgress && !waveManager.isSpawning() && enemies.isEmpty()) {
+        // 生命耗尽是终局，优先于"本波结束"：最后一个敌人进家扣光生命时，本帧只出失败信号
+        if (!state.isGameOver() && waveInProgress && !waveManager.isSpawning() && enemies.isEmpty()) {
             waveInProgress = false;
             if (state.getWave() >= state.getTotalWaves()) {
                 if (endSound != null) endSound.onVictory();
@@ -186,6 +201,19 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         }
 
         if (renderNotifier != null) renderNotifier.requestRender();
+    }
+
+    /**
+     * Boss 震地结算：实体只把请求记在 {@link BossEnemy#consumeStompRequest()} 标记里，
+     * 控制层每帧轮询一次，命中则全塔眩晕 3 秒（契约：实体不改全局列表，结算权归 GameController）。
+     * 现状：仅半血狂暴触发一次；B 的"狂暴后每 15s"计时落地后本方法自动变周期性，无需再改。
+     */
+    private void settleBossStompRequests() {
+        for (Enemy e : enemies) {
+            if (e instanceof BossEnemy && ((BossEnemy) e).consumeStompRequest()) {
+                for (Tower t : towers) t.stun(BOSS_STOMP_STUN_MS);
+            }
+        }
     }
 
     /** 敌我近战碰撞检测（O(n*m)，规模小可接受；后续可换网格优化） */
@@ -270,6 +298,20 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     /** 向实体注入事件通道（注册/放置时调用） */
     private void attachFx(GameObject obj) {
         obj.attachEffects(combatSound, fxText, fxScreen, fxParticle, fxSelection);
+    }
+
+    /** 建塔/升级共用接线（§11 一致性要求）：投射物出口（含投射物事件通道）+ 塔事件槽 + 兵营友方出口 */
+    private void injectTowerChannels(Tower tower) {
+        // 投射物入注册表时注入事件通道：命中音效/飘字经事件槽发出（缺注入则静默落到 FxNop）
+        tower.setProjectileSink(p -> {
+            attachFx(p);
+            projectiles.add(p);
+        });
+        attachFx(tower);
+        // 兵营：注入“友方出口”→ 产出的士兵加入 allies 注册表
+        if (tower instanceof Barrack) {
+            ((Barrack) tower).setAllySink(this::addAlly);
+        }
     }
 
     /** 友方（士兵等）入战场：注入事件通道 + 驻守点 + 加入注册表 + 出兵音效 */
@@ -403,12 +445,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         Tower tower = factory.apply(x, y);
         tower.setX(x);
         tower.setY(y);
-        tower.setProjectileSink(p -> projectiles.add(p));
-        attachFx(tower);
-        // 兵营：注入“友方出口”→ 产出的士兵加入 allies 注册表（A 接线）
-        if (tower instanceof Barrack) {
-            ((Barrack) tower).setAllySink(this::addAlly);
-        }
+        injectTowerChannels(tower);
         towers.add(tower);
 
         if (towerSound != null) towerSound.onTowerPlaced(type);
@@ -417,16 +454,39 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         return true;
     }
 
+    /**
+     * 升级 = 原位替换（《防御塔子系统说明》§11）：校验满级/工厂/金币 → 扣下一级造价 →
+     * 同坐标经工厂建下一级塔 → 注入通道 → 注册表原位替换 → 旧塔 destroy（不走 sell() 防误退款）。
+     * 费用语义（§12）：升级价 = nextSpec.getCost()；替换后 totalCost 由下一级塔构造函数
+     * 按"累计投入"设定（精英塔类已内置，与默认升级链一致）。
+     */
     @Override
     public void upgradeTower(Tower tower) {
-        if (tower == null) return;
-        int cost = tower.getUpgradeCost();
-        if (!state.spendGold(cost)) {
-            notifyMessage("金币不足，无法升级");
+        int idx = tower == null ? -1 : towers.indexOf(tower);
+        if (idx < 0) return;                          // stale 引用（已替换/已出售）防重复扣费
+        if (!(tower instanceof ITowerUpgrade)) {
+            notifyMessage("该塔不支持升级");
             return;
         }
-        tower.upgrade();
-        if (towerSound != null) towerSound.onTowerUpgraded(tower);
+        TowerSpec next = ((ITowerUpgrade) tower).getNextLevelSpec();
+        if (next == null) {
+            notifyMessage("该塔已满级");
+            return;
+        }
+        BiFunction<Double, Double, Tower> factory = towerFactories.get(next.getType());
+        if (factory == null) {
+            notifyMessage("下一级尚未开放");
+            return;
+        }
+        if (!state.spendGold(next.getCost())) {
+            notifyMessage("金币不足！升级需要 " + next.getCost());
+            return;
+        }
+        Tower upgraded = factory.apply(tower.getX(), tower.getY());
+        injectTowerChannels(upgraded);
+        towers.set(idx, upgraded);
+        tower.destroy();
+        if (towerSound != null) towerSound.onTowerUpgraded(upgraded);
         notifyGold(state.getGold());
         if (renderNotifier != null) renderNotifier.requestRender();
     }
@@ -486,19 +546,112 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
     // ================= 重开一局 =================
     public void resetGame() {
-        enemies.clear();
-        towers.clear();
-        projectiles.clear();
-        allies.clear();
+        clearBattlefield();
         state.reset();
-        waveManager.reset();
-        waveInProgress = false;
-        countdownDeadlineNanos = -1;
-        activeIntermissionMs = 0;
         notifyGold(state.getGold());
         notifyLives(state.getLives());
         notifyMessage("游戏已重置，点击「开始波次」开战！");
         if (renderNotifier != null) renderNotifier.requestRender();
+    }
+
+    /** 清空战场：敌/塔/投射物/友方 + 波次进度与节奏标志（重开与切关共用）。 */
+    private void clearBattlefield() {
+        enemies.clear();
+        towers.clear();
+        projectiles.clear();
+        allies.clear();
+        waveManager.reset();
+        waveInProgress = false;
+        countdownDeadlineNanos = -1;
+        activeIntermissionMs = 0;
+    }
+
+    // ================= 多关卡（运行期切图；契约见《多关卡与运行期切图-接口规范》§3.3）=================
+    // 说明：本批仅"铺能力"，以下方法暂无调用方（UI 入口留待阶段二），故不影响当前运行行为。
+
+    /** 全部关卡，顺序即关卡顺序（maps/index.json 数组顺序）。 */
+    public List<LevelInfo> getLevels() {
+        List<MapLibrary.MapEntry> entries = MapLibrary.listMapsFromClasspath();
+        List<LevelInfo> levels = new ArrayList<>(entries.size());
+        for (int i = 0; i < entries.size(); i++) {
+            MapLibrary.MapEntry e = entries.get(i);
+            levels.add(new LevelInfo(i, e.getKey(), e.getName()));
+        }
+        return levels;
+    }
+
+    /** 关卡总数。 */
+    public int getLevelCount() { return getLevels().size(); }
+
+    /** 当前关卡信息；当前 key 未登记时返回 null。 */
+    public LevelInfo getCurrentLevel() {
+        String cur = config.getMapKey();
+        if (cur == null) return null;
+        for (LevelInfo li : getLevels()) {
+            if (li.getKey().equals(cur)) return li;
+        }
+        return null;
+    }
+
+    /** 当前关卡 key（= 当前地图 key）。 */
+    public String getCurrentLevelKey() { return config.getMapKey(); }
+
+    /** 当前关卡序号；未匹配到返回 -1。 */
+    public int getCurrentLevelIndex() {
+        LevelInfo cur = getCurrentLevel();
+        return cur == null ? -1 : cur.getIndex();
+    }
+
+    /** 是否存在下一关。 */
+    public boolean hasNextLevel() {
+        int i = getCurrentLevelIndex();
+        return i >= 0 && i + 1 < getLevelCount();
+    }
+
+    /** 是否存在上一关。 */
+    public boolean hasPrevLevel() { return getCurrentLevelIndex() > 0; }
+
+    /** 跳转到下一关；无下一关返回 false（状态零变化）。 */
+    public boolean goNextLevel() {
+        int i = getCurrentLevelIndex();
+        return i >= 0 && switchLevelAt(i + 1);
+    }
+
+    /** 跳转到上一关；无上一关返回 false（状态零变化）。 */
+    public boolean goPrevLevel() {
+        int i = getCurrentLevelIndex();
+        return i > 0 && switchLevelAt(i - 1);
+    }
+
+    /**
+     * 跳转到指定关卡（按 key）：成功则清空战场、按新关重置金币/生命/波次并通知 UI；
+     * 失败（key 不存在或地图数据缺失）返回 false 且**状态零变化**。
+     */
+    public boolean switchLevel(String key) {
+        if (!config.loadMap(key)) {
+            notifyMessage("关卡不存在或地图数据缺失：" + key);
+            return false;
+        }
+        clearBattlefield();
+        state.applyConfig(config);
+        notifyGold(state.getGold());
+        notifyLives(state.getLives());
+        notifyMessage("已切换关卡：" + config.getMapDisplayName());
+        if (renderNotifier != null) renderNotifier.requestRender();
+        return true;
+    }
+
+    /** 按序号跳转（越界返回 false，状态零变化）。 */
+    public boolean switchLevelAt(int index) {
+        List<LevelInfo> levels = getLevels();
+        if (index < 0 || index >= levels.size()) return false;
+        return switchLevel(levels.get(index).getKey());
+    }
+
+    /** 重开本关（不切图）：战场与状态重置，地图不变。 */
+    public boolean restartLevel() {
+        resetGame();
+        return true;
     }
 
     // ================= 内部通知小工具 =================

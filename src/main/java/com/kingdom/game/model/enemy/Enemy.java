@@ -27,11 +27,17 @@ public abstract class Enemy extends LivingEntity {
     protected LivingEntity engagedTarget = null;
     protected boolean isEngaged = false;
 
+    /**
+     * 常用构造：hp/speed/goldReward 由调用方传入。
+     *
+     * ⚠️ 近战参数 `attackDamage` / `maxAttackCooldown` **不在此设置**——基类原先写死的
+     * 5 / 1000 已按《整改方案》§7 P0-1 删除（属"待删除的写死值"）。
+     * **每个具体子类必须自行设置这两项**（经构造参数注入，或老签名重载从
+     * config/balance.json 取），否则近战伤害为 0。
+     */
     public Enemy(double x, double y, int hp, double speed, int goldReward) {
         super(x, y, hp, speed, Faction.ENEMY);
         this.goldReward = goldReward;
-        this.attackDamage = 5;          // 默认近战攻击力（子类可覆写）
-        this.maxAttackCooldown = 1000;  // 默认近战冷却 1s
     }
 
     // ===== 碰撞反应：遇友方进入拦截 =====

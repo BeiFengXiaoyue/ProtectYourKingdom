@@ -1,27 +1,43 @@
 package com.kingdom.game.model.enemy;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.util.balance.BalanceTable;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
  * FastEnemy —— 快速敌人（黄色，速度约为普通敌人 2 倍，体型略小），沿预设路径走到终点。
- * 数值（HP/速度/赏金）由 GameController 从 GameConfig 取值后经构造函数传入，类内不写死。
+ * 数值（HP/速度/赏金/攻击力/攻击冷却）由调用方取值后经构造函数传入，类内不写死。
  * 近战手感：攻速快（700ms 冷却）但伤害低（4），骚扰型单位。
  */
 public class FastEnemy extends Enemy {
 
     /**
-     * @param hp         生命值（调用方从 GameConfig 取值传入）
+     * 老签名（保留重载，B-4）：近战参数从 config/balance.json 取
+     * （`fastAttackDamage` / `fastAttackCooldownMs`，缺省回退 4 / 700）。
+     *
+     * @param hp         生命值
      * @param speed      移动速度 px/s
      * @param goldReward 击杀赏金
      */
     public FastEnemy(double x, double y, int hp, double speed, int goldReward) {
+        this(x, y, hp, speed, goldReward,
+                BalanceTable.runtime().getFastAttackDamage(),
+                BalanceTable.runtime().getFastAttackCooldownMs());
+    }
+
+    /**
+     * B-4 扩参构造：近战参数由调用方（`GameController.spawnEnemy` 经 `GameConfig`）显式注入。
+     *
+     * @param attackDamage      近战攻击力（≥1）
+     * @param attackCooldownMs  近战攻击冷却 ms（≥1）
+     */
+    public FastEnemy(double x, double y, int hp, double speed, int goldReward,
+                     int attackDamage, int attackCooldownMs) {
+        // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, hp, speed, goldReward);
-        setWidth(16);   // 比普通敌人（20）更小
-        setHeight(16);
-        this.attackDamage = 4;
-        this.maxAttackCooldown = 700;
+        this.attackDamage = attackDamage;
+        this.maxAttackCooldown = attackCooldownMs;
     }
 
     @Override

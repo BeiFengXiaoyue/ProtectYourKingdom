@@ -99,10 +99,15 @@ public final class SoundManager implements IWaveSound, ITowerSound, IUnitSound, 
     }
 
     private void playInternal(String file, double rate) {
+        playInternal(file, rate, DEFAULT_VOLUME);
+    }
+
+    private void playInternal(String file, double rate, double volume) {
         try {
             AudioClip clip = clip(file);
             if (clip != null) {
                 clip.setRate(rate);
+                clip.setVolume(volume);
                 clip.play();
             }
         } catch (Exception e) {
@@ -135,7 +140,8 @@ public final class SoundManager implements IWaveSound, ITowerSound, IUnitSound, 
     // ================= IUnitSound =================
     @Override
     public void onUnitSpawned(LivingEntity unit) {
-        playThrottled("unit_spawn.wav", 300);
+        // 出兵较频繁：音量压低（0.35 → 0.15），避免连续出兵刺耳
+        playInternal("unit_spawn.wav", 1.0, 0.15);
     }
 
     // ================= ICombatSound =================

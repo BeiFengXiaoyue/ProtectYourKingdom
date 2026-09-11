@@ -12,12 +12,19 @@ import java.util.Set;
 /**
  * BalanceTable —— 玩法数值数据类（唯一内置默认持有者）。
  *
- * 当前纳入 JSON 化的字段（15 个，分 5 组）：
+ * 当前纳入 JSON 化的字段（29 个，分 9 组）：
  * - ① 玩家开局：initialGold / initialLives / totalWaves
  * - ② 普通敌人：normalHp / normalSpeed / normalGoldReward
  * - ③ 快速敌人：fastHp / fastSpeed / fastGoldReward
  * - ④ 重甲敌人：tankHp / tankSpeed / tankGoldReward
  * - ⑤ Boss：bossHp / bossSpeed / bossGoldReward
+ * - ⑥ 敌人近战（《整改方案》§7 P0-1）：
+ *      {normal|fast|tank|boss}AttackDamage / …AttackCooldownMs
+ * - ⑦ 重甲减伤（《整改方案》§7 P0-3）：tankPhysicalReduction，范围 [0,1)
+ * - ⑧ 炮塔溅射半径（《整改方案》§7 P1-1）：{cannon|eliteCannon|masterCannon}SplashRadius，
+ *      必须 > 0；由各炮塔构造期经 {@link #runtime()} 读取并传给 Bomb
+ * - ⑨ Boss 狂暴机制（《整改方案》§7 P1-3 / B-2）：bossStompIntervalMs（>0）、
+ *      bossEnrageAttackCooldownCut（[0,1)）；由 {@code BossEnemy} 构造期经 {@link #runtime()} 读取
  *
  * 波次节奏字段（waveEnemyCount / waveSpawnIntervalMs / waveIntermissionMs /
  * earlyStartRewardCap）不纳入 JSON 化，仍由 GameConfig 字面量默认值管理，
@@ -25,7 +32,8 @@ import java.util.Set;
  *
  * 职责：
  * - 承载 config/balance.json 的固定数值字段（强类型，有 getter/setter）；
- * - 额外支持动态扩展字段（extra Map），供编辑器添加未来新增的变量；
+ * - 额外支持动态扩展字段（extra Map），供编辑器添加未来新增的变量
+ *   （⚠️ 这些字段**运行期无人读取**，fromJson 遇到未知键会打印 `[BalanceTable]` 告警）；
  * - toJson() / fromJson() 读写（复用 util.json.MiniJson，不引第三方库）；
  * - defaults() 提供内置默认，文件缺失/字段非法时回退；
  * - loadFromClasspath() 供运行期 GameConfig 读取，缺失返回 null（不抛异常）。
@@ -57,6 +65,30 @@ public final class BalanceTable {
     private double bossSpeed;
     private int bossGoldReward;
 
+    // ===== ⑥ 敌人近战：攻击力 / 攻击冷却（ms）=====
+    private int normalAttackDamage;
+    private int normalAttackCooldownMs;
+    private int fastAttackDamage;
+    private int fastAttackCooldownMs;
+    private int tankAttackDamage;
+    private int tankAttackCooldownMs;
+    private int bossAttackDamage;
+    private int bossAttackCooldownMs;
+
+    // ===== ⑦ 重甲物理减伤（比例，0 ≤ v < 1；0 = 不减伤）=====
+    private double tankPhysicalReduction;
+
+    // ===== ⑧ 炮塔溅射半径（px，> 0；《整改方案》§7 P1-1）=====
+    private double cannonSplashRadius;
+    private double eliteCannonSplashRadius;
+    private double masterCannonSplashRadius;
+
+    // ===== ⑨ Boss 狂暴机制（《整改方案》§7 P1-3 / B-2）=====
+    /** 狂暴后震地间隔 ms（> 0）：每间隔触发一次全塔眩晕请求 */
+    private int bossStompIntervalMs;
+    /** 狂暴后攻击冷却削减比例（[0,1)）：0.3 = 攻击间隔砍 30%（冷却 ×0.7）；0 = 不改 */
+    private double bossEnrageAttackCooldownCut;
+
     /** 动态扩展字段：编辑器添加的未来变量，fromJson 未知键自动收入此 Map，toJson 一并写出 */
     private final Map<String, Object> extra = new LinkedHashMap<>();
 
@@ -87,6 +119,24 @@ public final class BalanceTable {
         b.bossHp = 1500;
         b.bossSpeed = 40.0;
         b.bossGoldReward = 200;
+        // 敌人近战：攻击力 / 攻击冷却（= 实体类原有写死值，改造后表现不变）
+        b.normalAttackDamage = 5;
+        b.normalAttackCooldownMs = 1000;
+        b.fastAttackDamage = 4;
+        b.fastAttackCooldownMs = 700;
+        b.tankAttackDamage = 9;
+        b.tankAttackCooldownMs = 1400;
+        b.bossAttackDamage = 22;
+        b.bossAttackCooldownMs = 1100;
+        // 重甲物理减伤（30%，仅普通箭矢吃减伤；炮塔破甲无视）
+        b.tankPhysicalReduction = 0.3;
+        // 炮塔溅射半径（《建筑与怪物机制策划》L1/L2/L3 = 50/65/80）
+        b.cannonSplashRadius = 50.0;
+        b.eliteCannonSplashRadius = 65.0;
+        b.masterCannonSplashRadius = 80.0;
+        // Boss 狂暴机制（《策划》§3.2：狂暴后每 15s 震地一次；攻击间隔砍 30%）
+        b.bossStompIntervalMs = 15000;
+        b.bossEnrageAttackCooldownCut = 0.3;
         return b;
     }
 
@@ -145,6 +195,61 @@ public final class BalanceTable {
     public int getBossGoldReward() { return bossGoldReward; }
     public void setBossGoldReward(int v) { this.bossGoldReward = v; }
 
+    // ================= ⑥ 敌人近战 Getter / Setter =================
+
+    public int getNormalAttackDamage() { return normalAttackDamage; }
+    public void setNormalAttackDamage(int v) { this.normalAttackDamage = v; }
+
+    public int getNormalAttackCooldownMs() { return normalAttackCooldownMs; }
+    public void setNormalAttackCooldownMs(int v) { this.normalAttackCooldownMs = v; }
+
+    public int getFastAttackDamage() { return fastAttackDamage; }
+    public void setFastAttackDamage(int v) { this.fastAttackDamage = v; }
+
+    public int getFastAttackCooldownMs() { return fastAttackCooldownMs; }
+    public void setFastAttackCooldownMs(int v) { this.fastAttackCooldownMs = v; }
+
+    public int getTankAttackDamage() { return tankAttackDamage; }
+    public void setTankAttackDamage(int v) { this.tankAttackDamage = v; }
+
+    public int getTankAttackCooldownMs() { return tankAttackCooldownMs; }
+    public void setTankAttackCooldownMs(int v) { this.tankAttackCooldownMs = v; }
+
+    public int getBossAttackDamage() { return bossAttackDamage; }
+    public void setBossAttackDamage(int v) { this.bossAttackDamage = v; }
+
+    public int getBossAttackCooldownMs() { return bossAttackCooldownMs; }
+    public void setBossAttackCooldownMs(int v) { this.bossAttackCooldownMs = v; }
+
+    // ================= ⑦ 重甲减伤 Getter / Setter =================
+
+    public double getTankPhysicalReduction() { return tankPhysicalReduction; }
+    public void setTankPhysicalReduction(double v) { this.tankPhysicalReduction = v; }
+
+    // ================= ⑧ 炮塔溅射半径 Getter / Setter =================
+
+    /** 1 级炮塔 Bomb 溅射半径 px（默认 50） */
+    public double getCannonSplashRadius() { return cannonSplashRadius; }
+    public void setCannonSplashRadius(double v) { this.cannonSplashRadius = v; }
+
+    /** 2 级精英炮塔 Bomb 溅射半径 px（默认 65） */
+    public double getEliteCannonSplashRadius() { return eliteCannonSplashRadius; }
+    public void setEliteCannonSplashRadius(double v) { this.eliteCannonSplashRadius = v; }
+
+    /** 3 级大师炮塔 Bomb 溅射半径 px（默认 80） */
+    public double getMasterCannonSplashRadius() { return masterCannonSplashRadius; }
+    public void setMasterCannonSplashRadius(double v) { this.masterCannonSplashRadius = v; }
+
+    // ================= ⑨ Boss 狂暴机制 Getter / Setter =================
+
+    /** 狂暴后震地间隔 ms（默认 15000 = 每 15 秒一次全塔眩晕） */
+    public int getBossStompIntervalMs() { return bossStompIntervalMs; }
+    public void setBossStompIntervalMs(int v) { this.bossStompIntervalMs = v; }
+
+    /** 狂暴后攻击冷却削减比例，[0,1)（默认 0.3 = 攻击间隔砍 30%） */
+    public double getBossEnrageAttackCooldownCut() { return bossEnrageAttackCooldownCut; }
+    public void setBossEnrageAttackCooldownCut(double v) { this.bossEnrageAttackCooldownCut = v; }
+
     // ================= 动态扩展字段 =================
 
     /** 已知的固定字段键集合（fromJson 时用于区分固定字段与扩展字段） */
@@ -153,7 +258,14 @@ public final class BalanceTable {
             "normalHp", "normalSpeed", "normalGoldReward",
             "fastHp", "fastSpeed", "fastGoldReward",
             "tankHp", "tankSpeed", "tankGoldReward",
-            "bossHp", "bossSpeed", "bossGoldReward");
+            "bossHp", "bossSpeed", "bossGoldReward",
+            "normalAttackDamage", "normalAttackCooldownMs",
+            "fastAttackDamage", "fastAttackCooldownMs",
+            "tankAttackDamage", "tankAttackCooldownMs",
+            "bossAttackDamage", "bossAttackCooldownMs",
+            "tankPhysicalReduction",
+            "cannonSplashRadius", "eliteCannonSplashRadius", "masterCannonSplashRadius",
+            "bossStompIntervalMs", "bossEnrageAttackCooldownCut");
 
     public Object getExtra(String key) { return extra.get(key); }
 
@@ -197,7 +309,25 @@ public final class BalanceTable {
         // ⑤ Boss
         sb.append("  \"bossHp\": ").append(num(bossHp)).append(",\n");
         sb.append("  \"bossSpeed\": ").append(num(bossSpeed)).append(",\n");
-        sb.append("  \"bossGoldReward\": ").append(num(bossGoldReward));
+        sb.append("  \"bossGoldReward\": ").append(num(bossGoldReward)).append(",\n");
+        // ⑥ 敌人近战：攻击力 / 攻击冷却
+        sb.append("  \"normalAttackDamage\": ").append(num(normalAttackDamage)).append(",\n");
+        sb.append("  \"normalAttackCooldownMs\": ").append(num(normalAttackCooldownMs)).append(",\n");
+        sb.append("  \"fastAttackDamage\": ").append(num(fastAttackDamage)).append(",\n");
+        sb.append("  \"fastAttackCooldownMs\": ").append(num(fastAttackCooldownMs)).append(",\n");
+        sb.append("  \"tankAttackDamage\": ").append(num(tankAttackDamage)).append(",\n");
+        sb.append("  \"tankAttackCooldownMs\": ").append(num(tankAttackCooldownMs)).append(",\n");
+        sb.append("  \"bossAttackDamage\": ").append(num(bossAttackDamage)).append(",\n");
+        sb.append("  \"bossAttackCooldownMs\": ").append(num(bossAttackCooldownMs)).append(",\n");
+        // ⑦ 重甲物理减伤
+        sb.append("  \"tankPhysicalReduction\": ").append(num(tankPhysicalReduction)).append(",\n");
+        // ⑧ 炮塔溅射半径
+        sb.append("  \"cannonSplashRadius\": ").append(num(cannonSplashRadius)).append(",\n");
+        sb.append("  \"eliteCannonSplashRadius\": ").append(num(eliteCannonSplashRadius)).append(",\n");
+        sb.append("  \"masterCannonSplashRadius\": ").append(num(masterCannonSplashRadius)).append(",\n");
+        // ⑨ Boss 狂暴机制
+        sb.append("  \"bossStompIntervalMs\": ").append(num(bossStompIntervalMs)).append(",\n");
+        sb.append("  \"bossEnrageAttackCooldownCut\": ").append(num(bossEnrageAttackCooldownCut));
         // 动态扩展字段追加在后面
         if (!extra.isEmpty()) {
             sb.append(",\n");
@@ -270,10 +400,30 @@ public final class BalanceTable {
         b.bossHp = readInt(obj, "bossHp", def.bossHp, 1);
         b.bossSpeed = readDouble(obj, "bossSpeed", def.bossSpeed, 0.0, false);
         b.bossGoldReward = readInt(obj, "bossGoldReward", def.bossGoldReward, 0);
+        // ⑥ 敌人近战：攻击力（≥1）/ 冷却（≥1；0 冷却 = 无限攻速，禁止）
+        b.normalAttackDamage = readInt(obj, "normalAttackDamage", def.normalAttackDamage, 1);
+        b.normalAttackCooldownMs = readInt(obj, "normalAttackCooldownMs", def.normalAttackCooldownMs, 1);
+        b.fastAttackDamage = readInt(obj, "fastAttackDamage", def.fastAttackDamage, 1);
+        b.fastAttackCooldownMs = readInt(obj, "fastAttackCooldownMs", def.fastAttackCooldownMs, 1);
+        b.tankAttackDamage = readInt(obj, "tankAttackDamage", def.tankAttackDamage, 1);
+        b.tankAttackCooldownMs = readInt(obj, "tankAttackCooldownMs", def.tankAttackCooldownMs, 1);
+        b.bossAttackDamage = readInt(obj, "bossAttackDamage", def.bossAttackDamage, 1);
+        b.bossAttackCooldownMs = readInt(obj, "bossAttackCooldownMs", def.bossAttackCooldownMs, 1);
+        // ⑦ 重甲物理减伤（比例，必须 0 ≤ v < 1）
+        b.tankPhysicalReduction = readRatio(obj, "tankPhysicalReduction", def.tankPhysicalReduction);
+        // ⑧ 炮塔溅射半径（必须 > 0；0/负数 = 溅射永不命中，禁止）
+        b.cannonSplashRadius = readDouble(obj, "cannonSplashRadius", def.cannonSplashRadius, 0.0, false);
+        b.eliteCannonSplashRadius = readDouble(obj, "eliteCannonSplashRadius", def.eliteCannonSplashRadius, 0.0, false);
+        b.masterCannonSplashRadius = readDouble(obj, "masterCannonSplashRadius", def.masterCannonSplashRadius, 0.0, false);
+        // ⑨ Boss 狂暴机制：震地间隔（≥1ms）/ 冷却削减比例（[0,1)，上界开区间同 tankPhysicalReduction）
+        b.bossStompIntervalMs = readInt(obj, "bossStompIntervalMs", def.bossStompIntervalMs, 1);
+        b.bossEnrageAttackCooldownCut = readRatio(obj, "bossEnrageAttackCooldownCut", def.bossEnrageAttackCooldownCut);
 
-        // 未知键 → 收入动态扩展字段
+        // 未知键 → 收入动态扩展字段（打印告警：这些字段运行期无人读取，避免"配了不生效却无提示"）
         for (Map.Entry<String, Object> e : obj.entrySet()) {
             if (!FIXED_KEYS.contains(e.getKey())) {
+                System.err.println("[BalanceTable] 未知字段 \"" + e.getKey()
+                        + "\" 已忽略（运行期不读取，请勿在此写无对应实现的数值）");
                 b.extra.put(e.getKey(), e.getValue());
             }
         }
@@ -305,11 +455,45 @@ public final class BalanceTable {
         return def;
     }
 
+    /** 比例字段：必须 0 ≤ v < 1（上界为开区间，readDouble 无法表达，故单列） */
+    private static double readRatio(Map<String, Object> obj, String key, double def) {
+        Object v = obj.get(key);
+        if (v instanceof Number) {
+            double val = ((Number) v).doubleValue();
+            if (val >= 0.0 && val < 1.0) return val;
+            warn(key, v, "必须位于 [0, 1)");
+        } else if (v != null) {
+            warn(key, v, "非数字");
+        }
+        return def;
+    }
+
     private static void warn(String key, Object actual, String reason) {
         System.err.println("[BalanceTable] 字段 \"" + key + "\" 非法（" + reason + "），实际: " + actual + " → 回退内置默认");
     }
 
     // ================= classpath 加载（运行期用）=================
+
+    /**
+     * 运行期共享实例（只读）：首次访问时从 classpath 加载一次并缓存，
+     * 缺失/解析失败 → 回退 {@link #defaults()}，永不返回 null、不抛异常。
+     *
+     * 供**实体构造期**取值使用（如炮塔读 ⑧ 溅射半径），对齐
+     * {@code util.asset.SizeTable.getInstance()} 的既有范式：实体不持有 GameConfig 引用，
+     * 又需要 classpath 数值时走这里。GameConfig 仍走 {@link #loadFromClasspath()} 各自加载。
+     *
+     * ⚠️ 只读，不提供热重载：改 balance.json 后需重启进程生效（同 GameConfig 契约）。
+     */
+    public static synchronized BalanceTable runtime() {
+        if (runtimeInstance == null) {
+            BalanceTable loaded = loadFromClasspath();
+            runtimeInstance = (loaded != null) ? loaded : defaults();
+        }
+        return runtimeInstance;
+    }
+
+    /** 运行期共享实例（懒加载缓存，见 {@link #runtime()}） */
+    private static BalanceTable runtimeInstance;
 
     public static BalanceTable loadFromClasspath() {
         try (InputStream in = BalanceTable.class.getResourceAsStream("/config/balance.json")) {

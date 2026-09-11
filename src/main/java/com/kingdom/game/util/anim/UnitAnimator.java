@@ -72,6 +72,18 @@ public final class UnitAnimator {
     }
 
     /**
+     * 本帧是否会为该单位叠加动画帧（已登记且当前模式有帧）。
+     * GameView 据此跳过单位静态渲染——静态底图与动画帧透明叠加会产生残影。
+     */
+    public boolean hasOverlay(GameObject unit) {
+        if (unit == null) return false;
+        AnimTable table = tablesByClass.get(unit.getClass().getSimpleName());
+        if (table == null) return false;
+        String mode = UnitPoseResolver.resolve(unit, true);
+        return table.hasMode(mode) && !table.getFrames(mode).isEmpty();
+    }
+
+    /**
      * 在单位自身 render() 之后叠加当前动画帧；任何缺料情况都静默跳过。
      *
      * @param gc   画布上下文

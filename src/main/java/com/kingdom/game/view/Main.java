@@ -9,7 +9,14 @@ import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.tower.ArrowTower;
 import com.kingdom.game.model.tower.Barrack;
 import com.kingdom.game.model.tower.CannonTower;
+import com.kingdom.game.model.tower.EliteArrowTower;
+import com.kingdom.game.model.tower.EliteBarrack;
+import com.kingdom.game.model.tower.EliteCannonTower;
+import com.kingdom.game.model.tower.MasterArrowTower;
+import com.kingdom.game.model.tower.MasterBarrack;
+import com.kingdom.game.model.tower.MasterCannonTower;
 import com.kingdom.game.util.asset.Assets;
+import com.kingdom.game.util.asset.SizeTable;
 import com.kingdom.game.util.audio.SoundManager;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -44,6 +51,26 @@ public class Main extends Application {
         HUD hud = new HUD(controller, controller);
         GameView view = new GameView(controller, controller, config, controller, controller::resetGame);
 
+        // 单位行为动画登记（外部叠加层）：单位类零改动；JSON 缺帧/缺文件时保持原渲染
+        view.registerUnitAnimation("enemies", "NormalEnemy",
+                "/assets/animations/enemies/normal_enemy.json");
+        view.registerUnitAnimation("enemies", "FastEnemy",
+                "/assets/animations/enemies/fast_enemy.json");
+        view.registerUnitAnimation("enemies", "TankEnemy",
+                "/assets/animations/enemies/tank_enemy.json");
+        view.registerUnitAnimation("enemies", "BossEnemy",
+                "/assets/animations/enemies/boss_enemy.json");
+        view.registerUnitAnimation("allies", "Soldier",
+                "/assets/animations/allies/soldier.json");
+        // 精英 / 皇家兵复用士兵帧（1-3：soldier.json 帧图齐备，尺寸按 sizes.json 缩放）：
+        // 登记后 GameView 跳过静态渲染、改画动画帧，再叠 renderPostAnim 的精英标记
+        view.registerUnitAnimation("allies", "EliteSoldier",
+                "/assets/animations/allies/soldier.json");
+        view.registerUnitAnimation("allies", "RoyalSoldier",
+                "/assets/animations/allies/soldier.json");
+        view.registerUnitAnimation("towers", "ArrowTower",
+                "/assets/animations/towers/arrow_tower.json");
+
         controller.setStatusObserver(hud);
         controller.setRenderNotifier(view);
         controller.setFloatingTextFx(view);   // GameView 实现视觉特效
@@ -67,9 +94,20 @@ public class Main extends Application {
         controller.registerTower(TowerType.BARRACK,
                 new TowerSpec(TowerType.BARRACK, "兵营", Barrack.BUILD_COST),
                 Barrack::new);
+        // 升级链工厂登记（《防御塔子系统说明》§10）：不进建塔目录，仅供 upgradeTower 原位替换取下一级工厂
+        // 覆盖 TowerType 三族的 2 级精英与 3 级大师（缺任一登记，对应等级升级会提示"下一级尚未开放"）
+        controller.registerUpgradeFactory(TowerType.ARROW_ELITE, EliteArrowTower::new);
+        controller.registerUpgradeFactory(TowerType.CANNON_ELITE, EliteCannonTower::new);
+        controller.registerUpgradeFactory(TowerType.BARRACK_ELITE, EliteBarrack::new);
+        // L2→L3 工厂（2-1）：不登记则 upgradeTower 取不到下一级工厂，会提示"下一级尚未开放"。
+        // L3 尺寸由 assets/sizes.json 的 3 条 Master 条目驱动（48×48）。
+        controller.registerUpgradeFactory(TowerType.ARROW_MASTER, MasterArrowTower::new);
+        controller.registerUpgradeFactory(TowerType.CANNON_MASTER, MasterCannonTower::new);
+        controller.registerUpgradeFactory(TowerType.BARRACK_MASTER, MasterBarrack::new);
         controller.refreshUI();               // 推送初始生命/金币/波次到 HUD
 
         Assets.preload();                     // 预加载贴图（无图自动跳过）
+        SizeTable.getInstance().preload();    // 预加载实体尺寸表（缺文件回退默认，不阻断）
 
         BorderPane root = new BorderPane();
         root.setTop(hud.getNode());

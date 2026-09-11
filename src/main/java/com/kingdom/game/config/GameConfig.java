@@ -17,7 +17,8 @@ import java.util.List;
  * GameConfig —— 运行期唯一数值入口（合并版：JSON 化 + LevelWaves 波次表）。
  *
  * 数值来源分三类：
- * 1. JSON 化字段（15 个）：玩家开局 + 四类敌人（normal/fast/tank/boss 的 HP/speed/goldReward），
+ * 1. JSON 化字段（24 个）：玩家开局 + 四类敌人（normal/fast/tank/boss 的 HP/speed/goldReward）
+ *    + 四类敌人近战（攻击力 / 攻击冷却）+ 重甲物理减伤比例，
  *    构造期从 classpath:/config/balance.json 读取（util.balance.BalanceLibrary），
  *    文件缺失/字段非法 → 回退 BalanceTable.defaults() 内置默认，不抛异常。
  * 2. 关卡波次表（LevelWaves）：从 maps/&lt;key&gt;/waves.json 读取（feature/UIinteraction 分支功能），
@@ -59,6 +60,19 @@ public class GameConfig {
     private double bossSpeed;
     private int bossGoldReward;
 
+    // ===== ⑥ 敌人近战：攻击力 / 攻击冷却（由 balance.json 读取）=====
+    private int normalAttackDamage;
+    private int normalAttackCooldownMs;
+    private int fastAttackDamage;
+    private int fastAttackCooldownMs;
+    private int tankAttackDamage;
+    private int tankAttackCooldownMs;
+    private int bossAttackDamage;
+    private int bossAttackCooldownMs;
+
+    // ===== ⑦ 重甲物理减伤比例（由 balance.json 读取，0 ≤ v < 1）=====
+    private double tankPhysicalReduction;
+
     // ===== 波次（不纳入 JSON 化，保持字面量默认，避免与波次模块合并冲突）=====
     private int waveEnemyCount = 3;        // 每波敌人数
     private long waveSpawnIntervalMs = 1000; // 出场间隔(ms)
@@ -88,7 +102,7 @@ public class GameConfig {
 
     /**
      * 无参构造（合并版）：
-     * 1. 从 classpath 读取 /config/balance.json（15 个 JSON 化字段），缺失/非法回退内置默认；
+     * 1. 从 classpath 读取 /config/balance.json（24 个 JSON 化字段），缺失/非法回退内置默认；
      * 2. 从 classpath 读 maps/index.json 选择"默认地图"（可用 -Dmap.key=&lt;key&gt; 指定），
      *    再从 maps/&lt;key&gt;/ 读取 path.json / spots.json / 底图文件名；
      * 3. 读取 maps/&lt;key&gt;/waves.json 波次表，成功则总波数由波次表决定（覆盖 JSON 的 totalWaves），
@@ -119,9 +133,20 @@ public class GameConfig {
         this.bossHp = bt.getBossHp();
         this.bossSpeed = bt.getBossSpeed();
         this.bossGoldReward = bt.getBossGoldReward();
+        // ⑥ 敌人近战：攻击力 / 冷却（数值由 F 定稿；BalanceTable 内置默认 = 原实体类写死值）
+        this.normalAttackDamage = bt.getNormalAttackDamage();
+        this.normalAttackCooldownMs = bt.getNormalAttackCooldownMs();
+        this.fastAttackDamage = bt.getFastAttackDamage();
+        this.fastAttackCooldownMs = bt.getFastAttackCooldownMs();
+        this.tankAttackDamage = bt.getTankAttackDamage();
+        this.tankAttackCooldownMs = bt.getTankAttackCooldownMs();
+        this.bossAttackDamage = bt.getBossAttackDamage();
+        this.bossAttackCooldownMs = bt.getBossAttackCooldownMs();
+        // ⑦ 重甲物理减伤
+        this.tankPhysicalReduction = bt.getTankPhysicalReduction();
         // 波次节奏 4 个字段不读 JSON，保持上方字面量默认值
 
-        // ===== 第 2 步：地图分包读取（原有逻辑不动）=====
+        // ===== 第 2 步：地图分包读取（选定默认地图后交给 loadMap，逻辑与原实现等价）=====
         java.util.List<MapLibrary.MapEntry> entries = MapLibrary.listMapsFromClasspath();
         String override = System.getProperty("map.key");
         MapLibrary.MapEntry active = null;
@@ -133,31 +158,70 @@ public class GameConfig {
         }
         if (active == null && !entries.isEmpty()) active = entries.get(0);
         if (active != null) {
-            this.mapKey = active.getKey();
-            this.mapImageName = active.getImage();
+            loadMap(active.getKey());
+        }
+    }
 
-            MapRoute route = MapLibrary.readPathFromClasspath(active.getKey());
-            if (route != null) {
-                setViewSize(route.getWidth(), route.getHeight());
-                setPath(route.getXs(), route.getYs());
-            }
-            TowerSpots spots = MapLibrary.readSpotsFromClasspath(active.getKey());
-            if (spots != null) {
-                this.towerSpots = spots;
-            }
-
-            // ===== 第 3 步：波次表（feature/UIinteraction 分支功能）=====
-            // 读取成功则波数由文件唯一决定（覆盖 JSON 中的 totalWaves）；
-            // 缺失/为空/解析失败 → 回退全局波次配置并告警，运行期不崩
-            LevelWaves waves = MapLibrary.readWavesFromClasspath(active.getKey());
-            if (waves != null && !waves.getWaves().isEmpty()) {
-                this.levelWaves = waves;
-                this.totalWaves = waves.getWaves().size();
-            } else {
-                System.err.println("[GameConfig] maps/" + active.getKey()
-                        + "/waves.json 缺失/为空/解析失败，回退全局波次配置");
+    /**
+     * 加载"地图域"数据到本实例（构造期与运行期切图共用；契约见《多关卡与运行期切图-接口规范》§3.2）。
+     *
+     * <p>只影响<b>地图域</b>字段：{@code mapKey} / {@code mapImageName} / 视图尺寸 / 路径 / 塔位 / 波次 / 总波数；
+     * <b>不触碰</b> {@code balance.json} 全局数值（开局金币生命、敌人与塔属性）。
+     *
+     * <p><b>原子提交</b>：先校验并读取，任一步失败 → 返回 {@code false} 且<b>不修改任何字段</b>
+     * （保持调用前的地图不变）。波次表缺失不视为失败：沿用既有口径回退全局波次配置并告警。
+     *
+     * @param key {@code maps/index.json} 中登记的关卡 key
+     * @return 是否成功加载
+     */
+    public boolean loadMap(String key) {
+        if (key == null || key.isBlank()) return false;
+        MapLibrary.MapEntry entry = null;
+        for (MapLibrary.MapEntry e : MapLibrary.listMapsFromClasspath()) {
+            if (key.equals(e.getKey())) {
+                entry = e;
+                break;
             }
         }
+        if (entry == null) {
+            System.err.println("[GameConfig] loadMap：maps/index.json 中无此地图 \"" + key + "\"");
+            return false;
+        }
+        MapRoute route = MapLibrary.readPathFromClasspath(key);
+        TowerSpots spots = MapLibrary.readSpotsFromClasspath(key);
+        if (route == null || spots == null) {
+            System.err.println("[GameConfig] loadMap：maps/" + key
+                    + " 的 path.json / spots.json 缺失或解析失败，保持原地图");
+            return false;
+        }
+        // ===== 校验与读取全部通过 → 原子提交 =====
+        this.mapKey = entry.getKey();
+        this.mapImageName = entry.getImage();
+        setViewSize(route.getWidth(), route.getHeight());
+        setPath(route.getXs(), route.getYs());
+        this.towerSpots = spots;
+
+        // 波次表：读取成功则波数由文件唯一决定（覆盖 JSON 中的 totalWaves）；
+        // 缺失/为空/解析失败 → 回退全局波次配置并告警，运行期不崩，且**不视为失败**
+        LevelWaves waves = MapLibrary.readWavesFromClasspath(key);
+        if (waves != null && !waves.getWaves().isEmpty()) {
+            this.levelWaves = waves;
+            this.totalWaves = waves.getWaves().size();
+        } else {
+            System.err.println("[GameConfig] maps/" + key
+                    + "/waves.json 缺失/为空/解析失败，回退全局波次配置");
+        }
+        return true;
+    }
+
+    /** 当前地图显示名（读 maps/index.json 的 name；未登记回退 key，无地图回退空串） */
+    public String getMapDisplayName() {
+        String key = mapKey;
+        if (key == null) return "";
+        for (MapLibrary.MapEntry e : MapLibrary.listMapsFromClasspath()) {
+            if (key.equals(e.getKey())) return e.getName();
+        }
+        return key;
     }
 
     /** 活动地图 key（null=未找到 index，使用内置默认） */
@@ -223,6 +287,20 @@ public class GameConfig {
         this.bossGoldReward = goldReward;
         return this;
     }
+
+    // ===== ⑥ 敌人近战：攻击力 / 攻击冷却 =====
+    // 注：仅暴露 getter（消费方 spawnEnemy 只读）；写入通道仍是 balance.json / BalanceTable。
+    public int getNormalAttackDamage() { return normalAttackDamage; }
+    public int getNormalAttackCooldownMs() { return normalAttackCooldownMs; }
+    public int getFastAttackDamage() { return fastAttackDamage; }
+    public int getFastAttackCooldownMs() { return fastAttackCooldownMs; }
+    public int getTankAttackDamage() { return tankAttackDamage; }
+    public int getTankAttackCooldownMs() { return tankAttackCooldownMs; }
+    public int getBossAttackDamage() { return bossAttackDamage; }
+    public int getBossAttackCooldownMs() { return bossAttackCooldownMs; }
+
+    // ===== ⑦ 重甲物理减伤比例（0 ≤ v < 1）=====
+    public double getTankPhysicalReduction() { return tankPhysicalReduction; }
 
     // ===== 波次 =====
     /** 关卡波次表（null=无波次表，运行期回退全局波次配置）；敌人数值仍按 id 从本类现取 */

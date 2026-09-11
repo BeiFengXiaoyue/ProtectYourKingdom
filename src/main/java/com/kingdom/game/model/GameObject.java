@@ -6,6 +6,7 @@ import com.kingdom.game.controller.IParticleFx;
 import com.kingdom.game.controller.IScreenFx;
 import com.kingdom.game.controller.ISelectionFx;
 import com.kingdom.game.util.asset.Assets;
+import com.kingdom.game.util.asset.SizeTable;
 import com.kingdom.game.util.fx.FxNop;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -31,8 +32,16 @@ public abstract class GameObject {
     protected IParticleFx fxParticle = FxNop.NO_PARTICLE_FX;
     protected ISelectionFx fxSelection = FxNop.NO_SELECTION_FX;
 
+    /**
+     * 常用构造：尺寸由 assets/sizes.json（util.asset.SizeTable）配置驱动，
+     * 代码中不再写死任何实体尺寸（见 docs/视觉尺寸配置规范.md）。
+     */
     public GameObject(double x, double y) {
-        this(x, y, 20, 20);
+        this.x = x;
+        this.y = y;
+        SizeTable.Entry entry = SizeTable.getInstance().entryFor(getClass());
+        this.width = entry.getWidth();
+        this.height = entry.getHeight();
     }
 
     public GameObject(double x, double y, double width, double height) {

@@ -5,6 +5,7 @@ import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.projectile.Arrow;
+import com.kingdom.game.util.balance.TowerBalance;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -19,18 +20,22 @@ import java.util.List;
  * 升级链（本类为 1 级，可升级到 {@link EliteArrowTower}）：
  * 默认 nextLevelSpec 指向 ARROW_ELITE；架构师 A 可经 {@link #setNextLevelSpec} 注入/替换链。
  *
- * 数值说明（开发期可直接在构造函数微调）：
- * - 对照默认普通敌人 HP80 / 初始金币100：造价 50 可起手两座，
- *   伤害 18 + 冷却 550ms 约 4~5 箭击杀一只普通敌人。
- * - BUILD_COST 与装配处 TowerSpec 的造价保持一致（出售返还依赖 totalCost）。
+ * 数值来源：构造期从 config/tower.json 读取（TowerBalance），缺省回退硬编码默认。
+ * 改数值请编辑 tower.json，无需改代码。
  */
 public class ArrowTower extends Tower implements ITowerUpgrade {
 
     /** 建造成本（Main 登记 TowerSpec 时引用，保持一致） */
     public static final int BUILD_COST = 50;
 
-    /** 1 级 → 2 级的升级投入（占位，待《游戏规则说明书》核对；A 可经 setNextLevelSpec 覆盖） */
-    public static final int UPGRADE_COST = 90;
+    /** 1 级 → 2 级的升级投入（《建筑与怪物机制策划》：75；A 可经 setNextLevelSpec 覆盖） */
+    public static final int UPGRADE_COST = 75;
+
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 1;
+
+    @Override
+    public int getLevel() { return LEVEL; }
 
     /** 下一级塔目录条目（默认指向 2 级精英箭塔；null = 满级） */
     protected TowerSpec nextLevelSpec;
@@ -40,10 +45,9 @@ public class ArrowTower extends Tower implements ITowerUpgrade {
 
     public ArrowTower(double x, double y) {
         super(x, y);
-        this.attackRange = 120;
-        this.attackCooldown = 550;
-        this.baseAttackDamage = 18;
-        this.upgradeCostBase = 45;
+        this.attackRange = TowerBalance.getDouble("arrowL1", "range", 120);
+        this.attackCooldown = TowerBalance.getInt("arrowL1", "cooldownMs", 550);
+        this.baseAttackDamage = TowerBalance.getInt("arrowL1", "damage", 18);
         this.totalCost = BUILD_COST;
         this.nextLevelSpec = new TowerSpec(TowerType.ARROW_ELITE, "精英箭塔", UPGRADE_COST);
     }

@@ -1,27 +1,39 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.TowerSpec;
+import com.kingdom.game.model.TowerType;
+import com.kingdom.game.util.balance.BalanceTable;
+import com.kingdom.game.util.balance.TowerBalance;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
- * EliteCannonTower —— 精英炮塔（炮塔 2 级，满级）。
+ * EliteCannonTower —— 精英炮塔（炮塔 2 级）。
  *
- * 继承 {@link CannonTower}（复用 findTarget/attack），仅覆写构造数值与渲染加金色标记作区分。
- * 满级：nextLevelSpec = null，isMaxLevel() 为 true。
+ * 继承 {@link CannonTower}（复用 findTarget/attack），仅覆写数值与渲染加金色标记作区分。
+ * 可继续升级到 {@link MasterCannonTower}（3 级）。
  *
- * 数值说明（升级费/累计投入为占位，语义由架构师 A 在 GameController 回填）。
+ * 数值来源：伤害从 config/tower.json 读取（TowerBalance）；
+ * 溅射半径从 config/balance.json 读取（BalanceTable）。
  */
 public class EliteCannonTower extends CannonTower {
 
+    /** 2 级 → 3 级的升级投入（《策划》：250） */
+    public static final int UPGRADE_COST = 250;
+
+    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
+    public static final int LEVEL = 2;
+
+    @Override
+    public int getLevel() { return LEVEL; }
+
     public EliteCannonTower(double x, double y) {
         super(x, y);
-        this.attackRange = 135;                      // 射程更长
-        this.attackCooldown = 700;                   // 冷却更快
-        this.baseAttackDamage = 35;                  // 伤害 25 → 35
-        this.upgradeCostBase = 70;
-        this.totalCost = CannonTower.BUILD_COST + CannonTower.UPGRADE_COST;  // 累计投入（占位）
-        this.nextLevelSpec = null;                   // 已是满级
+        this.baseAttackDamage = TowerBalance.getInt("cannonL2", "damage", 70);
+        this.splashRadius = BalanceTable.runtime().getEliteCannonSplashRadius();
+        this.totalCost = CannonTower.BUILD_COST + CannonTower.UPGRADE_COST;
+        this.nextLevelSpec = new TowerSpec(TowerType.CANNON_MASTER, "大师炮塔", UPGRADE_COST);
     }
 
     @Override
