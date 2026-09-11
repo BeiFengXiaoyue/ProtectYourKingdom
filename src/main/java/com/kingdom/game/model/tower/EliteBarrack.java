@@ -5,6 +5,7 @@ import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.ally.EliteSoldier;
+import com.kingdom.game.util.balance.TowerBalance;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -14,7 +15,7 @@ import javafx.scene.paint.Color;
  * 继承 {@link Barrack}（复用生产/剪除逻辑），仅覆写士兵参数 + 渲染加金色标记作区分。
  * 可继续升级到 {@link MasterBarrack}（3 级）。
  *
- * 数值（《建筑与怪物机制策划》L2）：士兵数 2 → 3、士兵 HP 50 → 80（伤害/间隔/速度/重生不变）。
+ * 数值来源：构造期从 config/tower.json 的 barrackL2 读取（TowerBalance）。
  */
 public class EliteBarrack extends Barrack {
 
@@ -29,15 +30,19 @@ public class EliteBarrack extends Barrack {
 
     public EliteBarrack(double x, double y) {
         super(x, y);
-        this.maxSoldiers = 3;                        // 士兵数 2 → 3
-        this.soldierHp = 80;                         // 士兵 HP 50 → 80
-        this.totalCost = Barrack.BUILD_COST + Barrack.UPGRADE_COST;      // 100 + 100 = 200
+        this.maxSoldiers = TowerBalance.getInt("barrackL2", "maxSoldiers", 3);
+        this.spawnIntervalMillis = (long) TowerBalance.getInt("barrackL2", "spawnIntervalMs", 5000);
+        this.soldierHp = TowerBalance.getInt("barrackL2", "soldierHp", 80);
+        this.soldierSpeed = TowerBalance.getDouble("barrackL2", "soldierSpeed", 40);
+        this.soldierAttack = TowerBalance.getInt("barrackL2", "soldierAttack", 8);
+        this.soldierCooldown = TowerBalance.getInt("barrackL2", "soldierCooldown", 800);
+        this.totalCost = Barrack.BUILD_COST + Barrack.UPGRADE_COST;
         this.nextLevelSpec = new TowerSpec(TowerType.BARRACK_MASTER, "大师兵营", UPGRADE_COST);
     }
 
     /**
      * 产出兵种：2 级 → {@link EliteSoldier}。
-     * 数值仍取本兵营的等级字段（HP 80 / 速度 40 / 伤害 8 / 冷却 800），**不改任何数值**。
+     * 数值仍取本兵营的等级字段，**不改任何数值**。
      */
     @Override
     protected Ally createSoldier() {
