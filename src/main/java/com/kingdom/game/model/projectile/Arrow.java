@@ -26,14 +26,19 @@ public class Arrow extends Projectile {
         super(x, y, target, damage, speed);
     }
 
-    /** 命中：目标仍存活则扣血；事件经基类事件槽发出（未接线时为空操作） */
+    /**
+     * 命中：目标仍存活则扣血；事件经基类事件槽发出（未接线时为空操作）。
+     *
+     * 伤害走**减伤**路径（`takeDamage(damage)`）——箭矢是普通物理伤害，
+     * 打重甲敌人时按 `tankPhysicalReduction` 折算。飘字显示**实际扣血**而非面板值。
+     */
     @Override
     public void onHit(List<Enemy> enemies) {
         if (targetEnemy != null && targetEnemy.isAlive()) {
-            targetEnemy.takeDamage(damage);
+            int actual = targetEnemy.takeDamage(damage);
             combatSound.onProjectileHit(this, targetEnemy);
             fxText.showFloatingText(targetEnemy.getX(), targetEnemy.getY() - 24,
-                    "-" + damage, "WHITE");
+                    "-" + actual, "WHITE");
         }
     }
 

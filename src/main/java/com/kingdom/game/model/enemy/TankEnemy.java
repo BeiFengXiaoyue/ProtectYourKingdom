@@ -1,26 +1,48 @@
 package com.kingdom.game.model.enemy;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.util.balance.BalanceTable;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
  * TankEnemy —— 重甲敌人（紫色，血量约为普通敌人 3 倍，体型大），沿预设路径走到终点。
- * 数值（HP/速度/赏金）由 GameController 从 GameConfig 取值后经构造函数传入，类内不写死。
+ * 数值（HP/速度/赏金/攻击力/攻击冷却）由调用方取值后经构造函数传入，类内不写死。
  * 近战手感：出手重（9）但挥击慢（1400ms 冷却），一击一停的重甲单位。
  */
 public class TankEnemy extends Enemy {
 
     /**
-     * @param hp         生命值（调用方从 GameConfig 取值传入）
+     * 老签名（保留重载，B-4）：近战参数从 config/balance.json 取
+     * （`tankAttackDamage` / `tankAttackCooldownMs`，缺省回退 9 / 1400）。
+     *
+     * @param hp         生命值
      * @param speed      移动速度 px/s
      * @param goldReward 击杀赏金
      */
     public TankEnemy(double x, double y, int hp, double speed, int goldReward) {
+        this(x, y, hp, speed, goldReward,
+                BalanceTable.runtime().getTankAttackDamage(),
+                BalanceTable.runtime().getTankAttackCooldownMs());
+    }
+
+    /**
+     * B-4 扩参构造：近战参数由调用方（`GameController.spawnEnemy` 经 `GameConfig`）显式注入。
+     *
+     * @param attackDamage      近战攻击力（≥1）
+     * @param attackCooldownMs  近战攻击冷却 ms（≥1）
+     */
+    public TankEnemy(double x, double y, int hp, double speed, int goldReward,
+                     int attackDamage, int attackCooldownMs) {
         // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, hp, speed, goldReward);
-        this.attackDamage = 9;
-        this.maxAttackCooldown = 1400;
+        this.attackDamage = attackDamage;
+        this.maxAttackCooldown = attackCooldownMs;
+        // 重甲物理减伤（《整改方案》§7 P0-3 / B-5）：构造期从 balance.json 读入并固化。
+        // 倍率 = 1 − tankPhysicalReduction（默认 1 − 0.3 = 0.7，即只吃 70% 伤害）；
+        // 该值只作用于"未声明破甲"的伤害——炮塔 Bomb 走 takeDamage(dmg, true) 绕过。
+        this.damageTakenMultiplier =
+                1.0 - BalanceTable.runtime().getTankPhysicalReduction();
     }
 
     @Override

@@ -13,5 +13,19 @@
   "tankGoldReward": 25,
   "bossHp": 1500,
   "bossSpeed": 40,
-  "bossGoldReward": 200
+  "bossGoldReward": 200,
+  "normalAttackDamage": 5,
+  "normalAttackCooldownMs": 1000,
+  "fastAttackDamage": 4,
+  "fastAttackCooldownMs": 700,
+  "tankAttackDamage": 9,
+  "tankAttackCooldownMs": 1400,
+  "bossAttackDamage": 22,
+  "bossAttackCooldownMs": 1100,
+  "tankPhysicalReduction": 0.3,
+  "cannonSplashRadius": 50,
+  "eliteCannonSplashRadius": 65,
+  "masterCannonSplashRadius": 80,
+  "bossStompIntervalMs": 15000,
+  "bossEnrageAttackCooldownCut": 0.3
 }

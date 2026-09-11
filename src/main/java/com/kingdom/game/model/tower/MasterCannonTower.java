@@ -1,6 +1,7 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.util.balance.BalanceTable;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -11,6 +12,7 @@ import javafx.scene.paint.Color;
  * 满级：nextLevelSpec = null，isMaxLevel() 为 true。
  *
  * 数值（《建筑与怪物机制策划》L3）：伤害 110 / 溅射 80（间隔 1500ms、射程 140 不变）。
+ * 溅射半径取自 config/balance.json 的 {@code masterCannonSplashRadius}（缺省回退 80）。
  * 特殊能力【燃烧】：命中后敌人每秒受 5 点伤害、持续 3 秒 —— 见 {@link IBurnEffect}，
  * 本次仅暴露参数，实际 DoT 需敌人侧支持（B 名下）后接入。
  */
@@ -30,7 +32,7 @@ public class MasterCannonTower extends EliteCannonTower implements IBurnEffect {
     public MasterCannonTower(double x, double y) {
         super(x, y);
         this.baseAttackDamage = 110;                 // 伤害 70 → 110
-        this.splashRadius = 80;                      // 溅射 65 → 80
+        this.splashRadius = BalanceTable.runtime().getMasterCannonSplashRadius();  // 溅射 65 → 80
         this.totalCost = CannonTower.BUILD_COST
                 + CannonTower.UPGRADE_COST
                 + EliteCannonTower.UPGRADE_COST;     // 80 + 150 + 250 = 480
