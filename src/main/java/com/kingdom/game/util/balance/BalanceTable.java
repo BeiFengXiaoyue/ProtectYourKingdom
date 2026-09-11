@@ -12,7 +12,7 @@ import java.util.Set;
 /**
  * BalanceTable —— 玩法数值数据类（唯一内置默认持有者）。
  *
- * 当前纳入 JSON 化的字段（27 个，分 8 组）：
+ * 当前纳入 JSON 化的字段（29 个，分 9 组）：
  * - ① 玩家开局：initialGold / initialLives / totalWaves
  * - ② 普通敌人：normalHp / normalSpeed / normalGoldReward
  * - ③ 快速敌人：fastHp / fastSpeed / fastGoldReward
@@ -23,6 +23,8 @@ import java.util.Set;
  * - ⑦ 重甲减伤（《整改方案》§7 P0-3）：tankPhysicalReduction，范围 [0,1)
  * - ⑧ 炮塔溅射半径（《整改方案》§7 P1-1）：{cannon|eliteCannon|masterCannon}SplashRadius，
  *      必须 > 0；由各炮塔构造期经 {@link #runtime()} 读取并传给 Bomb
+ * - ⑨ Boss 狂暴机制（《整改方案》§7 P1-3 / B-2）：bossStompIntervalMs（>0）、
+ *      bossEnrageAttackCooldownCut（[0,1)）；由 {@code BossEnemy} 构造期经 {@link #runtime()} 读取
  *
  * 波次节奏字段（waveEnemyCount / waveSpawnIntervalMs / waveIntermissionMs /
  * earlyStartRewardCap）不纳入 JSON 化，仍由 GameConfig 字面量默认值管理，
@@ -81,6 +83,12 @@ public final class BalanceTable {
     private double eliteCannonSplashRadius;
     private double masterCannonSplashRadius;
 
+    // ===== ⑨ Boss 狂暴机制（《整改方案》§7 P1-3 / B-2）=====
+    /** 狂暴后震地间隔 ms（> 0）：每间隔触发一次全塔眩晕请求 */
+    private int bossStompIntervalMs;
+    /** 狂暴后攻击冷却削减比例（[0,1)）：0.3 = 攻击间隔砍 30%（冷却 ×0.7）；0 = 不改 */
+    private double bossEnrageAttackCooldownCut;
+
     /** 动态扩展字段：编辑器添加的未来变量，fromJson 未知键自动收入此 Map，toJson 一并写出 */
     private final Map<String, Object> extra = new LinkedHashMap<>();
 
@@ -126,6 +134,9 @@ public final class BalanceTable {
         b.cannonSplashRadius = 50.0;
         b.eliteCannonSplashRadius = 65.0;
         b.masterCannonSplashRadius = 80.0;
+        // Boss 狂暴机制（《策划》§3.2：狂暴后每 15s 震地一次；攻击间隔砍 30%）
+        b.bossStompIntervalMs = 15000;
+        b.bossEnrageAttackCooldownCut = 0.3;
         return b;
     }
 
@@ -229,6 +240,16 @@ public final class BalanceTable {
     public double getMasterCannonSplashRadius() { return masterCannonSplashRadius; }
     public void setMasterCannonSplashRadius(double v) { this.masterCannonSplashRadius = v; }
 
+    // ================= ⑨ Boss 狂暴机制 Getter / Setter =================
+
+    /** 狂暴后震地间隔 ms（默认 15000 = 每 15 秒一次全塔眩晕） */
+    public int getBossStompIntervalMs() { return bossStompIntervalMs; }
+    public void setBossStompIntervalMs(int v) { this.bossStompIntervalMs = v; }
+
+    /** 狂暴后攻击冷却削减比例，[0,1)（默认 0.3 = 攻击间隔砍 30%） */
+    public double getBossEnrageAttackCooldownCut() { return bossEnrageAttackCooldownCut; }
+    public void setBossEnrageAttackCooldownCut(double v) { this.bossEnrageAttackCooldownCut = v; }
+
     // ================= 动态扩展字段 =================
 
     /** 已知的固定字段键集合（fromJson 时用于区分固定字段与扩展字段） */
@@ -243,7 +264,8 @@ public final class BalanceTable {
             "tankAttackDamage", "tankAttackCooldownMs",
             "bossAttackDamage", "bossAttackCooldownMs",
             "tankPhysicalReduction",
-            "cannonSplashRadius", "eliteCannonSplashRadius", "masterCannonSplashRadius");
+            "cannonSplashRadius", "eliteCannonSplashRadius", "masterCannonSplashRadius",
+            "bossStompIntervalMs", "bossEnrageAttackCooldownCut");
 
     public Object getExtra(String key) { return extra.get(key); }
 
@@ -302,7 +324,10 @@ public final class BalanceTable {
         // ⑧ 炮塔溅射半径
         sb.append("  \"cannonSplashRadius\": ").append(num(cannonSplashRadius)).append(",\n");
         sb.append("  \"eliteCannonSplashRadius\": ").append(num(eliteCannonSplashRadius)).append(",\n");
-        sb.append("  \"masterCannonSplashRadius\": ").append(num(masterCannonSplashRadius));
+        sb.append("  \"masterCannonSplashRadius\": ").append(num(masterCannonSplashRadius)).append(",\n");
+        // ⑨ Boss 狂暴机制
+        sb.append("  \"bossStompIntervalMs\": ").append(num(bossStompIntervalMs)).append(",\n");
+        sb.append("  \"bossEnrageAttackCooldownCut\": ").append(num(bossEnrageAttackCooldownCut));
         // 动态扩展字段追加在后面
         if (!extra.isEmpty()) {
             sb.append(",\n");
@@ -390,6 +415,9 @@ public final class BalanceTable {
         b.cannonSplashRadius = readDouble(obj, "cannonSplashRadius", def.cannonSplashRadius, 0.0, false);
         b.eliteCannonSplashRadius = readDouble(obj, "eliteCannonSplashRadius", def.eliteCannonSplashRadius, 0.0, false);
         b.masterCannonSplashRadius = readDouble(obj, "masterCannonSplashRadius", def.masterCannonSplashRadius, 0.0, false);
+        // ⑨ Boss 狂暴机制：震地间隔（≥1ms）/ 冷却削减比例（[0,1)，上界开区间同 tankPhysicalReduction）
+        b.bossStompIntervalMs = readInt(obj, "bossStompIntervalMs", def.bossStompIntervalMs, 1);
+        b.bossEnrageAttackCooldownCut = readRatio(obj, "bossEnrageAttackCooldownCut", def.bossEnrageAttackCooldownCut);
 
         // 未知键 → 收入动态扩展字段（打印告警：这些字段运行期无人读取，避免"配了不生效却无提示"）
         for (Map.Entry<String, Object> e : obj.entrySet()) {

@@ -24,5 +24,7 @@
   "bossAttackCooldownMs": 1100,
   "cannonSplashRadius": 50,
   "eliteCannonSplashRadius": 65,
-  "masterCannonSplashRadius": 80
+  "masterCannonSplashRadius": 80,
+  "bossStompIntervalMs": 15000,
+  "bossEnrageAttackCooldownCut": 0.3
 }
