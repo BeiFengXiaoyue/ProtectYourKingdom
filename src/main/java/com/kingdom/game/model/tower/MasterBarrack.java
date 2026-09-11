@@ -57,7 +57,7 @@ public class MasterBarrack extends EliteBarrack implements IHealAura {
     @Override
     public void render(GraphicsContext gc) {
         // 贴图优先，未提供素材时回退为营房色块（三级：金色屋顶 + 两颗金星）
-        if (!drawSprite(gc, AssetKey.BARRACK)) {
+        if (!drawSprite(gc, AssetKey.MASTER_BARRACK)) {
             double r = width / 2;
             gc.setFill(Color.web("#62814a"));        // 营房
             gc.fillRect(x - r, y - r, width, height);

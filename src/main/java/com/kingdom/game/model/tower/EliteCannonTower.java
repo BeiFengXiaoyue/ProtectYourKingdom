@@ -38,7 +38,7 @@ public class EliteCannonTower extends CannonTower {
     @Override
     public void render(GraphicsContext gc) {
         // 贴图优先，未提供素材时回退为炮塔形色块（加金色描边/塔尖标记，与 1 级区分）
-        if (!drawSprite(gc, AssetKey.CANNON_TOWER)) {
+        if (!drawSprite(gc, AssetKey.ELITE_CANNON_TOWER)) {
             double r = width / 2;
             gc.setFill(Color.web("#3a3a3a"));        // 底座
             gc.fillRect(x - r, y - r, width, height);
