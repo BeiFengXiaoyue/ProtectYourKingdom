@@ -1,13 +1,14 @@
 package com.kingdom.game.model.enemy;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.util.balance.BalanceTable;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
  * BossEnemy —— 第 10 波首领敌人（血量高、体型偏大），沿预设路径走到终点。
- * 数值（HP/速度/赏金）由 GameController 从 GameConfig 取值后经构造函数传入，类内不写死。
- * 近战手感：高伤（22）中速（1100ms 冷却），本体即威胁。
+ * 数值（HP/速度/赏金/攻击力/攻击冷却）由调用方取值后经构造函数传入，类内不写死。
+ * 近战手感：高伤（22）中速（1100ms 冷却），本体即威胁（默认值见 balance.json `bossAttack*`）。
  *
  * 半血狂暴机制（实体侧已就绪）：
  * - 血量降至 50% 以下时仅触发一次：速度 +50%；
@@ -32,15 +33,34 @@ public class BossEnemy extends Enemy {
     private boolean stompRequested = false;
 
     /**
-     * @param hp         生命值（调用方从 GameConfig 取值传入）
+     * 老签名（保留重载，B-4）：近战参数从 config/balance.json 取
+     * （`bossAttackDamage` / `bossAttackCooldownMs`，缺省回退 22 / 1100）。
+     *
+     * @param hp         生命值
      * @param speed      移动速度 px/s
      * @param goldReward 击杀赏金
      */
     public BossEnemy(double x, double y, int hp, double speed, int goldReward) {
+        this(x, y, hp, speed, goldReward,
+                BalanceTable.runtime().getBossAttackDamage(),
+                BalanceTable.runtime().getBossAttackCooldownMs());
+    }
+
+    /**
+     * B-4 扩参构造：近战参数由调用方（`GameController.spawnEnemy` 经 `GameConfig`）显式注入。
+     *
+     * ⚠️ 狂暴的"攻击间隔 −30%"（§7 P1-3 / B-2）**尚未实现**：狂暴目前只改速度，
+     * 不动 `maxAttackCooldown`；接入时应基于本构造注入的值计算，勿再写死。
+     *
+     * @param attackDamage      近战攻击力（≥1）
+     * @param attackCooldownMs  近战攻击冷却 ms（≥1）
+     */
+    public BossEnemy(double x, double y, int hp, double speed, int goldReward,
+                     int attackDamage, int attackCooldownMs) {
         // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, hp, speed, goldReward);
-        this.attackDamage = 22;
-        this.maxAttackCooldown = 1100;
+        this.attackDamage = attackDamage;
+        this.maxAttackCooldown = attackCooldownMs;
     }
 
     @Override

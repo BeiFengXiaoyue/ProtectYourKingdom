@@ -1,18 +1,43 @@
 package com.kingdom.game.model.enemy;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.util.balance.BalanceTable;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
  * NormalEnemy —— 基础敌人（红色圆形，可替换为 normal_enemy 贴图），沿预设路径走到终点。
- * 数值（HP/速度/赏金）由 GameController 从 GameConfig 取值后经构造函数传入，类内不写死。
+ * 数值（HP/速度/赏金/攻击力/攻击冷却）由调用方取值后经构造函数传入，类内不写死。
+ * 近战手感：标准攻速（1000ms 冷却）与中等伤害（5）。
  */
 public final class NormalEnemy extends Enemy {
 
+    /**
+     * 老签名（保留重载，B-4）：近战参数从 config/balance.json 取
+     * （`normalAttackDamage` / `normalAttackCooldownMs`，缺省回退 5 / 1000）。
+     *
+     * @param hp         生命值
+     * @param speed      移动速度 px/s
+     * @param goldReward 击杀赏金
+     */
     public NormalEnemy(double x, double y, int hp, double speed, int goldReward) {
+        this(x, y, hp, speed, goldReward,
+                BalanceTable.runtime().getNormalAttackDamage(),
+                BalanceTable.runtime().getNormalAttackCooldownMs());
+    }
+
+    /**
+     * B-4 扩参构造：近战参数由调用方（`GameController.spawnEnemy` 经 `GameConfig`）显式注入。
+     *
+     * @param attackDamage      近战攻击力（≥1）
+     * @param attackCooldownMs  近战攻击冷却 ms（≥1）
+     */
+    public NormalEnemy(double x, double y, int hp, double speed, int goldReward,
+                       int attackDamage, int attackCooldownMs) {
         // 尺寸（宽/高）由 assets/sizes.json 配置驱动（docs/视觉尺寸配置规范.md）
         super(x, y, hp, speed, goldReward);
+        this.attackDamage = attackDamage;
+        this.maxAttackCooldown = attackCooldownMs;
     }
 
     @Override
