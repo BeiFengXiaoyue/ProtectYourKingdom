@@ -100,7 +100,7 @@ public class Main extends Application {
         controller.registerUpgradeFactory(TowerType.CANNON_ELITE, EliteCannonTower::new);
         controller.registerUpgradeFactory(TowerType.BARRACK_ELITE, EliteBarrack::new);
         // L2→L3 工厂（2-1）：不登记则 upgradeTower 取不到下一级工厂，会提示"下一级尚未开放"。
-        // L3 尺寸已补入 assets/sizes.json（MasterArrowTower / MasterBarrack / MasterCannonTower）
+        // L3 尺寸由 assets/sizes.json 的 3 条 Master 条目驱动（48×48）。
         controller.registerUpgradeFactory(TowerType.ARROW_MASTER, MasterArrowTower::new);
         controller.registerUpgradeFactory(TowerType.CANNON_MASTER, MasterCannonTower::new);
         controller.registerUpgradeFactory(TowerType.BARRACK_MASTER, MasterBarrack::new);
