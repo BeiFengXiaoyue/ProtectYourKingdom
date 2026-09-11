@@ -185,7 +185,8 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         allies.removeIf(a -> !a.isAlive());
 
         // 一波结束：出怪完毕且场上清空 → 允许下一波 / 判定胜利
-        if (waveInProgress && !waveManager.isSpawning() && enemies.isEmpty()) {
+        // 生命耗尽是终局，优先于"本波结束"：最后一个敌人进家扣光生命时，本帧只出失败信号
+        if (!state.isGameOver() && waveInProgress && !waveManager.isSpawning() && enemies.isEmpty()) {
             waveInProgress = false;
             if (state.getWave() >= state.getTotalWaves()) {
                 if (endSound != null) endSound.onVictory();
