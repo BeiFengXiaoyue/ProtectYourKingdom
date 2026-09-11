@@ -6,8 +6,9 @@
 > 新增 `util.balance` 工具类负责“改文件”，`GameConfig` 负责“读文件”。**本文档即派工单**，按 §五 实施、§八 验收。
 > **状态：已实现**（2026-09-10 校准）——`util/balance/BalanceTable`、`util/balance/BalanceLibrary`、
 > `src/main/resources/config/balance.json`、`GameConfig` 构造期接入、`util/editor/BalanceEditorTool` **均已落地**。
-> ⚠️ 与初稿的差异：实际纳入 JSON 化的字段为 **27 个**（`initialGold/Lives/TotalWaves` + 四类敌人各 `Hp/Speed/GoldReward`
-> + 四类敌人各 `AttackDamage/AttackCooldownMs`（8 个）+ `tankPhysicalReduction` + 炮塔溅射半径 3 键），
+> ⚠️ 与初稿的差异：实际纳入 JSON 化的字段为 **29 个**（`initialGold/Lives/TotalWaves` + 四类敌人各 `Hp/Speed/GoldReward`
+> + 四类敌人各 `AttackDamage/AttackCooldownMs`（8 个）+ `tankPhysicalReduction` + 炮塔溅射半径 3 键
+> + Boss 狂暴机制 2 键），
 > **不含**波次节奏 4 键（`waveEnemyCount`/`waveSpawnIntervalMs`/`waveIntermissionMs`/`earlyStartRewardCap`）——
 > 以 §3.2 现行表与 §3.4 说明为准。
 >
@@ -130,10 +131,12 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
 | `tankAttackCooldownMs` | number | 否 | `tankAttackCooldownMs` | ≥1 整数 | 重甲敌人冷却 ms（默认 1400） |
 | `bossAttackDamage` | number | 否 | `bossAttackDamage` | ≥1 整数 | Boss 攻击力（默认 22） |
 | `bossAttackCooldownMs` | number | 否 | `bossAttackCooldownMs` | ≥1 整数 | Boss 冷却 ms（默认 1100） |
-| `tankPhysicalReduction` | number | 否 | `tankPhysicalReduction` | **[0, 1)** | 重甲物理减伤比例（默认 0.3 = 减伤 30%；0 = 不减伤） |
+| `tankPhysicalReduction` | number | 否 | `tankPhysicalReduction`⚠️ | **[0, 1)** | 重甲物理减伤比例（默认 0.3 = 减伤 30%；0 = 不减伤）。B-5 起由 `TankEnemy` 构造期经 `BalanceTable.runtime()` 消费（`GameConfig` 的同名 getter 仍无调用方） |
 | `cannonSplashRadius` | number | 否 | ⚠️ **无**（见下注） | >0 | 1 级炮塔 `Bomb` 爆炸溅射半径 px（默认 50） |
 | `eliteCannonSplashRadius` | number | 否 | ⚠️ **无** | >0 | 2 级精英炮塔溅射半径 px（默认 65） |
 | `masterCannonSplashRadius` | number | 否 | ⚠️ **无** | >0 | 3 级大师炮塔溅射半径 px（默认 80） |
+| `bossStompIntervalMs` | number | 否 | ⚠️ **无**（同下注） | ≥1 整数 | Boss 狂暴后震地间隔 ms（默认 15000 = 每 15 秒一次全塔眩晕） |
+| `bossEnrageAttackCooldownCut` | number | 否 | ⚠️ **无** | **[0, 1)** | Boss 狂暴后攻击冷却削减比例（默认 0.3 = 攻击间隔砍 30%；0 = 不改） |
 
 > 🆕 末 9 行 = 2026-09-10 新增（《整改方案》§7 P0-1 / P0-3）。冷却下限为 **1**（0 冷却 = 无限攻速，禁止）；
 > `tankPhysicalReduction` 上界为**开区间**（≥1 会把伤害变成治疗），故 `fromJson` 单列 `readRatio` 校验，越界告警回退默认。
@@ -149,6 +152,17 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
 > 对**本 3 键**暂不适用；待 A 做 P0-4 全量塔数值迁移时，应一并改为 `GameConfig` 注入并删除 `runtime()`。
 > 消费链路：`balance.json` → `BalanceTable.runtime()` → `CannonTower`/`EliteCannonTower`/`MasterCannonTower`
 > 构造期 → `CannonTower.attack()` → `Bomb` 构造参数 → `Bomb.onHit()` 判定。
+>
+> 🆕 **末 2 行 = 2026-09-11 新增**（《整改方案》§7 P1-3 / B-2「Boss 狂暴机制」）。
+> `bossStompIntervalMs` 下限 **1**（0/负数 = 计时器永不触发或行为未定义，禁止）；
+> `bossEnrageAttackCooldownCut` 复用 `readRatio` 校验 **[0, 1)**（=1.0 会把冷却削到 0 → 无限攻速，禁止）。
+> ⚠️ **这两键同样不经 `GameConfig`**（原因同上：`BossEnemy` 由 `spawnEnemy` 用 5/7 参构造产出，
+> 不持有 `GameConfig` 引用），由 `BossEnemy` 构造期经 `BalanceTable.runtime()` 读入并**固化为 final 字段**——
+> 故运行期改 JSON 无效，**必须重启**（与其余数值一致）。
+> 消费链路：`balance.json` → `BalanceTable.runtime()` → `BossEnemy` 构造期 → 狂暴时读字段
+> → 周期置位 `stompRequested` + 削减 `maxAttackCooldown` → `GameController.settleBossStompRequests()` 结算全塔眩晕。
+> ⚠️ **调试提示**：`bossStompIntervalMs` 设得过小（如 1）会让标记每帧置位 → 全塔被反复眩晕 3 秒 = 长期瘫痪，
+> 属预期行为而非 bug，调参时注意。
 
 > ⚠️ **原「已知缺口」已关闭**：四类敌人的攻击力 / 冷却**已有对应键**（上表末 9 行），不再写死在实体类。
 > 剩余待办仅为**落地**：`balance.json` 取值 + `BalanceEditorTool` 输入框（F-1）、`spawnEnemy` 传参（待 B-4）、
@@ -186,9 +200,12 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
   "tankAttackCooldownMs": 1400,
   "bossAttackDamage": 22,
   "bossAttackCooldownMs": 1100,
+  "tankPhysicalReduction": 0.3,
   "cannonSplashRadius": 50,
   "eliteCannonSplashRadius": 65,
-  "masterCannonSplashRadius": 80
+  "masterCannonSplashRadius": 80,
+  "bossStompIntervalMs": 15000,
+  "bossEnrageAttackCooldownCut": 0.3
 }
 ```
 
@@ -198,11 +215,16 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
 > 消费链路已通：`balance.json` → `BalanceTable.runtime()` → 敌人**老签名重载**构造期取值 → 实战生效。
 > **不再依赖 `GameConfig` 或 A 的 `spawnEnemy` 改动即可调试**（改 JSON → 重启 → 生效）。
 >
-> ⏳ **`tankPhysicalReduction`（第 9 键）仍未写入**，这是**有意为之**：其实体侧消费（B-5 重甲减伤 / 炮塔破甲）
-> **尚未实现**，按 §3.4 与《整改方案》§7 P0-2「防假通道」的要求，**不得写入无对应实现的数值**，
-> 否则会出现"配了不生效却无提示"。待 B-5 落地后再由 F-1 补写。
+> ✅ **2026-09-11 更新（B-5 批）**：`tankPhysicalReduction`（第 9 键）**已写入现行 `balance.json`**。
+> 此前**有意未写**——其实体侧消费（重甲减伤 / 炮塔破甲）当时未实现，按 §3.4 与《整改方案》§7 P0-2
+> 「防假通道」要求不得写入无对应实现的数值；**该前置条件已随 B-5 落地解除**，故本批补写。
 >
 > ✅ 末 3 行（溅射半径）**已写入现行 `config/balance.json`**（2026-09-11，P1-1），非"待补"状态。
+> ✅ 再末 2 行（Boss 狂暴机制）**同上，已写入**（2026-09-11，P1-3 / B-2）。
+>
+> ✅ **至此 §3.2 全部 29 键均已写入现行 `balance.json`，无"待补"项**；seed 与 `BalanceTable.defaults()` 完全一致。
+> ⏳ 唯一遗留：`BalanceEditorTool` 的输入框仍只有最初的 15 键，未补新增的 14 键（F-1 剩余；
+> 在这之前用该工具保存会把这 14 键按**内置默认值**写回）。
 
 ### 3.4 明确**不纳入**本文件的数值（避免第二套通道）
 
