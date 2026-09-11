@@ -95,11 +95,12 @@ public class Main extends Application {
                 new TowerSpec(TowerType.BARRACK, "兵营", Barrack.BUILD_COST),
                 Barrack::new);
         // 升级链工厂登记（《防御塔子系统说明》§10）：不进建塔目录，仅供 upgradeTower 原位替换取下一级工厂
+        // 覆盖 TowerType 三族的 2 级精英与 3 级大师（缺任一登记，对应等级升级会提示"下一级尚未开放"）
         controller.registerUpgradeFactory(TowerType.ARROW_ELITE, EliteArrowTower::new);
         controller.registerUpgradeFactory(TowerType.CANNON_ELITE, EliteCannonTower::new);
         controller.registerUpgradeFactory(TowerType.BARRACK_ELITE, EliteBarrack::new);
         // L2→L3 工厂（2-1）：不登记则 upgradeTower 取不到下一级工厂，会提示"下一级尚未开放"。
-        // ⚠️ L3 尺寸仍回退 20×20，直到 E-2 在 assets/sizes.json 补 3 条 Master 塔条目
+        // L3 尺寸由 assets/sizes.json 的 3 条 Master 条目驱动（48×48）。
         controller.registerUpgradeFactory(TowerType.ARROW_MASTER, MasterArrowTower::new);
         controller.registerUpgradeFactory(TowerType.CANNON_MASTER, MasterCannonTower::new);
         controller.registerUpgradeFactory(TowerType.BARRACK_MASTER, MasterBarrack::new);
