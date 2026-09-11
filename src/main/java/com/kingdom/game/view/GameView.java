@@ -171,6 +171,18 @@ public class GameView implements IRenderNotifier,
     private long shakeDurationNanos;
     private double shakeIntensity;
 
+    // ================= Boss 预警（IScreenFx）：时间驱动横幅，与闪屏/震屏同层 =================
+    /** 横幅总时长（ms）：前 12% 淡入 / 保持 / 后 30% 淡出 */
+    private static final long BOSS_WARNING_LIFE_MS = 2600;
+    /** 横幅文案 */
+    private static final String BOSS_WARNING_TEXT = "BOSS 来袭";
+    /** 横幅纵向位置（画布高度比例）与字号 */
+    private static final double BOSS_WARNING_Y_RATIO = 0.28;
+    private static final double BOSS_WARNING_FONT_SIZE = 34;
+
+    private boolean bossWarningActive;      // true = 横幅在显示窗口内
+    private long bossWarningStartNanos;
+
     /** 地图底图（resources/maps/<config.mapImageName>），缺失时回退配色画法 */
     private Image mapBackground;
 
@@ -333,6 +345,7 @@ public class GameView implements IRenderNotifier,
 
         // 屏幕级特效（在还原后的坐标系绘制，自身不随震屏晃）
         drawScreenFlash(now);
+        drawBossWarning(now);
 
         syncEndOverlay();
         syncTowerSelection();
@@ -563,6 +576,7 @@ public class GameView implements IRenderNotifier,
         particles.clear();
         flashTint = null;
         shakeDurationNanos = 0;
+        bossWarningActive = false;
     }
 
     /** 绘制塔位标点（半透明圆台 + 锤位示意，与 TowerSpotEditorTool 内画法一致；已占用变灰） */
@@ -598,7 +612,7 @@ public class GameView implements IRenderNotifier,
         }
     }
 
-    // ================= 视觉特效接口（D：飘字/粒子/闪屏/震屏已落地；Boss 预警待做）=================
+    // ================= 视觉特效接口（D：飘字/粒子/闪屏/震屏/Boss 预警均已落地）=================
     @Override
     public void showFloatingText(double x, double y, String text, String color) {
         if (text == null || text.isBlank()) return;
@@ -723,9 +737,57 @@ public class GameView implements IRenderNotifier,
         gc.setGlobalAlpha(1.0);
     }
 
+    /**
+     * Boss 预警横幅：压暗横带 + 居中红字，包络「前 12% 淡入 / 保持 / 后 30% 淡出」，过期即关。
+     * 画在屏幕坐标系（draw() 里 gc.restore() 之后），因此不随震屏晃动。
+     */
+    private void drawBossWarning(long now) {
+        if (!bossWarningActive) return;
+        long elapsed = now - bossWarningStartNanos;
+        if (elapsed >= BOSS_WARNING_LIFE_MS * 1_000_000L) {
+            bossWarningActive = false;   // 过期即清，避免每帧空算
+            return;
+        }
+        double progress = elapsed / (double) (BOSS_WARNING_LIFE_MS * 1_000_000L);
+        double alpha = progress < 0.12 ? progress / 0.12
+                : (progress > 0.70 ? (1.0 - progress) / 0.30 : 1.0);
+
+        double w = canvas.getWidth();
+        double h = canvas.getHeight();
+        double bandY = h * BOSS_WARNING_Y_RATIO;
+
+        // 压暗横带：保证红字在任意底图上都可读
+        gc.setGlobalAlpha(alpha * 0.45);
+        gc.setFill(Color.BLACK);
+        gc.fillRect(0, bandY - 34, w, 68);
+
+        // 红字 + 黑描边（与飘字同一套写法）
+        gc.setGlobalAlpha(alpha);
+        gc.setFont(Font.font(null, FontWeight.BOLD, BOSS_WARNING_FONT_SIZE));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.BASELINE);
+        gc.setLineWidth(3);
+        gc.setStroke(Color.BLACK);
+        gc.strokeText(BOSS_WARNING_TEXT, w / 2, bandY + 12);
+        gc.setFill(Color.web("#ff3b30"));
+        gc.fillText(BOSS_WARNING_TEXT, w / 2, bandY + 12);
+
+        // 复位文本相关画笔状态，避免泄漏到后续帧的其他绘制
+        gc.setGlobalAlpha(1.0);
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.setTextBaseline(VPos.BASELINE);
+    }
+
+    /**
+     * Boss 登场预警：横幅数秒 + 闪屏/震屏（复用本类已有的屏幕级特效，表现一致）。
+     * 调用时机由控制层决定，本方法只负责表现、**不判断波次内容**（是否有 Boss 属控制层口径）。
+     */
     @Override
     public void showBossWarning() {
-        // TODO：Boss 登场预警（接口已定义、最终波每局都会调用，实现待补；见《整改方案》§7 P1-7）
+        bossWarningActive = true;
+        bossWarningStartNanos = System.nanoTime();
+        flashScreen("#ff2222", 300);
+        shakeScreen(400, 10);
     }
 
     @Override
