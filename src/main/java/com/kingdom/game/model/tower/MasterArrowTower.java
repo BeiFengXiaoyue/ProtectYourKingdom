@@ -1,6 +1,7 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.util.balance.TowerBalance;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -10,16 +11,10 @@ import javafx.scene.paint.Color;
  * 继承 {@link EliteArrowTower}（复用 findTarget/attack/render），覆写构造数值与渲染加"三级"标记。
  * 满级：nextLevelSpec = null，isMaxLevel() 为 true。
  *
- * 数值（《建筑与怪物机制策划》L3）：伤害 41 / 间隔 440ms（+20% 攻速）/ 射程 140。
- * 特殊能力【连锁箭】：主目标命中后溅射附近 1 个敌人，伤害 50% —— 见 {@link IChainShot}，
- * 本次仅暴露参数，实际连锁在投射物侧（Arrow.onHit，B 名下）就绪后接入。
+ * 数值来源：构造期从 config/tower.json 读取（TowerBalance），缺省回退硬编码默认。
+ * 特殊能力【连锁箭】参数也从 tower.json 读取。
  */
 public class MasterArrowTower extends EliteArrowTower implements IChainShot {
-
-    /** 连锁目标数 */
-    private static final int CHAIN_TARGETS = 1;
-    /** 连锁伤害比例 */
-    private static final double CHAIN_DAMAGE_RATIO = 0.5;
 
     /** 本塔等级（由类身份决定：每级 = 独立塔类） */
     public static final int LEVEL = 3;
@@ -29,20 +24,20 @@ public class MasterArrowTower extends EliteArrowTower implements IChainShot {
 
     public MasterArrowTower(double x, double y) {
         super(x, y);
-        this.attackRange = 140;                      // 射程保持 140
-        this.attackCooldown = 440;                   // 间隔 550 → 440（+20% 攻速）
-        this.baseAttackDamage = 41;                  // 伤害 27 → 41
+        this.attackRange = TowerBalance.getDouble("arrowL3", "range", 140);
+        this.attackCooldown = TowerBalance.getInt("arrowL3", "cooldownMs", 600);
+        this.baseAttackDamage = TowerBalance.getInt("arrowL3", "damage", 57);
         this.totalCost = ArrowTower.BUILD_COST
                 + ArrowTower.UPGRADE_COST
-                + EliteArrowTower.UPGRADE_COST;      // 50 + 75 + 120 = 245
-        this.nextLevelSpec = null;                   // 已是满级
+                + EliteArrowTower.UPGRADE_COST;
+        this.nextLevelSpec = null;
     }
 
     @Override
-    public int getChainTargets() { return CHAIN_TARGETS; }
+    public int getChainTargets() { return TowerBalance.getInt("arrowL3", "chainTargets", 1); }
 
     @Override
-    public double getChainDamageRatio() { return CHAIN_DAMAGE_RATIO; }
+    public double getChainDamageRatio() { return TowerBalance.getDouble("arrowL3", "chainDamageRatio", 0.5); }
 
     @Override
     public void render(GraphicsContext gc) {

@@ -6,6 +6,7 @@ import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.projectile.Bomb;
 import com.kingdom.game.util.balance.BalanceTable;
+import com.kingdom.game.util.balance.TowerBalance;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -20,10 +21,8 @@ import java.util.List;
  * 升级链（本类为 1 级，可升级到 {@link EliteCannonTower}）：
  * 默认 nextLevelSpec 指向 CANNON_ELITE；架构师 A 可经 {@link #setNextLevelSpec} 注入/替换链。
  *
- * 数值说明（《建筑与怪物机制策划》炮塔基础：伤害45/间隔1500ms/射程140/溅射50；造价沿用 PRD 80）：
- * - 溅射半径：构造期取自 config/balance.json 的 {@code cannonSplashRadius}（缺省回退 50），
- *   开火时随构造参数传给 Bomb → 实战溅射半径与 JSON 一致（《整改方案》§7 P1-1 已闭环）。
- *   改半径请编辑 balance.json，**无需改代码**；造价与装配处 TowerSpec 保持一致。
+ * 数值来源：伤害/射程/冷却从 config/tower.json 读取（TowerBalance）；
+ * 溅射半径从 config/balance.json 读取（BalanceTable）。缺省均回退硬编码默认。
  */
 public class CannonTower extends Tower implements ITowerUpgrade {
 
@@ -53,9 +52,9 @@ public class CannonTower extends Tower implements ITowerUpgrade {
 
     public CannonTower(double x, double y) {
         super(x, y);
-        this.attackRange = 140;
-        this.attackCooldown = 1500;
-        this.baseAttackDamage = 45;
+        this.attackRange = TowerBalance.getDouble("cannonL1", "range", 140);
+        this.attackCooldown = TowerBalance.getInt("cannonL1", "cooldownMs", 1800);
+        this.baseAttackDamage = TowerBalance.getInt("cannonL1", "damage", 63);
         this.totalCost = BUILD_COST;
         this.splashRadius = BalanceTable.runtime().getCannonSplashRadius();
         this.nextLevelSpec = new TowerSpec(TowerType.CANNON_ELITE, "精英炮塔", UPGRADE_COST);
