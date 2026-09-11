@@ -23,9 +23,9 @@ public interface ITowerUpgrade {
     /**
      * 本塔等级（1 / 2 / 3）。
      *
-     * 等级由**类身份**决定（每级 = 独立塔类，见《防御塔子系统说明》§8）：各级塔类以
-     * {@code public static final int LEVEL} 声明并由本方法返回；
-     * {@code Tower} 基类**不再持有 level 字段**（旧的可变 level 与其 {@code upgrade()} 已删除）。
+     * 等级由**注入的数值**决定（{@code TowerParams.level}，默认值见 {@code TowerParamsDefaults}），
+     * 由 {@code Tower} 基类统一实现（{@code return params.getLevel()}）。
+     * 每级仍是独立塔类（见《防御塔子系统说明》§8），但等级不再以类常量声明。
      */
     int getLevel();
 }

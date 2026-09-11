@@ -1,47 +1,31 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.TowerParams;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
  * MasterCannonTower —— 大师炮塔（炮塔 3 级，满级）。
  *
- * 继承 {@link EliteCannonTower}（复用 findTarget/attack），覆写数值与渲染加"三级"标记。
- * 满级：nextLevelSpec = null，isMaxLevel() 为 true。
+ * 继承 {@link EliteCannonTower}（复用 findTarget/attack），覆写渲染加"三级"标记。
+ * 满级：nextLevelSpec = null（由注入数值决定）。
  *
- * 数值（《建筑与怪物机制策划》L3）：伤害 110 / 溅射 80（间隔 1500ms、射程 140 不变）。
- * 特殊能力【燃烧】：命中后敌人每秒受 5 点伤害、持续 3 秒 —— 见 {@link IBurnEffect}，
- * 本次仅暴露参数，实际 DoT 需敌人侧支持（B 名下）后接入。
+ * 数值（《建筑与怪物机制策划》L3：伤害 110 / 溅射 80）与 3 级能力【燃烧】参数
+ * **全部来自构造注入的 {@link TowerParams}**（默认值见 {@code TowerParamsDefaults.cannonL3()}）。
+ * 实际 DoT 需敌人侧支持（B 名下）后读取 {@link IBurnEffect} 参数接入。
  */
 public class MasterCannonTower extends EliteCannonTower implements IBurnEffect {
 
-    /** 燃烧每秒伤害 */
-    private static final int BURN_DPS = 5;
-    /** 燃烧持续时间（毫秒） */
-    private static final int BURN_DURATION_MILLIS = 3000;
-
-    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
-    public static final int LEVEL = 3;
-
-    @Override
-    public int getLevel() { return LEVEL; }
-
-    public MasterCannonTower(double x, double y) {
-        super(x, y);
-        this.baseAttackDamage = 110;                 // 伤害 70 → 110
-        this.splashRadius = 80;                      // 溅射 65 → 80
-        this.totalCost = CannonTower.BUILD_COST
-                + CannonTower.UPGRADE_COST
-                + EliteCannonTower.UPGRADE_COST;     // 80 + 150 + 250 = 480
-        this.nextLevelSpec = null;                   // 已是满级
+    public MasterCannonTower(double x, double y, TowerParams p) {
+        super(x, y, p);                              // 数值与满级标记均来自 p
     }
 
     @Override
-    public int getBurnDamagePerSecond() { return BURN_DPS; }
+    public int getBurnDamagePerSecond() { return params.getBurnDps(); }
 
     @Override
-    public int getBurnDurationMillis() { return BURN_DURATION_MILLIS; }
+    public int getBurnDurationMillis() { return params.getBurnDurationMs(); }
 
     @Override
     public void render(GraphicsContext gc) {

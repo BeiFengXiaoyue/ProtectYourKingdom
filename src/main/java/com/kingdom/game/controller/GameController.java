@@ -3,6 +3,7 @@ package com.kingdom.game.controller;
 import com.kingdom.game.config.GameConfig;
 import com.kingdom.game.model.GameObject;
 import com.kingdom.game.model.GameState;
+import com.kingdom.game.model.TowerParams;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.ally.Ally;
@@ -23,7 +24,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiFunction;
 
 /**
  * GameController —— 控制层核心（具体类），实现 4 个 UI→后端接口。
@@ -50,8 +50,11 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     private final List<Projectile> projectiles = new ArrayList<>();
     private final List<Ally> allies = new ArrayList<>();
 
-    // 塔工厂注册表：type -> (x,y) -> Tower（由装配处/防御塔负责人登记）
-    private final Map<TowerType, BiFunction<Double, Double, Tower>> towerFactories = new HashMap<>();
+    // 塔工厂注册表：type -> 工厂（由装配处/防御塔负责人登记）
+    private final Map<TowerType, TowerFactory> towerFactories = new HashMap<>();
+
+    // 塔数值注册表：type -> TowerParams（接线人员在登记时注入；塔类不再持有数值常量）
+    private final Map<TowerType, TowerParams> towerParams = new HashMap<>();
 
     // ===== UI 通知接口（注入可为空）=====
     private IStatusObserver statusObserver;
@@ -104,18 +107,26 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         notifyMessage("点击「开始波次」开战！");
     }
 
-    // ===== 塔工厂注册（A：防御塔负责人交付后在此登记）=====
-    public void registerTower(TowerType type, TowerSpec spec, BiFunction<Double, Double, Tower> factory) {
+    // ===== 塔工厂/数值注册（装配处：接线人员改数值见 TowerParamsDefaults）=====
+    /**
+     * 登记可建造塔：目录条目进建塔菜单，工厂 + 数值进注册表。
+     * 塔的数值经 {@code params} 注入（塔类不含数值常量）；改数值请改 {@code TowerParamsDefaults}。
+     */
+    public void registerTower(TowerType type, TowerSpec spec, TowerParams params, TowerFactory factory) {
         config.addTowerSpec(spec);
         towerFactories.put(type, factory);
+        towerParams.put(type, params);
     }
 
     /**
      * 登记升级链工厂（《防御塔子系统说明》§10）：只进工厂表、不进 config.towerSpecs，
      * 升级级塔不会出现在建塔目录；供 upgradeTower 原位替换取下一级工厂。
      */
-    public void registerUpgradeFactory(TowerType type, BiFunction<Double, Double, Tower> factory) {
-        if (type != null && factory != null) towerFactories.put(type, factory);
+    public void registerUpgradeFactory(TowerType type, TowerParams params, TowerFactory factory) {
+        if (type != null && factory != null) {
+            towerFactories.put(type, factory);
+            towerParams.put(type, params);
+        }
     }
 
     // ================= IGameLoop =================
@@ -415,9 +426,10 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     // ================= ITowerBuilder =================
     @Override
     public boolean placeTower(double x, double y, TowerType type) {
-        BiFunction<Double, Double, Tower> factory = towerFactories.get(type);
+        TowerFactory factory = towerFactories.get(type);
+        TowerParams params = towerParams.get(type);
         TowerSpec spec = config.getTowerSpec(type);
-        if (factory == null || spec == null) {
+        if (factory == null || params == null || spec == null) {
             notifyMessage("该塔尚未开放建造");
             return false;
         }
@@ -441,7 +453,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
             return false;
         }
 
-        Tower tower = factory.apply(x, y);
+        Tower tower = factory.create(x, y, params);   // 数值经 params 注入
         tower.setX(x);
         tower.setY(y);
         injectTowerChannels(tower);
@@ -472,8 +484,9 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
             notifyMessage("该塔已满级");
             return;
         }
-        BiFunction<Double, Double, Tower> factory = towerFactories.get(next.getType());
-        if (factory == null) {
+        TowerFactory factory = towerFactories.get(next.getType());
+        TowerParams nextParams = towerParams.get(next.getType());
+        if (factory == null || nextParams == null) {
             notifyMessage("下一级尚未开放");
             return;
         }
@@ -481,7 +494,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
             notifyMessage("金币不足！升级需要 " + next.getCost());
             return;
         }
-        Tower upgraded = factory.apply(tower.getX(), tower.getY());
+        Tower upgraded = factory.create(tower.getX(), tower.getY(), nextParams);   // 数值经 params 注入
         injectTowerChannels(upgraded);
         towers.set(idx, upgraded);
         tower.destroy();

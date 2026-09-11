@@ -4,6 +4,7 @@ import com.kingdom.game.config.GameConfig;
 import com.kingdom.game.controller.GameController;
 import com.kingdom.game.controller.WaveManager;
 import com.kingdom.game.model.GameState;
+import com.kingdom.game.model.TowerParams;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.tower.ArrowTower;
@@ -15,6 +16,7 @@ import com.kingdom.game.model.tower.EliteCannonTower;
 import com.kingdom.game.model.tower.MasterArrowTower;
 import com.kingdom.game.model.tower.MasterBarrack;
 import com.kingdom.game.model.tower.MasterCannonTower;
+import com.kingdom.game.model.tower.TowerParamsDefaults;
 import com.kingdom.game.util.asset.Assets;
 import com.kingdom.game.util.asset.SizeTable;
 import com.kingdom.game.util.audio.SoundManager;
@@ -85,25 +87,29 @@ public class Main extends Application {
         controller.setCombatSound(sounds);
         controller.setEndSound(sounds);
         // 塔登记（防御塔负责人交付 ArrowTower / CannonTower / Barrack）：
+        // 数值经 TowerParams 注入（塔类已不含数值常量）；**接线人员改数值请改 TowerParamsDefaults**。
+        TowerParams arrowL1 = TowerParamsDefaults.arrowL1();
+        TowerParams cannonL1 = TowerParamsDefaults.cannonL1();
+        TowerParams barrackL1 = TowerParamsDefaults.barrackL1();
         controller.registerTower(TowerType.ARROW,
-                new TowerSpec(TowerType.ARROW, "箭塔", ArrowTower.BUILD_COST),
-                ArrowTower::new);
+                new TowerSpec(TowerType.ARROW, arrowL1.getDisplayName(), arrowL1.getBuildCost()),
+                arrowL1, ArrowTower::new);
         controller.registerTower(TowerType.CANNON,
-                new TowerSpec(TowerType.CANNON, "炮塔", CannonTower.BUILD_COST),
-                CannonTower::new);
+                new TowerSpec(TowerType.CANNON, cannonL1.getDisplayName(), cannonL1.getBuildCost()),
+                cannonL1, CannonTower::new);
         controller.registerTower(TowerType.BARRACK,
-                new TowerSpec(TowerType.BARRACK, "兵营", Barrack.BUILD_COST),
-                Barrack::new);
+                new TowerSpec(TowerType.BARRACK, barrackL1.getDisplayName(), barrackL1.getBuildCost()),
+                barrackL1, Barrack::new);
         // 升级链工厂登记（《防御塔子系统说明》§10）：不进建塔目录，仅供 upgradeTower 原位替换取下一级工厂
         // 覆盖 TowerType 三族的 2 级精英与 3 级大师（缺任一登记，对应等级升级会提示"下一级尚未开放"）
-        controller.registerUpgradeFactory(TowerType.ARROW_ELITE, EliteArrowTower::new);
-        controller.registerUpgradeFactory(TowerType.CANNON_ELITE, EliteCannonTower::new);
-        controller.registerUpgradeFactory(TowerType.BARRACK_ELITE, EliteBarrack::new);
+        controller.registerUpgradeFactory(TowerType.ARROW_ELITE, TowerParamsDefaults.arrowL2(), EliteArrowTower::new);
+        controller.registerUpgradeFactory(TowerType.CANNON_ELITE, TowerParamsDefaults.cannonL2(), EliteCannonTower::new);
+        controller.registerUpgradeFactory(TowerType.BARRACK_ELITE, TowerParamsDefaults.barrackL2(), EliteBarrack::new);
         // L2→L3 工厂（2-1）：不登记则 upgradeTower 取不到下一级工厂，会提示"下一级尚未开放"。
         // L3 尺寸由 assets/sizes.json 的 3 条 Master 条目驱动（48×48）。
-        controller.registerUpgradeFactory(TowerType.ARROW_MASTER, MasterArrowTower::new);
-        controller.registerUpgradeFactory(TowerType.CANNON_MASTER, MasterCannonTower::new);
-        controller.registerUpgradeFactory(TowerType.BARRACK_MASTER, MasterBarrack::new);
+        controller.registerUpgradeFactory(TowerType.ARROW_MASTER, TowerParamsDefaults.arrowL3(), MasterArrowTower::new);
+        controller.registerUpgradeFactory(TowerType.CANNON_MASTER, TowerParamsDefaults.cannonL3(), MasterCannonTower::new);
+        controller.registerUpgradeFactory(TowerType.BARRACK_MASTER, TowerParamsDefaults.barrackL3(), MasterBarrack::new);
         controller.refreshUI();               // 推送初始生命/金币/波次到 HUD
 
         Assets.preload();                     // 预加载贴图（无图自动跳过）

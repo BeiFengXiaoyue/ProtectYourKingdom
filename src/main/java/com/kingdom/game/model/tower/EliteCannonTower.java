@@ -1,36 +1,23 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
-import com.kingdom.game.model.TowerSpec;
-import com.kingdom.game.model.TowerType;
+import com.kingdom.game.model.TowerParams;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
  * EliteCannonTower —— 精英炮塔（炮塔 2 级）。
  *
- * 继承 {@link CannonTower}（复用 findTarget/attack），仅覆写数值与渲染加金色标记作区分。
+ * 继承 {@link CannonTower}（复用 findTarget/attack），仅覆写渲染加金色标记作区分。
  * 可继续升级到 {@link MasterCannonTower}（3 级）。
  *
- * 数值（《建筑与怪物机制策划》L2）：伤害 70 / 溅射 65（间隔 1500ms、射程 140 不变）。
+ * 数值（《建筑与怪物机制策划》L2：伤害 70 / 溅射 65）全部由构造注入的 {@link TowerParams} 提供
+ * （默认值见 {@code TowerParamsDefaults.cannonL2()}），本类不含数值常量。
  */
 public class EliteCannonTower extends CannonTower {
 
-    /** 2 级 → 3 级的升级投入（《策划》：250） */
-    public static final int UPGRADE_COST = 250;
-
-    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
-    public static final int LEVEL = 2;
-
-    @Override
-    public int getLevel() { return LEVEL; }
-
-    public EliteCannonTower(double x, double y) {
-        super(x, y);
-        this.baseAttackDamage = 70;                  // 伤害 45 → 70
-        this.splashRadius = 65;                      // 溅射 50 → 65
-        this.totalCost = CannonTower.BUILD_COST + CannonTower.UPGRADE_COST;    // 80 + 150 = 230
-        this.nextLevelSpec = new TowerSpec(TowerType.CANNON_MASTER, "大师炮塔", UPGRADE_COST);
+    public EliteCannonTower(double x, double y, TowerParams p) {
+        super(x, y, p);                              // 数值与升级链均来自 p
     }
 
     @Override

@@ -1,48 +1,32 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.TowerParams;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
  * MasterArrowTower —— 大师箭塔（箭塔 3 级，满级）。
  *
- * 继承 {@link EliteArrowTower}（复用 findTarget/attack/render），覆写构造数值与渲染加"三级"标记。
- * 满级：nextLevelSpec = null，isMaxLevel() 为 true。
+ * 继承 {@link EliteArrowTower}（复用 findTarget/attack/render），覆写渲染加"三级"标记。
+ * 满级：nextLevelSpec = null（由注入数值决定），isMaxLevel() 为 true。
  *
- * 数值（《建筑与怪物机制策划》L3）：伤害 41 / 间隔 440ms（+20% 攻速）/ 射程 140。
- * 特殊能力【连锁箭】：主目标命中后溅射附近 1 个敌人，伤害 50% —— 见 {@link IChainShot}，
- * 本次仅暴露参数，实际连锁在投射物侧（Arrow.onHit，B 名下）就绪后接入。
+ * 数值（《建筑与怪物机制策划》L3：伤害 41 / 间隔 440ms / 射程 140）与 3 级能力
+ * 【连锁箭】参数（目标 1 / 伤害 50%）**全部来自构造注入的 {@link TowerParams}**
+ * （默认值见 {@code TowerParamsDefaults.arrowL3()}），本类不含数值常量。
+ * 实际连锁逻辑在投射物侧（Arrow.onHit，B 名下）就绪后读取 {@link IChainShot} 参数接入。
  */
 public class MasterArrowTower extends EliteArrowTower implements IChainShot {
 
-    /** 连锁目标数 */
-    private static final int CHAIN_TARGETS = 1;
-    /** 连锁伤害比例 */
-    private static final double CHAIN_DAMAGE_RATIO = 0.5;
-
-    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
-    public static final int LEVEL = 3;
-
-    @Override
-    public int getLevel() { return LEVEL; }
-
-    public MasterArrowTower(double x, double y) {
-        super(x, y);
-        this.attackRange = 140;                      // 射程保持 140
-        this.attackCooldown = 440;                   // 间隔 550 → 440（+20% 攻速）
-        this.baseAttackDamage = 41;                  // 伤害 27 → 41
-        this.totalCost = ArrowTower.BUILD_COST
-                + ArrowTower.UPGRADE_COST
-                + EliteArrowTower.UPGRADE_COST;      // 50 + 75 + 120 = 245
-        this.nextLevelSpec = null;                   // 已是满级
+    public MasterArrowTower(double x, double y, TowerParams p) {
+        super(x, y, p);                              // 数值与满级标记均来自 p
     }
 
     @Override
-    public int getChainTargets() { return CHAIN_TARGETS; }
+    public int getChainTargets() { return params.getChainTargets(); }
 
     @Override
-    public double getChainDamageRatio() { return CHAIN_DAMAGE_RATIO; }
+    public double getChainDamageRatio() { return params.getChainDamageRatio(); }
 
     @Override
     public void render(GraphicsContext gc) {

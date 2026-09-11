@@ -1,8 +1,8 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.TowerParams;
 import com.kingdom.game.model.TowerSpec;
-import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.projectile.Bomb;
 import javafx.scene.canvas.GraphicsContext;
@@ -14,45 +14,27 @@ import java.util.List;
  * CannonTower —— 炮塔（远程群攻塔，Day3 v0.7 交付物）。
  *
  * 发射流程：attack() 生成定点 {@link Bomb} 并交给 projectileSink；
- * 溅射伤害在 Bomb.onHit()（实体负责人 B 的实现，~半径 60px 内所有敌人）。
+ * 溅射伤害在 Bomb.onHit()（实体负责人 B 的实现）。
  *
- * 升级链（本类为 1 级，可升级到 {@link EliteCannonTower}）：
- * 默认 nextLevelSpec 指向 CANNON_ELITE；架构师 A 可经 {@link #setNextLevelSpec} 注入/替换链。
- *
- * 数值说明（《建筑与怪物机制策划》炮塔基础：伤害45/间隔1500ms/射程140/溅射50；造价沿用 PRD 80）：
- * - 溅射半径：Bomb.onHit() 内**硬编码 60px**（B 侧尚未支持半径参数），故本类 splashRadius(50/65/80)
- *   当前**未生效**（见《整改方案-文档与代码一致性》§7 P1-1）；造价与装配处 TowerSpec 保持一致。
+ * 数值（PM 要求：不用 final、改构造注入）：本类**不含任何数值常量**，
+ * 伤害/射程/冷却/溅射半径/弹速/造价/累计投入/升级链全部取自构造注入的 {@link TowerParams}；
+ * 默认值集中在 {@code TowerParamsDefaults.cannonL1()}。
+ * ⚠ 溅射半径：`Bomb.onHit()` 内仍硬编码 60px（B 侧尚未支持半径参数），故本类
+ * `splashRadius` 当前**未生效**（见《整改方案-文档与代码一致性》§7 P1-1 / 任务 C-2）。
  */
 public class CannonTower extends Tower implements ITowerUpgrade {
 
-    /** 建造成本（Main 登记 TowerSpec 时引用，保持一致） */
-    public static final int BUILD_COST = 80;
-
-    /** 1 级 → 2 级的升级投入（《建筑与怪物机制策划》：150；A 可经 setNextLevelSpec 覆盖） */
-    public static final int UPGRADE_COST = 150;
-
-    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
-    public static final int LEVEL = 1;
-
-    @Override
-    public int getLevel() { return LEVEL; }
-
-    /** 下一级塔目录条目（默认指向 2 级精英炮塔；null = 满级） */
+    /** 下一级塔目录条目（由注入的 params 生成；null = 满级） */
     protected TowerSpec nextLevelSpec;
 
-    /** 爆炸溅射半径 px（《策划》L1/L2/L3 = 50/65/80；待 Bomb 支持半径参数后传递） */
-    protected double splashRadius = 50;
+    /** 爆炸溅射半径 px（来自注入数值；待 Bomb 支持半径参数后传递） */
+    protected double splashRadius;
 
-    /** 炮弹飞行速度 px/s */
-    private static final double BOMB_SPEED = 220;
-
-    public CannonTower(double x, double y) {
+    public CannonTower(double x, double y, TowerParams p) {
         super(x, y);
-        this.attackRange = 140;
-        this.attackCooldown = 1500;
-        this.baseAttackDamage = 45;
-        this.totalCost = BUILD_COST;
-        this.nextLevelSpec = new TowerSpec(TowerType.CANNON_ELITE, "精英炮塔", UPGRADE_COST);
+        applyParams(p);                              // 射程/冷却/伤害/累计投入
+        this.splashRadius = p.getSplashRadius();     // 溅射半径（注入）
+        this.nextLevelSpec = nextSpecFrom(p);        // 升级链（满级为 null）
     }
 
     /** 爆炸溅射半径（px） */
@@ -87,10 +69,10 @@ public class CannonTower extends Tower implements ITowerUpgrade {
         return nearest;
     }
 
-    /** 开火：从塔中心向目标当前位置发射一枚定点炮弹 */
+    /** 开火：从塔中心向目标当前位置发射一枚定点炮弹（弹速取自注入数值） */
     @Override
     public void attack(Enemy target) {
-        Bomb bomb = new Bomb(x, y, target.getX(), target.getY(), baseAttackDamage, BOMB_SPEED);
+        Bomb bomb = new Bomb(x, y, target.getX(), target.getY(), baseAttackDamage, params.getProjectileSpeed());
         combatSound.onProjectileFired(bomb);
         fire(bomb);
     }

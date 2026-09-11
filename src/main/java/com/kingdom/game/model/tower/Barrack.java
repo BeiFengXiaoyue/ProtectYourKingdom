@@ -1,8 +1,8 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.TowerParams;
 import com.kingdom.game.model.TowerSpec;
-import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.ally.Soldier;
 import com.kingdom.game.model.enemy.Enemy;
@@ -30,34 +30,22 @@ import java.util.function.Consumer;
  * **已接线**：GameController 放置/升级兵营时经 injectTowerChannels 调用 {@link #setAllySink(Consumer)}
  * （注入 {@code this::addAlly}），产出的士兵会进 allies 注册表并注入事件通道。
  *
- * 数值说明（《建筑与怪物机制策划》兵营基础：造价 100 / 士兵上限 2（2、3 级为 3、4）/
- * 出场·补位间隔 5s / 士兵 HP50·速度40·伤害8·攻击间隔800ms）。
+ * 数值（PM 要求：不用 final、改构造注入）：士兵上限/HP/伤害/攻击间隔/速度/出场补位间隔/造价/累计投入
+ * 全部取自构造注入的 {@link TowerParams}；默认值集中在 {@code TowerParamsDefaults.barrackL1()}，
+ * 接线人员改数值只改那一处（《建筑与怪物机制策划》兵营基础：士兵 2 / HP50 / 伤害8 / 间隔800ms / 速度40 / 补位5s）。
  */
 public class Barrack extends Tower implements ITowerUpgrade {
 
-    /** 建造成本（Main 登记 TowerSpec 时引用，保持一致） */
-    public static final int BUILD_COST = 100;
-
-    /** 1 级 → 2 级的升级投入（《建筑与怪物机制策划》：100；A 可经 setNextLevelSpec 覆盖） */
-    public static final int UPGRADE_COST = 100;
-
-    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
-    public static final int LEVEL = 1;
-
-    @Override
-    public int getLevel() { return LEVEL; }
-
-    /** 下一级塔目录条目（默认指向 2 级精英兵营；null = 满级） */
+    /** 下一级塔目录条目（由注入的 params 生成；null = 满级） */
     protected TowerSpec nextLevelSpec;
 
-    // ===== 生产与士兵参数（实例字段，默认值即 1 级；2/3 级子类可覆写）=====
-    // 数值来源《建筑与怪物机制策划》兵营基础：士兵2 / HP50 / 伤害8 / 攻击间隔800ms / 速度40 / 重生5s（覆盖文档10s）
-    protected int maxSoldiers = 2;
-    protected long spawnIntervalMillis = 5000;
-    protected int soldierHp = 50;
-    protected double soldierSpeed = 40;
-    protected int soldierAttack = 8;
-    protected int soldierCooldown = 800;
+    // ===== 生产与士兵参数（构造期由注入的 TowerParams 写入）=====
+    protected int maxSoldiers;
+    protected long spawnIntervalMillis;
+    protected int soldierHp;
+    protected double soldierSpeed;
+    protected int soldierAttack;
+    protected int soldierCooldown;
 
     /** 友方出口（默认 no-op：未被装配层注入时产出被丢弃、不报错；GameController 放置兵营时已注入） */
     private Consumer<Ally> allySink = a -> { };
@@ -74,14 +62,18 @@ public class Barrack extends Tower implements ITowerUpgrade {
         int respawnTimer = 0;
     }
 
-    public Barrack(double x, double y) {
+    public Barrack(double x, double y, TowerParams p) {
         super(x, y);
-        this.totalCost = BUILD_COST;
-        // 兵营不直接攻击：射程/冷却/伤害均为 0
-        this.attackRange = 0;
-        this.attackCooldown = 0;
-        this.baseAttackDamage = 0;
-        this.nextLevelSpec = new TowerSpec(TowerType.BARRACK_ELITE, "精英兵营", UPGRADE_COST);
+        // 兵营不直接攻击：射程/冷却/伤害均为 0（注入值即为 0）
+        applyParams(p);
+        // 士兵与生产参数（注入）
+        this.maxSoldiers = p.getMaxSoldiers();
+        this.spawnIntervalMillis = p.getSpawnIntervalMs();
+        this.soldierHp = p.getSoldierHp();
+        this.soldierSpeed = p.getSoldierSpeed();
+        this.soldierAttack = p.getSoldierAttack();
+        this.soldierCooldown = p.getSoldierCooldownMs();
+        this.nextLevelSpec = nextSpecFrom(p);
     }
 
     /** 由装配层（GameController.placeTower）注入友方出口；传入 null 保持当前 */

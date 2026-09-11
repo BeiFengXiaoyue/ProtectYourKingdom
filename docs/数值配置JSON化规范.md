@@ -173,7 +173,7 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
 | 单位宽高 | `assets/sizes.json`（见《视觉尺寸配置规范》） | 已有专项规范 |
 | 波次节奏 `waveEnemyCount` / `waveSpawnIntervalMs` / `waveIntermissionMs` / `earlyStartRewardCap` | `GameConfig` 的 Java 字面量（波次模块） | 初稿 §3.2 曾把这 4 键列入，实施时为避免与波次模块并行开发冲突而**明确不纳入**；`waveIntermissionMs` 可被波次表 `waves[].maxPrepMs` 覆盖 |
 | 敌人 **攻击力 / 攻击冷却** | ✅ **已纳入本文件**（§3.2 末 9 行） | 2026-09-10 关闭原"待纳入"项：A 的读通道已落（`BalanceTable`/`GameConfig`）；**取值与编辑器待 F-1**、`spawnEnemy` 传参待 B-4 |
-| 塔 / 士兵数值（造价/伤害/射程/冷却/溅射/士兵属性） | 各塔类与 `Barrack` 实例字段（当前**不可配**） | ⏳ **待纳入**（二期，见《整改方案》§7 P0-4） |
+| 塔 / 士兵数值（造价/伤害/射程/冷却/溅射/士兵属性/3级能力参数） | ✅ **塔数值已移出类常量**：集中在 `model/tower/TowerParamsDefaults`，经 `TowerParams` **构造注入**（改一处即生效，无需改塔类）；士兵数值仍由 `Barrack`/士兵类持有 | 🟡 **代码侧已可配**（2026-09-11，C）；**入 `balance.json` 仍属二期**（P0-4，需本规范 §九红线放行 + F 数值 + A 通道） |
 
 ---
 

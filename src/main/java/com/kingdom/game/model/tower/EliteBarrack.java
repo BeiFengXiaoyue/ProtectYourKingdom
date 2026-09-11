@@ -1,8 +1,7 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
-import com.kingdom.game.model.TowerSpec;
-import com.kingdom.game.model.TowerType;
+import com.kingdom.game.model.TowerParams;
 import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.ally.EliteSoldier;
 import javafx.scene.canvas.GraphicsContext;
@@ -11,28 +10,16 @@ import javafx.scene.paint.Color;
 /**
  * EliteBarrack —— 精英兵营（兵营 2 级）。
  *
- * 继承 {@link Barrack}（复用生产/剪除逻辑），仅覆写士兵参数 + 渲染加金色标记作区分。
+ * 继承 {@link Barrack}（复用生产/剪除逻辑），仅覆写"产出兵种"与渲染（金色标记）作区分。
  * 可继续升级到 {@link MasterBarrack}（3 级）。
  *
- * 数值（《建筑与怪物机制策划》L2）：士兵数 2 → 3、士兵 HP 50 → 80（伤害/间隔/速度/重生不变）。
+ * 数值（《建筑与怪物机制策划》L2：士兵数 3 / 士兵 HP 80）全部由构造注入的 {@link TowerParams} 提供
+ * （默认值见 {@code TowerParamsDefaults.barrackL2()}），本类不含数值常量。
  */
 public class EliteBarrack extends Barrack {
 
-    /** 2 级 → 3 级的升级投入（《策划》：180） */
-    public static final int UPGRADE_COST = 180;
-
-    /** 本塔等级（由类身份决定：每级 = 独立塔类） */
-    public static final int LEVEL = 2;
-
-    @Override
-    public int getLevel() { return LEVEL; }
-
-    public EliteBarrack(double x, double y) {
-        super(x, y);
-        this.maxSoldiers = 3;                        // 士兵数 2 → 3
-        this.soldierHp = 80;                         // 士兵 HP 50 → 80
-        this.totalCost = Barrack.BUILD_COST + Barrack.UPGRADE_COST;      // 100 + 100 = 200
-        this.nextLevelSpec = new TowerSpec(TowerType.BARRACK_MASTER, "大师兵营", UPGRADE_COST);
+    public EliteBarrack(double x, double y, TowerParams p) {
+        super(x, y, p);                              // 数值与升级链均来自 p
     }
 
     /**
