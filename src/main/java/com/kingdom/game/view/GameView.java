@@ -85,6 +85,8 @@ public class GameView implements IRenderNotifier,
     private final Label endSubLabel = new Label();
     private final Label endDetailLabel = new Label();
     private final Button endRestartButton = new Button("重新开始");
+    /** 「下一关」（多关卡 MVP）：仅胜利且存在下一关时显示，由 showEnd() 判定 */
+    private final Button endNextLevelButton = new Button("下一关");
     private boolean endShown = false;    // 防每帧重复 show 的幂等开关
 
     private final AnimationTimer timer;
@@ -523,7 +525,7 @@ public class GameView implements IRenderNotifier,
         pendingSlotIndex = -1;
     }
 
-    // ================= 结束/胜利覆盖层（内嵌，不新增类）=================
+    // ================= 结束/胜利覆盖层（内嵌，不新增类；含「下一关」入口，仅胜利且有下一关时显示）=================
 
     /** 结束/胜利全画布叠层：半透明遮罩 + 居中卡片（可见即拦截画布点击） */
     private StackPane buildEndOverlay() {
@@ -544,7 +546,21 @@ public class GameView implements IRenderNotifier,
             onRestart.run();
         });
 
-        VBox card = new VBox(14, endTitleLabel, endSubLabel, endDetailLabel, endRestartButton);
+        endNextLevelButton.setFont(Font.font(15));
+        endNextLevelButton.setPrefWidth(180);      // 与「重新开始」同宽
+        endNextLevelButton.setVisible(false);      // 由 showEnd() 按"胜利且有下一关"判定
+        endNextLevelButton.setManaged(false);
+        endNextLevelButton.setOnAction(e -> {
+            // 先切关、成功才收起遮罩：失败（关卡数据缺失）时保留遮罩，玩家仍可点「重新开始」，
+            // 否则会卡在"遮罩已消失 + 世界冻结 + 开始波次被禁用"的死局
+            if (levelSwitcher.goNextLevel()) {
+                hideEnd();
+                clearTransientEffects();   // 切关会清空战场，飘字/粒子/闪屏不应残留到新关
+            }
+        });
+
+        VBox card = new VBox(14, endTitleLabel, endSubLabel, endDetailLabel,
+                endNextLevelButton, endRestartButton);
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(28, 40, 28, 40));
         card.setStyle("-fx-background-color: rgba(30,34,40,0.96); -fx-background-radius: 12;"
@@ -574,6 +590,11 @@ public class GameView implements IRenderNotifier,
         endDetailLabel.setText(victory
                 ? "剩余生命 " + stateReader.getCurrentLives()
                 : "抵达第 " + stateReader.getCurrentWave() + " / " + stateReader.getTotalWaves() + " 波");
+        // 「下一关」仅胜利且存在下一关时显示（《多关卡与运行期切图-接口规范》§6）。
+        // 无条件赋值 → 失败时也会设回隐藏，不会残留上一局的可见状态
+        boolean showNext = victory && stateReader.hasNextLevel();
+        endNextLevelButton.setVisible(showNext);
+        endNextLevelButton.setManaged(showNext);   // 与 visible 同步：VBox 里只藏不脱管会留 180 宽空位
         endOverlay.setVisible(true);
         endShown = true;
     }
