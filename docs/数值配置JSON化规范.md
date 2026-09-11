@@ -6,8 +6,8 @@
 > 新增 `util.balance` 工具类负责“改文件”，`GameConfig` 负责“读文件”。**本文档即派工单**，按 §五 实施、§八 验收。
 > **状态：已实现**（2026-09-10 校准）——`util/balance/BalanceTable`、`util/balance/BalanceLibrary`、
 > `src/main/resources/config/balance.json`、`GameConfig` 构造期接入、`util/editor/BalanceEditorTool` **均已落地**。
-> ⚠️ 与初稿的差异：实际纳入 JSON 化的字段为 **24 个**（`initialGold/Lives/TotalWaves` + 四类敌人各 `Hp/Speed/GoldReward`
-> + 四类敌人各 `AttackDamage/AttackCooldownMs`（8 个）+ `tankPhysicalReduction`），
+> ⚠️ 与初稿的差异：实际纳入 JSON 化的字段为 **27 个**（`initialGold/Lives/TotalWaves` + 四类敌人各 `Hp/Speed/GoldReward`
+> + 四类敌人各 `AttackDamage/AttackCooldownMs`（8 个）+ `tankPhysicalReduction` + 炮塔溅射半径 3 键），
 > **不含**波次节奏 4 键（`waveEnemyCount`/`waveSpawnIntervalMs`/`waveIntermissionMs`/`earlyStartRewardCap`）——
 > 以 §3.2 现行表与 §3.4 说明为准。
 >
@@ -15,6 +15,16 @@
 > （`BalanceTable` 字段/`FIXED_KEYS`/`defaults`/`toJson`/`fromJson` + `GameConfig` 9 个 getter）；
 > ⏳ **仍待**：`balance.json` 取值与 `BalanceEditorTool` 输入框（F-1）、`spawnEnemy` 传参（待 B-4 扩构造）、
 > 减伤与破甲的消费实现（B-5 / C）。在 F-1 之前，这 9 项一律走 `BalanceTable.defaults()` 内置默认。
+>
+> 🆕 **2026-09-11 第三批（P1-1 溅射半径）**：§3.2 新增 ⑧ 组 **3 键**
+> （`cannonSplashRadius` / `eliteCannonSplashRadius` / `masterCannonSplashRadius`，默认 50/65/80）。
+> **与其他批次的差异（重要）**：本批**不经 `GameConfig`**——炮塔在构造期经
+> `BalanceTable.runtime()`（只读懒加载单例，对齐 `SizeTable.getInstance()` 范式）直接取值，
+> 因为塔实例由 `BiFunction<Double,Double,Tower>` 工厂产出、**不持有 `GameConfig` 引用**，
+> 而 `Tower` 基类属 A 侧未开放注入钩子。`GameConfig` 未新增 getter（避免新增死代码）。
+> ⏳ **仍待**：`BalanceEditorTool` 输入框补这 3 键（否则下次保存会以**内置默认值**写回）。
+> ⚠️ 本批将《整改方案》§7 P0-4「塔数值入 JSON」**提前落地了"溅射半径"一项**（原计划二期、按
+> 「③最后搬士兵参数与溅射半径」排最末），触碰了 §九「塔数值属二期」的措辞边界，需 A 追认。
 
 ---
 
@@ -121,9 +131,24 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
 | `bossAttackDamage` | number | 否 | `bossAttackDamage` | ≥1 整数 | Boss 攻击力（默认 22） |
 | `bossAttackCooldownMs` | number | 否 | `bossAttackCooldownMs` | ≥1 整数 | Boss 冷却 ms（默认 1100） |
 | `tankPhysicalReduction` | number | 否 | `tankPhysicalReduction` | **[0, 1)** | 重甲物理减伤比例（默认 0.3 = 减伤 30%；0 = 不减伤） |
+| `cannonSplashRadius` | number | 否 | ⚠️ **无**（见下注） | >0 | 1 级炮塔 `Bomb` 爆炸溅射半径 px（默认 50） |
+| `eliteCannonSplashRadius` | number | 否 | ⚠️ **无** | >0 | 2 级精英炮塔溅射半径 px（默认 65） |
+| `masterCannonSplashRadius` | number | 否 | ⚠️ **无** | >0 | 3 级大师炮塔溅射半径 px（默认 80） |
 
 > 🆕 末 9 行 = 2026-09-10 新增（《整改方案》§7 P0-1 / P0-3）。冷却下限为 **1**（0 冷却 = 无限攻速，禁止）；
 > `tankPhysicalReduction` 上界为**开区间**（≥1 会把伤害变成治疗），故 `fromJson` 单列 `readRatio` 校验，越界告警回退默认。
+>
+> 🆕 **末 3 行 = 2026-09-11 新增**（《整改方案》§7 P1-1「溅射半径传递」）。下限为 **开区间 >0**
+> （0/负数 = 溅射永不命中，禁止），故 `fromJson` 用 `readDouble(…, 0.0, false)`，越界告警回退内置默认。
+>
+> ⚠️ **「对应 GameConfig」列为空是本批的已知偏离**：这三键**不经 `GameConfig`**。
+> 炮塔实例由 `BiFunction<Double,Double,Tower>` 工厂产出、不持有 `GameConfig` 引用，
+> 而 `Tower` 基类的注入钩子属 A 侧未开放区域，故**过渡方案**为炮塔构造期经
+> `BalanceTable.runtime()` 直接取值（只读懒加载单例，与 `util.asset.SizeTable.getInstance()`
+> 同范式——实体构造期读 classpath 数值的既有先例）。§九「唯一运行期入口 = `GameConfig`」
+> 对**本 3 键**暂不适用；待 A 做 P0-4 全量塔数值迁移时，应一并改为 `GameConfig` 注入并删除 `runtime()`。
+> 消费链路：`balance.json` → `BalanceTable.runtime()` → `CannonTower`/`EliteCannonTower`/`MasterCannonTower`
+> 构造期 → `CannonTower.attack()` → `Bomb` 构造参数 → `Bomb.onHit()` 判定。
 
 > ⚠️ **原「已知缺口」已关闭**：四类敌人的攻击力 / 冷却**已有对应键**（上表末 9 行），不再写死在实体类。
 > 剩余待办仅为**落地**：`balance.json` 取值 + `BalanceEditorTool` 输入框（F-1）、`spawnEnemy` 传参（待 B-4）、
@@ -152,14 +177,32 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
   "tankGoldReward": 25,
   "bossHp": 1500,
   "bossSpeed": 40,
-  "bossGoldReward": 200
+  "bossGoldReward": 200,
+  "normalAttackDamage": 5,
+  "normalAttackCooldownMs": 1000,
+  "fastAttackDamage": 4,
+  "fastAttackCooldownMs": 700,
+  "tankAttackDamage": 9,
+  "tankAttackCooldownMs": 1400,
+  "bossAttackDamage": 22,
+  "bossAttackCooldownMs": 1100,
+  "cannonSplashRadius": 50,
+  "eliteCannonSplashRadius": 65,
+  "masterCannonSplashRadius": 80
 }
 ```
 
 > 与 `BalanceTable.defaults()`（内置默认）完全一致。**注意 `totalWaves` 会被 `maps/<key>/waves.json` 覆盖**（§3.4）。
 >
-> 🆕 上表**尚未**包含 §3.2 新增的 9 键（8 个近战 + `tankPhysicalReduction`）：它们是**选填项**，缺失即回退内置默认
-> （5/1000、4/700、9/1400、22/1100、0.3），因此不补也不影响启动；补写由 **F-1** 在定稿数值时一并完成。
+> ✅ **2026-09-11 更新（B-4 批）**：§3.2 第二批的 **8 个近战键已写入现行 `balance.json`**（上表中段，非"待补"状态）。
+> 消费链路已通：`balance.json` → `BalanceTable.runtime()` → 敌人**老签名重载**构造期取值 → 实战生效。
+> **不再依赖 `GameConfig` 或 A 的 `spawnEnemy` 改动即可调试**（改 JSON → 重启 → 生效）。
+>
+> ⏳ **`tankPhysicalReduction`（第 9 键）仍未写入**，这是**有意为之**：其实体侧消费（B-5 重甲减伤 / 炮塔破甲）
+> **尚未实现**，按 §3.4 与《整改方案》§7 P0-2「防假通道」的要求，**不得写入无对应实现的数值**，
+> 否则会出现"配了不生效却无提示"。待 B-5 落地后再由 F-1 补写。
+>
+> ✅ 末 3 行（溅射半径）**已写入现行 `config/balance.json`**（2026-09-11，P1-1），非"待补"状态。
 
 ### 3.4 明确**不纳入**本文件的数值（避免第二套通道）
 
@@ -172,8 +215,8 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
 | 塔目录 `towerSpecs`（显示名/造价） | `Main` 的 `registerTower(...)` 登记 | 属装配，非本任务 |
 | 单位宽高 | `assets/sizes.json`（见《视觉尺寸配置规范》） | 已有专项规范 |
 | 波次节奏 `waveEnemyCount` / `waveSpawnIntervalMs` / `waveIntermissionMs` / `earlyStartRewardCap` | `GameConfig` 的 Java 字面量（波次模块） | 初稿 §3.2 曾把这 4 键列入，实施时为避免与波次模块并行开发冲突而**明确不纳入**；`waveIntermissionMs` 可被波次表 `waves[].maxPrepMs` 覆盖 |
-| 敌人 **攻击力 / 攻击冷却** | ✅ **已纳入本文件**（§3.2 末 9 行） | 2026-09-10 关闭原"待纳入"项：A 的读通道已落（`BalanceTable`/`GameConfig`）；**取值与编辑器待 F-1**、`spawnEnemy` 传参待 B-4 |
-| 塔 / 士兵数值（造价/伤害/射程/冷却/溅射/士兵属性） | 各塔类与 `Barrack` 实例字段（当前**不可配**） | ⏳ **待纳入**（二期，见《整改方案》§7 P0-4） |
+| 敌人 **攻击力 / 攻击冷却** | ✅ **已纳入本文件**（§3.2 末 9 行） | 2026-09-10 关闭原"待纳入"项：A 的读通道已落（`BalanceTable`/`GameConfig`）。✅ **2026-09-11：8 键已写入 `balance.json` 且消费链路已通**（B-4：敌人老签名重载经 `BalanceTable.runtime()` 取值；`GameConfig` 的 8 个 getter 保留供 A 落 5-1 时显式注入）。⏳ 仍待：`BalanceEditorTool` 输入框补这 8 键（F-1 剩余）+ `spawnEnemy` 显式传参（5-1，归 A） |
+| 塔 / 士兵数值（造价/伤害/射程/冷却/溅射/士兵属性） | 各塔类与 `Barrack` 实例字段 | ⏳ **部分已纳入**：**溅射半径 3 键已落**（§3.2 末 3 行 + §3.3，2026-09-11 P1-1，由炮塔经 `BalanceTable.runtime()` 取值）；**造价/伤害/射程/冷却/士兵属性仍待纳入**（二期，见《整改方案》§7 P0-4） |
 
 ---
 
@@ -197,6 +240,7 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
 | 4 | `view/Main.java` | `:35-37` 的“数值配置（开发期可在此微调）”注释改为指引：改数值请编辑 `src/main/resources/config/balance.json`（示例保留 `config.setXxx(...)` 作为运行期瞬时覆盖手段的说明） |
 | 5 | `util/editor/BalanceEditorTool.java` **（可选·二期）** | 可视化数值编辑工具，工程结构仿 `util.editor.AnimEditorTool`（`main()` 转发嵌套 `BalanceEditorApp extends Application`，规避 JavaFX 模块检查）：表单展示全部字段 → 校验范围 → 经 `BalanceLibrary.write()` 保存并提示“重启游戏生效”。**已交付 15 键；§3.2 新增 9 键的输入框与本地 `FIXED_KEYS` 由 F-1 补齐**（⚠️ 未补之前，工具保存会把 9 键以**内置默认值**写进 `balance.json`） |
 | 6 | `src/main/resources/config/balance.json` **（新增）** | §3.3 的 seed 内容 |
+| 7 | **（2026-09-11 P1-1 批）** `BalanceTable` + `model/projectile/Bomb` + `model/tower/{Cannon,EliteCannon,MasterCannon}Tower` | ① `BalanceTable` 加 ⑧ 组 3 字段（getter/setter/`FIXED_KEYS`/`defaults`/`toJson`/`fromJson`）+ `static runtime()` 只读懒加载单例；② `Bomb` 构造扩参 `double splashRadius`，**删除**原 `SPLASH_RADIUS = 60` 常量，`onHit()` 改用字段；③ 三个炮塔构造期经 `BalanceTable.runtime()` 取值，`CannonTower.attack()` 把半径传入 `Bomb` 构造。⚠️ **不经 `GameConfig`**（原因见 §3.2 末注）；`GameConfig` 无新增 getter |
 
 **实现要求**：
 - JSON 解析**复用 `util/json/MiniJson`**（与 `MapRoute`/`AnimTable`/`MapLibrary` 一致），不引入第三方 JSON 库；
@@ -214,7 +258,7 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
 |---|---|---|
 | `docs/接口契约与抽象类说明.md` §1（`:16-17`） | util 子包列表 `map/anim/editor/asset/audio/fx/json` | **需修订**：追加 `balance`，并补一句“数值文件 `resources/config/balance.json` 由 `util.balance` 管理” |
 | 同上 §5.1（`:279-282`） | “GameConfig：实例对象 + getter/fluent setter…集中数值” | **需修订**：补“数值来自 `config/balance.json`（`util.balance.BalanceLibrary` 读取，缺省回退内置默认），运行期唯一 getter 入口不变” |
-| `docs/视觉尺寸配置规范.md` §五（`:146`） | “实体 HP/速度/造价等数值**仍归 GameConfig** 与实体构造器，一律不动” | **不冲突**：本规范下数值仍“归 GameConfig”（运行期唯一入口），尺寸单只管宽高。**若后续二期把实体构造器里的数值也纳入**，才需同步修订此句 |
+| `docs/视觉尺寸配置规范.md` §五（`:146`） | “实体 HP/速度/造价等数值**仍归 GameConfig** 与实体构造器，一律不动” | ⚠️ **2026-09-11 起部分需修订**：P1-1 已把**溅射半径**纳入并改为**炮塔构造期直接读 `BalanceTable.runtime()`**——实体构造器里的取值方式**已变**（不再纯由 Java 字面量决定），且本 3 键不经 `GameConfig`。其余塔数值（造价/伤害/射程/冷却）不动，故该句对其余部分仍成立 |
 | `docs/关卡波次配置规范.md` §四（`:139`）· 红线（`:211`） | “数值由 A 在 GameConfig 侧按 id 补齐”“禁止 waves 里内联数值形成第二套数值通道” | **不冲突**：本期不动敌人类型数值归属；二期若把每类敌人数值写进 `balance.json`，需把“GameConfig 侧补齐”改写为“经 GameConfig 从 `balance.json` 按 id 读取”。数值始终在 `balance.json`、不在 `waves.json`，红线不破 |
 | `README.md` | “运行工具”表 | 交付可选编辑器时，由提出方 A 顺带补一行（同《视觉尺寸配置规范》§八 的做法），不阻塞本任务验收 |
 
@@ -252,12 +296,17 @@ GameController / GameState / HUD ……（消费方一行不改，仍只用 Game
 ## 九、范围红线（不做清单）
 
 - **不新增第二套数值通道**：数值唯一源文件 = `config/balance.json`，唯一运行期入口 = `GameConfig`；不得再在别处写死这些数值；
+  > 📌 **2026-09-11 限定语（P1-1 溅射半径）**：本 3 键的**源文件仍是 `config/balance.json`**（未新增第二套通道，前半句守住）；
+  > 但**运行期入口不是 `GameConfig`**，而是 `BalanceTable.runtime()`（炮塔构造期直读）。这是**已知偏离**，
+  > 原因是塔实例不持有 `GameConfig` 引用、`Tower` 基类注入钩子属 A 侧未开放区域。待 A 做 P0-4 全量塔数值迁移时统一回归 `GameConfig` 注入。
 - 不改实体类（`model/enemy/*`、`model/tower/*`、`model/ally/*`）内的索敌/移动/攻击逻辑——实体类**只接收注入数值**；
   > 📌 **2026-09-10 限定语**：本红线原表述"不改实体类内的**战斗数值**"已被《整改方案》§7 P0-1 取代——
   > 四类敌人的攻击力/冷却**已进 `balance.json`**（§3.2 末 9 行），实体类中原先写死的 `attackDamage = 5/4/9/22`、
   > `maxAttackCooldown = 1000/700/1400/1100` 属**待删除的写死值**（由 B-4 扩构造、A 补 `spawnEnemy` 传参后移除），
-  > 不再受本红线保护。塔/士兵数值（P0-4）仍属二期，维持原红线；
-- 不动塔升级链与精英塔（`Tower.upgrade()` 的 ×1.3/×1.2 规则已随该"数值式升级"实现一并删除、`Elite*Tower` 升级链已接线）——塔数值入 JSON 属二期讨论范围；
+  > 不再受本红线保护。
+  > 📌 **2026-09-11 追加**：P1-1 已把**炮塔溅射半径**从塔类字面量（`= 50/65/80`）改为**构造期读 JSON**，
+  > 该 3 个写死值同样**不再受本红线保护**。**其余塔/士兵数值（造价/伤害/射程/冷却/士兵属性）仍属二期，维持原红线**。
+- 不动塔升级链与精英塔（`Tower.upgrade()` 的 ×1.3/×1.2 规则已随该"数值式升级"实现一并删除、`Elite*Tower` 升级链已接线）——**其余**塔数值入 JSON 仍属二期讨论范围（溅射半径已按 P1-1 提前落地，见上）；
 - 不改地图配置（`maps/**`）、动画配置（`assets/animations/**`）、尺寸配置（`assets/sizes.json`）；
 - 不引入第三方 JSON 库；不新增并行“关卡/波次/数值数据源”；
 - 生效时机只做“启动读取”，不实现运行中热重载；
