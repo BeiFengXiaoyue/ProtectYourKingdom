@@ -186,6 +186,9 @@ public class GameView implements IRenderNotifier,
     /** 地图底图（resources/maps/<config.mapImageName>），缺失时回退配色画法 */
     private Image mapBackground;
 
+    /** 上次加载底图时的地图 key：运行期切关后 mapKey 变化 → 自动重载底图（同 key 则每帧零开销） */
+    private String lastBgMapKey;
+
     public GameView(IGameLoop gameLoop, IGameStateReader stateReader, GameConfig config,
                     ITowerBuilder builder, Runnable onRestart) {
         this.gameLoop = gameLoop;
@@ -214,6 +217,7 @@ public class GameView implements IRenderNotifier,
 
         // 窗口未开始前先画一帧静态地图
         loadMapBackground();
+        lastBgMapKey = config.getMapKey();   // 与已加载底图对齐，避免 draw() 里重复加载
         draw();
     }
 
@@ -255,6 +259,11 @@ public class GameView implements IRenderNotifier,
     }
 
     private void draw() {
+        // 底图跟随关卡：mapKey 变化（运行期切关）时重载；未变则无操作（路径/塔位点本就每帧现读 config）
+        if (!java.util.Objects.equals(config.getMapKey(), lastBgMapKey)) {
+            loadMapBackground();
+            lastBgMapKey = config.getMapKey();
+        }
         double w = canvas.getWidth();
         double h = canvas.getHeight();
         long now = System.nanoTime();

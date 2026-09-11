@@ -17,6 +17,7 @@ import com.kingdom.game.model.tower.Barrack;
 import com.kingdom.game.model.tower.ITowerUpgrade;
 import com.kingdom.game.model.tower.Tower;
 import com.kingdom.game.util.map.LevelWaves;
+import com.kingdom.game.util.map.MapLibrary;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -545,19 +546,112 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
     // ================= 重开一局 =================
     public void resetGame() {
-        enemies.clear();
-        towers.clear();
-        projectiles.clear();
-        allies.clear();
+        clearBattlefield();
         state.reset();
-        waveManager.reset();
-        waveInProgress = false;
-        countdownDeadlineNanos = -1;
-        activeIntermissionMs = 0;
         notifyGold(state.getGold());
         notifyLives(state.getLives());
         notifyMessage("游戏已重置，点击「开始波次」开战！");
         if (renderNotifier != null) renderNotifier.requestRender();
+    }
+
+    /** 清空战场：敌/塔/投射物/友方 + 波次进度与节奏标志（重开与切关共用）。 */
+    private void clearBattlefield() {
+        enemies.clear();
+        towers.clear();
+        projectiles.clear();
+        allies.clear();
+        waveManager.reset();
+        waveInProgress = false;
+        countdownDeadlineNanos = -1;
+        activeIntermissionMs = 0;
+    }
+
+    // ================= 多关卡（运行期切图；契约见《多关卡与运行期切图-接口规范》§3.3）=================
+    // 说明：本批仅"铺能力"，以下方法暂无调用方（UI 入口留待阶段二），故不影响当前运行行为。
+
+    /** 全部关卡，顺序即关卡顺序（maps/index.json 数组顺序）。 */
+    public List<LevelInfo> getLevels() {
+        List<MapLibrary.MapEntry> entries = MapLibrary.listMapsFromClasspath();
+        List<LevelInfo> levels = new ArrayList<>(entries.size());
+        for (int i = 0; i < entries.size(); i++) {
+            MapLibrary.MapEntry e = entries.get(i);
+            levels.add(new LevelInfo(i, e.getKey(), e.getName()));
+        }
+        return levels;
+    }
+
+    /** 关卡总数。 */
+    public int getLevelCount() { return getLevels().size(); }
+
+    /** 当前关卡信息；当前 key 未登记时返回 null。 */
+    public LevelInfo getCurrentLevel() {
+        String cur = config.getMapKey();
+        if (cur == null) return null;
+        for (LevelInfo li : getLevels()) {
+            if (li.getKey().equals(cur)) return li;
+        }
+        return null;
+    }
+
+    /** 当前关卡 key（= 当前地图 key）。 */
+    public String getCurrentLevelKey() { return config.getMapKey(); }
+
+    /** 当前关卡序号；未匹配到返回 -1。 */
+    public int getCurrentLevelIndex() {
+        LevelInfo cur = getCurrentLevel();
+        return cur == null ? -1 : cur.getIndex();
+    }
+
+    /** 是否存在下一关。 */
+    public boolean hasNextLevel() {
+        int i = getCurrentLevelIndex();
+        return i >= 0 && i + 1 < getLevelCount();
+    }
+
+    /** 是否存在上一关。 */
+    public boolean hasPrevLevel() { return getCurrentLevelIndex() > 0; }
+
+    /** 跳转到下一关；无下一关返回 false（状态零变化）。 */
+    public boolean goNextLevel() {
+        int i = getCurrentLevelIndex();
+        return i >= 0 && switchLevelAt(i + 1);
+    }
+
+    /** 跳转到上一关；无上一关返回 false（状态零变化）。 */
+    public boolean goPrevLevel() {
+        int i = getCurrentLevelIndex();
+        return i > 0 && switchLevelAt(i - 1);
+    }
+
+    /**
+     * 跳转到指定关卡（按 key）：成功则清空战场、按新关重置金币/生命/波次并通知 UI；
+     * 失败（key 不存在或地图数据缺失）返回 false 且**状态零变化**。
+     */
+    public boolean switchLevel(String key) {
+        if (!config.loadMap(key)) {
+            notifyMessage("关卡不存在或地图数据缺失：" + key);
+            return false;
+        }
+        clearBattlefield();
+        state.applyConfig(config);
+        notifyGold(state.getGold());
+        notifyLives(state.getLives());
+        notifyMessage("已切换关卡：" + config.getMapDisplayName());
+        if (renderNotifier != null) renderNotifier.requestRender();
+        return true;
+    }
+
+    /** 按序号跳转（越界返回 false，状态零变化）。 */
+    public boolean switchLevelAt(int index) {
+        List<LevelInfo> levels = getLevels();
+        if (index < 0 || index >= levels.size()) return false;
+        return switchLevel(levels.get(index).getKey());
+    }
+
+    /** 重开本关（不切图）：战场与状态重置，地图不变。 */
+    public boolean restartLevel() {
+        resetGame();
+        return true;
     }
 
     // ================= 内部通知小工具 =================

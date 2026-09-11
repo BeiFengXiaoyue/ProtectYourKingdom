@@ -146,7 +146,7 @@ public class GameConfig {
         this.tankPhysicalReduction = bt.getTankPhysicalReduction();
         // 波次节奏 4 个字段不读 JSON，保持上方字面量默认值
 
-        // ===== 第 2 步：地图分包读取（原有逻辑不动）=====
+        // ===== 第 2 步：地图分包读取（选定默认地图后交给 loadMap，逻辑与原实现等价）=====
         java.util.List<MapLibrary.MapEntry> entries = MapLibrary.listMapsFromClasspath();
         String override = System.getProperty("map.key");
         MapLibrary.MapEntry active = null;
@@ -158,31 +158,70 @@ public class GameConfig {
         }
         if (active == null && !entries.isEmpty()) active = entries.get(0);
         if (active != null) {
-            this.mapKey = active.getKey();
-            this.mapImageName = active.getImage();
+            loadMap(active.getKey());
+        }
+    }
 
-            MapRoute route = MapLibrary.readPathFromClasspath(active.getKey());
-            if (route != null) {
-                setViewSize(route.getWidth(), route.getHeight());
-                setPath(route.getXs(), route.getYs());
-            }
-            TowerSpots spots = MapLibrary.readSpotsFromClasspath(active.getKey());
-            if (spots != null) {
-                this.towerSpots = spots;
-            }
-
-            // ===== 第 3 步：波次表（feature/UIinteraction 分支功能）=====
-            // 读取成功则波数由文件唯一决定（覆盖 JSON 中的 totalWaves）；
-            // 缺失/为空/解析失败 → 回退全局波次配置并告警，运行期不崩
-            LevelWaves waves = MapLibrary.readWavesFromClasspath(active.getKey());
-            if (waves != null && !waves.getWaves().isEmpty()) {
-                this.levelWaves = waves;
-                this.totalWaves = waves.getWaves().size();
-            } else {
-                System.err.println("[GameConfig] maps/" + active.getKey()
-                        + "/waves.json 缺失/为空/解析失败，回退全局波次配置");
+    /**
+     * 加载"地图域"数据到本实例（构造期与运行期切图共用；契约见《多关卡与运行期切图-接口规范》§3.2）。
+     *
+     * <p>只影响<b>地图域</b>字段：{@code mapKey} / {@code mapImageName} / 视图尺寸 / 路径 / 塔位 / 波次 / 总波数；
+     * <b>不触碰</b> {@code balance.json} 全局数值（开局金币生命、敌人与塔属性）。
+     *
+     * <p><b>原子提交</b>：先校验并读取，任一步失败 → 返回 {@code false} 且<b>不修改任何字段</b>
+     * （保持调用前的地图不变）。波次表缺失不视为失败：沿用既有口径回退全局波次配置并告警。
+     *
+     * @param key {@code maps/index.json} 中登记的关卡 key
+     * @return 是否成功加载
+     */
+    public boolean loadMap(String key) {
+        if (key == null || key.isBlank()) return false;
+        MapLibrary.MapEntry entry = null;
+        for (MapLibrary.MapEntry e : MapLibrary.listMapsFromClasspath()) {
+            if (key.equals(e.getKey())) {
+                entry = e;
+                break;
             }
         }
+        if (entry == null) {
+            System.err.println("[GameConfig] loadMap：maps/index.json 中无此地图 \"" + key + "\"");
+            return false;
+        }
+        MapRoute route = MapLibrary.readPathFromClasspath(key);
+        TowerSpots spots = MapLibrary.readSpotsFromClasspath(key);
+        if (route == null || spots == null) {
+            System.err.println("[GameConfig] loadMap：maps/" + key
+                    + " 的 path.json / spots.json 缺失或解析失败，保持原地图");
+            return false;
+        }
+        // ===== 校验与读取全部通过 → 原子提交 =====
+        this.mapKey = entry.getKey();
+        this.mapImageName = entry.getImage();
+        setViewSize(route.getWidth(), route.getHeight());
+        setPath(route.getXs(), route.getYs());
+        this.towerSpots = spots;
+
+        // 波次表：读取成功则波数由文件唯一决定（覆盖 JSON 中的 totalWaves）；
+        // 缺失/为空/解析失败 → 回退全局波次配置并告警，运行期不崩，且**不视为失败**
+        LevelWaves waves = MapLibrary.readWavesFromClasspath(key);
+        if (waves != null && !waves.getWaves().isEmpty()) {
+            this.levelWaves = waves;
+            this.totalWaves = waves.getWaves().size();
+        } else {
+            System.err.println("[GameConfig] maps/" + key
+                    + "/waves.json 缺失/为空/解析失败，回退全局波次配置");
+        }
+        return true;
+    }
+
+    /** 当前地图显示名（读 maps/index.json 的 name；未登记回退 key，无地图回退空串） */
+    public String getMapDisplayName() {
+        String key = mapKey;
+        if (key == null) return "";
+        for (MapLibrary.MapEntry e : MapLibrary.listMapsFromClasspath()) {
+            if (key.equals(e.getKey())) return e.getName();
+        }
+        return key;
     }
 
     /** 活动地图 key（null=未找到 index，使用内置默认） */
