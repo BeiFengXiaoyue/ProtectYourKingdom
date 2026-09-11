@@ -3,6 +3,7 @@ package com.kingdom.game.model.tower;
 import com.kingdom.game.model.AssetKey;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
+import com.kingdom.game.util.balance.TowerBalance;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -12,7 +13,7 @@ import javafx.scene.paint.Color;
  * 继承 {@link ArrowTower}（复用 findTarget/attack/render），仅覆写构造数值与渲染加金色标记作区分。
  * 可继续升级到 {@link MasterArrowTower}（3 级）。
  *
- * 数值（《建筑与怪物机制策划》L2）：伤害 27 / 间隔 550ms / 射程 140。
+ * 数值来源：构造期从 config/tower.json 读取（TowerBalance），缺省回退硬编码默认。
  */
 public class EliteArrowTower extends ArrowTower {
 
@@ -27,10 +28,10 @@ public class EliteArrowTower extends ArrowTower {
 
     public EliteArrowTower(double x, double y) {
         super(x, y);
-        this.attackRange = 140;                      // 射程 120 → 140
-        this.attackCooldown = 550;                   // 间隔不变
-        this.baseAttackDamage = 27;                  // 伤害 18 → 27
-        this.totalCost = ArrowTower.BUILD_COST + ArrowTower.UPGRADE_COST;      // 50 + 75 = 125
+        this.attackRange = TowerBalance.getDouble("arrowL2", "range", 140);
+        this.attackCooldown = TowerBalance.getInt("arrowL2", "cooldownMs", 550);
+        this.baseAttackDamage = TowerBalance.getInt("arrowL2", "damage", 27);
+        this.totalCost = ArrowTower.BUILD_COST + ArrowTower.UPGRADE_COST;
         this.nextLevelSpec = new TowerSpec(TowerType.ARROW_MASTER, "大师箭塔", UPGRADE_COST);
     }
 
