@@ -37,3 +37,6 @@ build/
 
 ### AI ###
 .zcode/
+
+### Windows 保留名残留（`>nul` 之类重定向的误产物） ###
+/nul

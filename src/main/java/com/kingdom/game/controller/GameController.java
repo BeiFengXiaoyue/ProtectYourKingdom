@@ -206,7 +206,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     /**
      * Boss 震地结算：实体只把请求记在 {@link BossEnemy#consumeStompRequest()} 标记里，
      * 控制层每帧轮询一次，命中则全塔眩晕 3 秒（契约：实体不改全局列表，结算权归 GameController）。
-     * 现状：仅半血狂暴触发一次；B 的"狂暴后每 15s"计时落地后本方法自动变周期性，无需再改。
+     * 触发节奏：Boss 半血狂暴后，每 {@code bossStompIntervalMs}（默认 15000ms）置位一次请求。
      */
     private void settleBossStompRequests() {
         for (Enemy e : enemies) {
@@ -242,24 +242,29 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         switch (typeId) {
             case "fast_enemy":
                 enemy = new FastEnemy(px[0], py[0],
-                        config.getFastHp(), config.getFastSpeed(), config.getFastGoldReward());
+                        config.getFastHp(), config.getFastSpeed(), config.getFastGoldReward(),
+                        config.getFastAttackDamage(), config.getFastAttackCooldownMs());
                 break;
             case "tank_enemy":
                 enemy = new TankEnemy(px[0], py[0],
-                        config.getTankHp(), config.getTankSpeed(), config.getTankGoldReward());
+                        config.getTankHp(), config.getTankSpeed(), config.getTankGoldReward(),
+                        config.getTankAttackDamage(), config.getTankAttackCooldownMs());
                 break;
             case "boss_enemy":
                 enemy = new BossEnemy(px[0], py[0],
-                        config.getBossHp(), config.getBossSpeed(), config.getBossGoldReward());
+                        config.getBossHp(), config.getBossSpeed(), config.getBossGoldReward(),
+                        config.getBossAttackDamage(), config.getBossAttackCooldownMs());
                 break;
             case "normal_enemy":
                 enemy = new NormalEnemy(px[0], py[0],
-                        config.getNormalHp(), config.getNormalSpeed(), config.getNormalGoldReward());
+                        config.getNormalHp(), config.getNormalSpeed(), config.getNormalGoldReward(),
+                        config.getNormalAttackDamage(), config.getNormalAttackCooldownMs());
                 break;
             default:   // 编辑器已拦截未知 id（§3.4），此为防御性兜底：按普通敌人处理
                 System.err.println("[GameController] 未知敌人 id：" + typeId + "，按普通敌人兜底");
                 enemy = new NormalEnemy(px[0], py[0],
-                        config.getNormalHp(), config.getNormalSpeed(), config.getNormalGoldReward());
+                        config.getNormalHp(), config.getNormalSpeed(), config.getNormalGoldReward(),
+                        config.getNormalAttackDamage(), config.getNormalAttackCooldownMs());
         }
         enemy.setPath(px.clone(), py.clone());
         attachFx(enemy);
@@ -483,6 +488,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
             return;
         }
         Tower upgraded = factory.apply(tower.getX(), tower.getY());
+        retireBarrackSoldiers(tower);          // 旧兵营产出随替换退役（P1-9，避免新旧两批并存）
         injectTowerChannels(upgraded);
         towers.set(idx, upgraded);
         tower.destroy();
@@ -495,11 +501,24 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     public void sellTower(Tower tower) {
         if (tower == null) return;
         int refund = tower.sell();
+        retireBarrackSoldiers(tower);          // 兵营出售后旧兵随之退场，避免无兵营的孤儿兵（P1-9）
         towers.remove(tower);
         state.addGold(refund);
         if (towerSound != null) towerSound.onTowerSold(tower);
         notifyGold(state.getGold());
         if (renderNotifier != null) renderNotifier.requestRender();
+    }
+
+    /**
+     * 兵营被替换/出售前，把其产出的在役士兵从 {@code allies} 注册表移除（P1-9）。
+     *
+     * 契约「实体不碰全局列表」：兵营只交出所产士兵（{@link Barrack#releaseSoldiers()}），
+     * 由本控制层负责删除。非兵营塔为空操作。旧兵属"退役"而非阵亡，不触发死亡音效。
+     */
+    private void retireBarrackSoldiers(Tower tower) {
+        if (tower instanceof Barrack) {
+            allies.removeAll(((Barrack) tower).releaseSoldiers());
+        }
     }
 
     /** 点到路径折线的最短距离（用于禁止在道路上建塔） */
