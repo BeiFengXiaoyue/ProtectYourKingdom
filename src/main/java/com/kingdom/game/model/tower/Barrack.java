@@ -19,6 +19,8 @@ import java.util.function.Consumer;
  * 生产流程：为每个槽位（共 maxSoldiers 个）独立计时，经自持友方出口 {@link #produce(Ally)} 交给出口；
  * **士兵阵亡后该槽位独立重新计时 spawnIntervalMillis 再补位**（不再"死亡立即复活"），其它槽位不受影响；
  * 初始错峰产出（0 / 间隔 / 2×间隔 …）；产出经友方出口交给装配层（出口默认 no-op，未注入时丢弃、不报错）。
+ * **产出兵种由 {@link #createSoldier()} 钩子决定**（默认 1 级 Soldier；子类覆写即可换兵种），
+ * 生产流程与兵种解耦——新增兵营/兵种只需新增子类重写该钩子，不必改动 {@link #update()}。
  *
  * 升级链（本类为 1 级，可升级到 {@link EliteBarrack}）：
  * 默认 nextLevelSpec 指向 BARRACK_ELITE；架构师 A 可经 {@link #setNextLevelSpec} 注入/替换链。
@@ -103,6 +105,46 @@ public class Barrack extends Tower implements ITowerUpgrade {
         allySink.accept(soldier);
     }
 
+    /**
+     * 士兵工厂钩子：**产出兵种由本方法决定**——把「兵营生产流程」与「兵种」解耦。
+     *
+     * 默认产 1 级 {@link Soldier}；子类只覆写此方法换兵种
+     * （{@link EliteBarrack} → EliteSoldier、{@link MasterBarrack} → RoyalSoldier），
+     * 数值仍取本兵营的等级字段（soldierHp/soldierSpeed/soldierAttack/soldierCooldown），**不改任何数值**。
+     * 新增兵营/兵种时只需新增子类重写本方法，不必改动 {@link #update()} 的生产流程。
+     */
+    protected Ally createSoldier() {
+        return new Soldier(x, y, soldierHp, soldierSpeed, soldierAttack, soldierCooldown);
+    }
+
+    /**
+     * 当前在役士兵快照（只读，不含已阵亡待剪除的占用者）。
+     * 供装配层（GameController）在升级/出售兵营前盘点旧兵；返回副本，改动不影响本兵营槽位。
+     */
+    public List<Ally> getSoldiers() {
+        List<Ally> result = new ArrayList<>(slots.size());
+        for (SoldierSlot slot : slots) {
+            if (slot.soldier != null && slot.soldier.isAlive()) {
+                result.add(slot.soldier);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 交出全部在役士兵并清空本兵营的槽位记录（升级/出售兵营时由装配层调用，P1-9）。
+     *
+     * 后置：返回交出的士兵列表（存活者）；本兵营槽位清零，之后 {@link #update()} 会按
+     * 初始错峰节奏（首个计时 0）重新补位 —— 因此调用方应在本兵营被移除/替换前调用，
+     * 并自行决定交出的旧兵去留（如从 allies 注册表移除，避免升级后新旧两批兵并存）。
+     * 本方法只清兵营侧记录，**不动 allies 注册表**（注册表归 GameController）。
+     */
+    public List<Ally> releaseSoldiers() {
+        List<Ally> handed = getSoldiers();
+        slots.clear();
+        return handed;
+    }
+
     @Override
     public Enemy findTarget(List<Enemy> enemies) {
         return null;   // 兵营不直接索敌开火
@@ -131,8 +173,7 @@ public class Barrack extends Tower implements ITowerUpgrade {
                 slot.respawnTimer -= 16;           // 沿用 16ms/帧 约定
             }
             if (slot.respawnTimer <= 0) {          // 计时归零 → 补位
-                Soldier soldier = new Soldier(x, y, soldierHp, soldierSpeed,
-                        soldierAttack, soldierCooldown);
+                Ally soldier = createSoldier();    // 兵种由钩子决定（默认 Soldier；子类可换）
                 slot.soldier = soldier;
                 produce(soldier);
             }

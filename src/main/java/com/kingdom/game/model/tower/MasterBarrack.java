@@ -1,6 +1,8 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.ally.Ally;
+import com.kingdom.game.model.ally.RoyalSoldier;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -35,6 +37,15 @@ public class MasterBarrack extends EliteBarrack implements IHealAura {
                 + Barrack.UPGRADE_COST
                 + EliteBarrack.UPGRADE_COST;         // 100 + 100 + 180 = 380
         this.nextLevelSpec = null;                   // 已是满级
+    }
+
+    /**
+     * 产出兵种：3 级 → {@link RoyalSoldier}。
+     * 数值仍取本兵营的等级字段（HP 80 / 速度 40 / 伤害 8 / 冷却 800），**不改任何数值**。
+     */
+    @Override
+    protected Ally createSoldier() {
+        return new RoyalSoldier(x, y, soldierHp, soldierSpeed, soldierAttack, soldierCooldown);
     }
 
     @Override
