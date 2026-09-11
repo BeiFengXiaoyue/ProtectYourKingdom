@@ -4,6 +4,7 @@ import com.kingdom.game.config.GameConfig;
 import com.kingdom.game.controller.IFloatingTextFx;
 import com.kingdom.game.controller.IGameLoop;
 import com.kingdom.game.controller.IGameStateReader;
+import com.kingdom.game.controller.ILevelSwitcher;
 import com.kingdom.game.controller.IParticleFx;
 import com.kingdom.game.controller.IRenderNotifier;
 import com.kingdom.game.controller.IScreenFx;
@@ -66,6 +67,8 @@ public class GameView implements IRenderNotifier,
     private final IGameLoop gameLoop;
     private final IGameStateReader stateReader;
     private final ITowerBuilder builder;
+    /** 关卡切换动作出口（D：下一关/上一关/重开本关按钮；只读查询走 stateReader） */
+    private final ILevelSwitcher levelSwitcher;
 
     private final TowerBuildMenu buildMenu;
     private int pendingSlotIndex = -1;   // 最近一次弹出目录所对应的点位下标
@@ -190,11 +193,12 @@ public class GameView implements IRenderNotifier,
     private String lastBgMapKey;
 
     public GameView(IGameLoop gameLoop, IGameStateReader stateReader, GameConfig config,
-                    ITowerBuilder builder, Runnable onRestart) {
+                    ITowerBuilder builder, ILevelSwitcher levelSwitcher, Runnable onRestart) {
         this.gameLoop = gameLoop;
         this.stateReader = stateReader;
         this.config = config;
         this.builder = builder;
+        this.levelSwitcher = levelSwitcher;
         this.onRestart = onRestart;
 
         this.canvas = new Canvas(config.getViewWidth(), config.getViewHeight());

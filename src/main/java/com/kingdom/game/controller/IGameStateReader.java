@@ -43,4 +43,27 @@ public interface IGameStateReader {
     boolean isGameOver();
 
     boolean isVictory();
+
+    // ===== 关卡查询（只读：供 UI 渲染关卡列表 / 上下一关按钮可用性）=====
+
+    /** 全部关卡，顺序即关卡顺序（maps/index.json 数组顺序） */
+    List<LevelInfo> getLevels();
+
+    /** 关卡总数 */
+    int getLevelCount();
+
+    /** 当前关卡信息；当前 key 未登记时返回 null */
+    LevelInfo getCurrentLevel();
+
+    /** 当前关卡序号；未匹配到返回 -1 */
+    int getCurrentLevelIndex();
+
+    /** 当前关卡 key（= 当前地图 key） */
+    String getCurrentLevelKey();
+
+    /** 是否存在下一关 */
+    boolean hasNextLevel();
+
+    /** 是否存在上一关 */
+    boolean hasPrevLevel();
 }

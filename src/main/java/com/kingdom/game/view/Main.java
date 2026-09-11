@@ -49,7 +49,7 @@ public class Main extends Application {
 
         // ===== UI 组装与依赖注入 =====
         HUD hud = new HUD(controller, controller);
-        GameView view = new GameView(controller, controller, config, controller, controller::resetGame);
+        GameView view = new GameView(controller, controller, config, controller, controller, controller::resetGame);
 
         // 单位行为动画登记（外部叠加层）：单位类零改动；JSON 缺帧/缺文件时保持原渲染
         view.registerUnitAnimation("enemies", "NormalEnemy",

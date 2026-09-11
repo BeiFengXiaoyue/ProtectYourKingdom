@@ -35,7 +35,7 @@ import java.util.function.BiFunction;
  * - 金币/生命结算唯一在此发生；
  * - 向实体注入事件通道(attachEffects)，并持有各事件接口做控制层级通知。
  */
-public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, IGameStateReader {
+public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, IGameStateReader, ILevelSwitcher {
 
     private static final double PATH_CLEARANCE = 30;   // 塔中心离路径中线的最近距离下限
     private static final double TOWER_SPACING = 40;    // 塔之间最小间距
