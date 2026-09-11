@@ -22,6 +22,7 @@
   "tankAttackCooldownMs": 1400,
   "bossAttackDamage": 22,
   "bossAttackCooldownMs": 1100,
+  "tankPhysicalReduction": 0.3,
   "cannonSplashRadius": 50,
   "eliteCannonSplashRadius": 65,
   "masterCannonSplashRadius": 80,

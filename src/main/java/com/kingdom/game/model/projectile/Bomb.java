@@ -46,15 +46,19 @@ public class Bomb extends Projectile {
     /**
      * 命中：AOE 溅射——对爆炸中心 {@link #splashRadius} 内所有存活敌人扣血，
      * 逐个发出命中音效与飘字，并触发一次爆炸粒子（未接线时为空操作）。
+     *
+     * 伤害走**破甲**路径（`takeDamage(damage, true)`）——炮塔炮弹无视 `damageTakenMultiplier`，
+     * 打重甲敌人时按面板全额结算（《建筑与怪物机制策划》§2.3「炮塔破甲无视」）。
+     * 飘字显示**实际扣血**而非面板值。
      */
     @Override
     public void onHit(List<Enemy> enemies) {
         for (Enemy e : enemies) {
             if (!e.isAlive()) continue;
             if (Math.hypot(e.getX() - x, e.getY() - y) <= splashRadius) {
-                e.takeDamage(damage);
+                int actual = e.takeDamage(damage, true);
                 combatSound.onProjectileHit(this, e);
-                fxText.showFloatingText(e.getX(), e.getY() - 24, "-" + damage, "WHITE");
+                fxText.showFloatingText(e.getX(), e.getY() - 24, "-" + actual, "WHITE");
             }
         }
         fxParticle.spawnExplosionParticles(x, y, "ORANGE", 12);
