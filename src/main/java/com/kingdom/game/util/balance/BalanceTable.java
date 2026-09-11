@@ -12,7 +12,7 @@ import java.util.Set;
 /**
  * BalanceTable —— 玩法数值数据类（唯一内置默认持有者）。
  *
- * 当前纳入 JSON 化的字段（24 个，分 7 组）：
+ * 当前纳入 JSON 化的字段（27 个，分 8 组）：
  * - ① 玩家开局：initialGold / initialLives / totalWaves
  * - ② 普通敌人：normalHp / normalSpeed / normalGoldReward
  * - ③ 快速敌人：fastHp / fastSpeed / fastGoldReward
@@ -21,6 +21,8 @@ import java.util.Set;
  * - ⑥ 敌人近战（《整改方案》§7 P0-1）：
  *      {normal|fast|tank|boss}AttackDamage / …AttackCooldownMs
  * - ⑦ 重甲减伤（《整改方案》§7 P0-3）：tankPhysicalReduction，范围 [0,1)
+ * - ⑧ 炮塔溅射半径（《整改方案》§7 P1-1）：{cannon|eliteCannon|masterCannon}SplashRadius，
+ *      必须 > 0；由各炮塔构造期经 {@link #runtime()} 读取并传给 Bomb
  *
  * 波次节奏字段（waveEnemyCount / waveSpawnIntervalMs / waveIntermissionMs /
  * earlyStartRewardCap）不纳入 JSON 化，仍由 GameConfig 字面量默认值管理，
@@ -74,6 +76,11 @@ public final class BalanceTable {
     // ===== ⑦ 重甲物理减伤（比例，0 ≤ v < 1；0 = 不减伤）=====
     private double tankPhysicalReduction;
 
+    // ===== ⑧ 炮塔溅射半径（px，> 0；《整改方案》§7 P1-1）=====
+    private double cannonSplashRadius;
+    private double eliteCannonSplashRadius;
+    private double masterCannonSplashRadius;
+
     /** 动态扩展字段：编辑器添加的未来变量，fromJson 未知键自动收入此 Map，toJson 一并写出 */
     private final Map<String, Object> extra = new LinkedHashMap<>();
 
@@ -115,6 +122,10 @@ public final class BalanceTable {
         b.bossAttackCooldownMs = 1100;
         // 重甲物理减伤（30%，仅普通箭矢吃减伤；炮塔破甲无视）
         b.tankPhysicalReduction = 0.3;
+        // 炮塔溅射半径（《建筑与怪物机制策划》L1/L2/L3 = 50/65/80）
+        b.cannonSplashRadius = 50.0;
+        b.eliteCannonSplashRadius = 65.0;
+        b.masterCannonSplashRadius = 80.0;
         return b;
     }
 
@@ -204,6 +215,20 @@ public final class BalanceTable {
     public double getTankPhysicalReduction() { return tankPhysicalReduction; }
     public void setTankPhysicalReduction(double v) { this.tankPhysicalReduction = v; }
 
+    // ================= ⑧ 炮塔溅射半径 Getter / Setter =================
+
+    /** 1 级炮塔 Bomb 溅射半径 px（默认 50） */
+    public double getCannonSplashRadius() { return cannonSplashRadius; }
+    public void setCannonSplashRadius(double v) { this.cannonSplashRadius = v; }
+
+    /** 2 级精英炮塔 Bomb 溅射半径 px（默认 65） */
+    public double getEliteCannonSplashRadius() { return eliteCannonSplashRadius; }
+    public void setEliteCannonSplashRadius(double v) { this.eliteCannonSplashRadius = v; }
+
+    /** 3 级大师炮塔 Bomb 溅射半径 px（默认 80） */
+    public double getMasterCannonSplashRadius() { return masterCannonSplashRadius; }
+    public void setMasterCannonSplashRadius(double v) { this.masterCannonSplashRadius = v; }
+
     // ================= 动态扩展字段 =================
 
     /** 已知的固定字段键集合（fromJson 时用于区分固定字段与扩展字段） */
@@ -217,7 +242,8 @@ public final class BalanceTable {
             "fastAttackDamage", "fastAttackCooldownMs",
             "tankAttackDamage", "tankAttackCooldownMs",
             "bossAttackDamage", "bossAttackCooldownMs",
-            "tankPhysicalReduction");
+            "tankPhysicalReduction",
+            "cannonSplashRadius", "eliteCannonSplashRadius", "masterCannonSplashRadius");
 
     public Object getExtra(String key) { return extra.get(key); }
 
@@ -272,7 +298,11 @@ public final class BalanceTable {
         sb.append("  \"bossAttackDamage\": ").append(num(bossAttackDamage)).append(",\n");
         sb.append("  \"bossAttackCooldownMs\": ").append(num(bossAttackCooldownMs)).append(",\n");
         // ⑦ 重甲物理减伤
-        sb.append("  \"tankPhysicalReduction\": ").append(num(tankPhysicalReduction));
+        sb.append("  \"tankPhysicalReduction\": ").append(num(tankPhysicalReduction)).append(",\n");
+        // ⑧ 炮塔溅射半径
+        sb.append("  \"cannonSplashRadius\": ").append(num(cannonSplashRadius)).append(",\n");
+        sb.append("  \"eliteCannonSplashRadius\": ").append(num(eliteCannonSplashRadius)).append(",\n");
+        sb.append("  \"masterCannonSplashRadius\": ").append(num(masterCannonSplashRadius));
         // 动态扩展字段追加在后面
         if (!extra.isEmpty()) {
             sb.append(",\n");
@@ -356,6 +386,10 @@ public final class BalanceTable {
         b.bossAttackCooldownMs = readInt(obj, "bossAttackCooldownMs", def.bossAttackCooldownMs, 1);
         // ⑦ 重甲物理减伤（比例，必须 0 ≤ v < 1）
         b.tankPhysicalReduction = readRatio(obj, "tankPhysicalReduction", def.tankPhysicalReduction);
+        // ⑧ 炮塔溅射半径（必须 > 0；0/负数 = 溅射永不命中，禁止）
+        b.cannonSplashRadius = readDouble(obj, "cannonSplashRadius", def.cannonSplashRadius, 0.0, false);
+        b.eliteCannonSplashRadius = readDouble(obj, "eliteCannonSplashRadius", def.eliteCannonSplashRadius, 0.0, false);
+        b.masterCannonSplashRadius = readDouble(obj, "masterCannonSplashRadius", def.masterCannonSplashRadius, 0.0, false);
 
         // 未知键 → 收入动态扩展字段（打印告警：这些字段运行期无人读取，避免"配了不生效却无提示"）
         for (Map.Entry<String, Object> e : obj.entrySet()) {
@@ -411,6 +445,27 @@ public final class BalanceTable {
     }
 
     // ================= classpath 加载（运行期用）=================
+
+    /**
+     * 运行期共享实例（只读）：首次访问时从 classpath 加载一次并缓存，
+     * 缺失/解析失败 → 回退 {@link #defaults()}，永不返回 null、不抛异常。
+     *
+     * 供**实体构造期**取值使用（如炮塔读 ⑧ 溅射半径），对齐
+     * {@code util.asset.SizeTable.getInstance()} 的既有范式：实体不持有 GameConfig 引用，
+     * 又需要 classpath 数值时走这里。GameConfig 仍走 {@link #loadFromClasspath()} 各自加载。
+     *
+     * ⚠️ 只读，不提供热重载：改 balance.json 后需重启进程生效（同 GameConfig 契约）。
+     */
+    public static synchronized BalanceTable runtime() {
+        if (runtimeInstance == null) {
+            BalanceTable loaded = loadFromClasspath();
+            runtimeInstance = (loaded != null) ? loaded : defaults();
+        }
+        return runtimeInstance;
+    }
+
+    /** 运行期共享实例（懒加载缓存，见 {@link #runtime()}） */
+    private static BalanceTable runtimeInstance;
 
     public static BalanceTable loadFromClasspath() {
         try (InputStream in = BalanceTable.class.getResourceAsStream("/config/balance.json")) {

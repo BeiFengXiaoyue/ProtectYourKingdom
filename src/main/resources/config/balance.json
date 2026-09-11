@@ -13,5 +13,8 @@
   "tankGoldReward": 25,
   "bossHp": 1500,
   "bossSpeed": 40,
-  "bossGoldReward": 200
+  "bossGoldReward": 200,
+  "cannonSplashRadius": 50,
+  "eliteCannonSplashRadius": 65,
+  "masterCannonSplashRadius": 80
 }
