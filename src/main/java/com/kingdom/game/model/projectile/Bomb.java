@@ -31,7 +31,7 @@ public class Bomb extends Projectile {
      * @param speed       飞行速度 px/s
      * @param splashRadius 爆炸溅射半径 px（> 0）。由开火的炮塔传入——取值链路
      *                     config/balance.json → BalanceTable → 炮塔构造期 → 本构造；
-     *                     本类**不持有**任何内置半径常量（《整改方案》§7 P1-1）
+     *                     本类**不持有**任何内置半径常量
      */
     public Bomb(double x, double y, double targetX, double targetY, int damage, double speed,
                 double splashRadius) {

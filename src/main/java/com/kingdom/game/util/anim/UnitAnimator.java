@@ -74,13 +74,29 @@ public final class UnitAnimator {
     /**
      * 本帧是否会为该单位叠加动画帧（已登记且当前模式有帧）。
      * GameView 据此跳过单位静态渲染——静态底图与动画帧透明叠加会产生残影。
+     *
+     * ⚠️ 必须与 {@link #overlay} 用**同一次位移判定**得出同一模式，否则会出现
+     * 「判有却不画（该帧单位不可见）」或「判无却画了（静态+动画双画残影）」。
+     * 本方法只读实例状态：不推进 tick、不更新上帧坐标、也不创建状态。
      */
     public boolean hasOverlay(GameObject unit) {
         if (unit == null) return false;
+        // 与 overlay 的死亡分支保持一致：死亡单位不会叠加，须交回静态渲染
+        if (unit instanceof LivingEntity && !((LivingEntity) unit).isAlive()) return false;
         AnimTable table = tablesByClass.get(unit.getClass().getSimpleName());
         if (table == null) return false;
-        String mode = UnitPoseResolver.resolve(unit, true);
+        String mode = UnitPoseResolver.resolve(unit, movedThisFrame(unit, states.get(unit)));
         return table.hasMode(mode) && !table.getFrames(mode).isEmpty();
+    }
+
+    /**
+     * 本帧相对上一帧是否有位移（**只读**：不更新 lastX/lastY、不推进 tick）。
+     * 供 {@link #hasOverlay} 与 {@link #overlay} 共用，保证两者判定一致；状态未建立时按“未移动”处理。
+     */
+    private boolean movedThisFrame(GameObject unit, UnitState st) {
+        return st != null && st.hasLast
+                && (Math.abs(unit.getX() - st.lastX) > MOVE_EPSILON
+                || Math.abs(unit.getY() - st.lastY) > MOVE_EPSILON);
     }
 
     /**
@@ -107,9 +123,8 @@ public final class UnitAnimator {
             states.put(unit, st);
         }
 
-        // 本帧位移（跨帧由本层按实例记录）
-        boolean moved = st.hasLast && (Math.abs(unit.getX() - st.lastX) > MOVE_EPSILON
-                || Math.abs(unit.getY() - st.lastY) > MOVE_EPSILON);
+        // 本帧位移（跨帧由本层按实例记录；判定与 hasOverlay 共用同一私有方法）
+        boolean moved = movedThisFrame(unit, st);
         st.lastX = unit.getX();
         st.lastY = unit.getY();
         st.hasLast = true;

@@ -6,6 +6,7 @@ import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.ally.Soldier;
 import com.kingdom.game.model.enemy.Enemy;
+import com.kingdom.game.util.balance.TowerBalance;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -24,14 +25,11 @@ import java.util.function.Consumer;
  *
  * 升级链（本类为 1 级，可升级到 {@link EliteBarrack}）：
  * 默认 nextLevelSpec 指向 BARRACK_ELITE；架构师 A 可经 {@link #setNextLevelSpec} 注入/替换链。
- * 生产参数（上限/间隔/士兵属性）为**实例字段**（默认值即 1 级数值），以便 2 级子类覆写差异化。
+ * 生产参数（上限/间隔/士兵属性）为**实例字段**，构造期从 config/tower.json 读取（TowerBalance）。
  *
  * 友方出口：本类自带友方出口（仿 Tower.projectileSink 的写法，但**不改 Tower 基类**）。
  * **已接线**：GameController 放置/升级兵营时经 injectTowerChannels 调用 {@link #setAllySink(Consumer)}
  * （注入 {@code this::addAlly}），产出的士兵会进 allies 注册表并注入事件通道。
- *
- * 数值说明（《建筑与怪物机制策划》兵营基础：造价 100 / 士兵上限 2（2、3 级为 3、4）/
- * 出场·补位间隔 5s / 士兵 HP50·速度40·伤害8·攻击间隔800ms）。
  */
 public class Barrack extends Tower implements ITowerUpgrade {
 
@@ -50,13 +48,12 @@ public class Barrack extends Tower implements ITowerUpgrade {
     /** 下一级塔目录条目（默认指向 2 级精英兵营；null = 满级） */
     protected TowerSpec nextLevelSpec;
 
-    // ===== 生产与士兵参数（实例字段，默认值即 1 级；2/3 级子类可覆写）=====
-    // 数值来源《建筑与怪物机制策划》兵营基础：士兵2 / HP50 / 伤害8 / 攻击间隔800ms / 速度40 / 重生5s（覆盖文档10s）
+    // ===== 生产与士兵参数（实例字段，构造期从 tower.json 读取；2/3 级子类可覆写）=====
     protected int maxSoldiers = 2;
     protected long spawnIntervalMillis = 5000;
     protected int soldierHp = 50;
     protected double soldierSpeed = 40;
-    protected int soldierAttack = 8;
+    protected int soldierAttack = 11;
     protected int soldierCooldown = 800;
 
     /** 友方出口（默认 no-op：未被装配层注入时产出被丢弃、不报错；GameController 放置兵营时已注入） */
@@ -81,6 +78,13 @@ public class Barrack extends Tower implements ITowerUpgrade {
         this.attackRange = 0;
         this.attackCooldown = 0;
         this.baseAttackDamage = 0;
+        // 士兵生产参数从 config/tower.json 读取
+        this.maxSoldiers = TowerBalance.getInt("barrackL1", "maxSoldiers", 2);
+        this.spawnIntervalMillis = (long) TowerBalance.getInt("barrackL1", "spawnIntervalMs", 5000);
+        this.soldierHp = TowerBalance.getInt("barrackL1", "soldierHp", 50);
+        this.soldierSpeed = TowerBalance.getDouble("barrackL1", "soldierSpeed", 40);
+        this.soldierAttack = TowerBalance.getInt("barrackL1", "soldierAttack", 11);
+        this.soldierCooldown = TowerBalance.getInt("barrackL1", "soldierCooldown", 800);
         this.nextLevelSpec = new TowerSpec(TowerType.BARRACK_ELITE, "精英兵营", UPGRADE_COST);
     }
 

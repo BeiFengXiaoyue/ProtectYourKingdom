@@ -4,6 +4,7 @@ import com.kingdom.game.model.AssetKey;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.util.balance.BalanceTable;
+import com.kingdom.game.util.balance.TowerBalance;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -13,8 +14,8 @@ import javafx.scene.paint.Color;
  * 继承 {@link CannonTower}（复用 findTarget/attack），仅覆写数值与渲染加金色标记作区分。
  * 可继续升级到 {@link MasterCannonTower}（3 级）。
  *
- * 数值（《建筑与怪物机制策划》L2）：伤害 70 / 溅射 65（间隔 1500ms、射程 140 不变）。
- * 溅射半径取自 config/balance.json 的 {@code eliteCannonSplashRadius}（缺省回退 65）。
+ * 数值来源：伤害从 config/tower.json 读取（TowerBalance）；
+ * 溅射半径从 config/balance.json 读取（BalanceTable）。
  */
 public class EliteCannonTower extends CannonTower {
 
@@ -29,9 +30,9 @@ public class EliteCannonTower extends CannonTower {
 
     public EliteCannonTower(double x, double y) {
         super(x, y);
-        this.baseAttackDamage = 70;                  // 伤害 45 → 70
-        this.splashRadius = BalanceTable.runtime().getEliteCannonSplashRadius();   // 溅射 50 → 65
-        this.totalCost = CannonTower.BUILD_COST + CannonTower.UPGRADE_COST;    // 80 + 150 = 230
+        this.baseAttackDamage = TowerBalance.getInt("cannonL2", "damage", 98);
+        this.splashRadius = BalanceTable.runtime().getEliteCannonSplashRadius();
+        this.totalCost = CannonTower.BUILD_COST + CannonTower.UPGRADE_COST;
         this.nextLevelSpec = new TowerSpec(TowerType.CANNON_MASTER, "大师炮塔", UPGRADE_COST);
     }
 

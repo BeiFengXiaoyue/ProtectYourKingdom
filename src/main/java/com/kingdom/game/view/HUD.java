@@ -3,6 +3,7 @@ package com.kingdom.game.view;
 import com.kingdom.game.controller.IGameStateReader;
 import com.kingdom.game.controller.IStatusObserver;
 import com.kingdom.game.controller.IWaveStarter;
+import com.kingdom.game.util.audio.SoundManager;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -18,6 +19,7 @@ import javafx.scene.text.Font;
 /**
  * HUD —— 顶部状态栏（实现 IStatusObserver，被后端回调刷新）。
  * 含：生命 / 金币 / 波次 / 公告消息 + 「开始波次」按钮（绑定 IWaveStarter）。
+ * 另负责「漏怪扣生命」提示音的触发点：生命值下降时直调 SoundManager（见《音效扩展方法说明》§二）。
  */
 public class HUD implements IStatusObserver {
 
@@ -35,6 +37,8 @@ public class HUD implements IStatusObserver {
     private final AnimationTimer countdownTimer;
     private String lastCountdownText = "";
     private String lastButtonText = "开始波次";
+    /** 上一次收到的生命值；-1 = 尚未收到首次推送（避免初始推送误触发漏怪音） */
+    private int lastLives = -1;
 
     public HUD(IWaveStarter waveStarter, IGameStateReader stateReader) {
         this.waveStarter = waveStarter;
@@ -129,6 +133,12 @@ public class HUD implements IStatusObserver {
 
     @Override
     public void onLivesUpdated(int lives) {
+        // 漏怪扣生命提示音（《音效扩展方法说明》§二：交互侧在"生命减少"的回调处调用）。
+        // 只在下降时触发：初始推送 / resetGame / switchLevel 都是重置为初值（只会升高或持平），不会误响
+        if (lastLives >= 0 && lives < lastLives) {
+            SoundManager.getInstance().onLifeLost();
+        }
+        lastLives = lives;
         livesLabel.setText("生命 " + lives);
     }
 
