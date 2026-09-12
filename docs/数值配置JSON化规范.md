@@ -135,7 +135,7 @@ GameController / GameState / HUD ……（仍只用 GameConfig getter）
 - **塔实例不持有 `GameConfig`**：塔 / 兵营构造期经 `TowerBalance` 读 `tower.json`；炮塔溅射半径与 Boss 狂暴参数经 `BalanceTable.runtime()` 读 `balance.json`。
 - **生效时机**：一律「启动（或塔/实体构造）读取一次」，**不实现运行中热重载**——改 JSON 后需重启游戏。
 - **未知键**：`BalanceTable.fromJson` 会把无对应实现的键收进内部 `extra`，运行期无人读取，仅在启动时告警。请勿写入无实现的字段（防「假配置通道」）。
-- ⚠️ **编辑器覆盖范围**：`BalanceEditorTool` 表单目前仅覆盖前 15 键；用该工具保存会把其余键按**内置默认值**写回 `balance.json`，请先手动确认或补齐表单。
+- ⚠️ **编辑器覆盖范围**：`BalanceEditorTool` 表单目前仅覆盖前 15 键（开局 3 + 四类敌人 HP/速度/赏金 12）。**保存时以「文件现有值」为基底、只覆盖这 15 键**，因此表单外的 14 键（8 个近战参数、`tankPhysicalReduction`、3 个溅射半径、2 个 Boss 狂暴参数）**按文件原值保留**，不会被打回内置默认；要改它们请直接编辑 `config/balance.json`。另：新增「自定义变量」时的重名校验取 `BalanceTable.fixedKeys()`（全部 29 键），避免与固定字段同名而在 JSON 中写出重复键。
 - JSON 解析**复用 `util/json/MiniJson`**，不引入第三方库；`MiniJson` 数字统一解析为 `Double`，整型字段需 `((Number) v).intValue()` 转换。
 
 ---

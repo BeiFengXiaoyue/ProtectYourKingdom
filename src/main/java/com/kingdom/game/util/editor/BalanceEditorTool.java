@@ -21,7 +21,6 @@ import javafx.stage.Stage;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * BalanceEditorTool —— 玩法数值可视化编辑器【启动入口】（本类不继承 Application）。
@@ -30,7 +29,7 @@ import java.util.Set;
  * "缺少 JavaFX 运行时组件"。因此把真正窗口逻辑放在嵌套的 {@link BalanceEditorApp}，
  * 本类 main 只做一次 Application.launch 转发即可直接运行。
  *
- * 当前纳入 JSON 化的字段（15 个，分 5 组）：
+ * 当前纳入本编辑器表单的字段（15 个，分 5 组）：
  * - ① 玩家开局资源：initialGold / initialLives / totalWaves
  * - ② 普通敌人属性：normalHp / normalSpeed / normalGoldReward
  * - ③ 快速敌人属性：fastHp / fastSpeed / fastGoldReward
@@ -38,12 +37,17 @@ import java.util.Set;
  * - ⑤ Boss 属性：bossHp / bossSpeed / bossGoldReward
  * 波次节奏字段不纳入 JSON 化（仍由 GameConfig 字面量默认值管理），避免合并冲突。
  *
+ * ⚠️ 表单之外还有 14 个固定键（8 个敌人近战参数、tankPhysicalReduction、3 个溅射半径、
+ * 2 个 Boss 狂暴参数，见 docs/数值配置JSON化规范.md §2.2）**不在界面上**。
+ * 保存时以“载入的文件现有值”为基底，只覆盖本表单的 15 个字段，
+ * 因此这 14 键**按文件原值保留**（要改它们请直接编辑 config/balance.json）。
+ *
  * 功能：
  * - 分五组展示 15 个固定玩法数值；
  * - 第六组「自定义变量」支持新增/删除扩展字段；
  * - 「载入」从 src/main/resources/config/balance.json 读取当前值；
  * - 「保存」校验范围后经 BalanceLibrary.write() 写入 balance.json，提示"重启游戏生效"；
- * - 「重置默认」恢复 BalanceTable.defaults() 的内置默认值。
+ * - 「重置默认」把**展示的 15 个字段**恢复为 BalanceTable.defaults() 的值（其余 14 键不动）。
  */
 public final class BalanceEditorTool {
 
@@ -56,14 +60,6 @@ public final class BalanceEditorTool {
 
     /** 实际的 JavaFX 应用（public static，供 Application.launch 反射实例化） */
     public static final class BalanceEditorApp extends Application {
-
-        // ===== 固定字段键名集合（用于校验自定义变量不重名）=====
-        private static final Set<String> FIXED_KEYS = Set.of(
-                "initialGold", "initialLives", "totalWaves",
-                "normalHp", "normalSpeed", "normalGoldReward",
-                "fastHp", "fastSpeed", "fastGoldReward",
-                "tankHp", "tankSpeed", "tankGoldReward",
-                "bossHp", "bossSpeed", "bossGoldReward");
 
         // ===== ① 玩家开局 =====
         private final TextField initialGoldField = new TextField();
@@ -118,7 +114,8 @@ public final class BalanceEditorTool {
         private VBox buildHeader() {
             Label title = new Label("玩法数值配置编辑器");
             title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-            Label desc = new Label("修改数值后点击「保存」写入 config/balance.json，重启游戏生效。（波次节奏不纳入此编辑器）");
+            Label desc = new Label("修改数值后点击「保存」写入 config/balance.json，重启游戏生效。"
+                    + "本表单只覆盖 15 个字段，其余 14 个固定键保存时按文件原值保留（要改请直接编辑 JSON）。");
             desc.setWrapText(true);
             desc.setStyle("-fx-text-fill: #666; -fx-font-size: 12px;");
             VBox box = new VBox(4, title, desc);
@@ -222,7 +219,7 @@ public final class BalanceEditorTool {
                 if (!name.matches("[A-Za-z_][A-Za-z0-9_]*")) {
                     error("新增失败", "变量名只能包含字母、数字、下划线，且不能以数字开头。"); return;
                 }
-                if (FIXED_KEYS.contains(name)) {
+                if (BalanceTable.fixedKeys().contains(name)) {
                     error("新增失败", "变量名「" + name + "」是固定字段，请在上方对应分组中修改。"); return;
                 }
                 if (customFields.containsKey(name)) {
@@ -363,7 +360,10 @@ public final class BalanceEditorTool {
 
         // ================= 保存 =================
         private void saveToFile() {
-            BalanceTable table = BalanceTable.defaults();
+            // 以“文件现有值”为基底：表单只覆盖 15 个字段，其余 14 个固定键按原值保留，
+            // 避免“只想改金币却把没展示的键打回内置默认值”。（文件不可读时才退回 defaults）
+            BalanceTable table = BalanceLibrary.read();
+            if (table == null) table = BalanceTable.defaults();
             try {
                 // ① 玩家开局
                 table.setInitialGold(readInt(initialGoldField, "初始金币", 0, true));
@@ -407,7 +407,8 @@ public final class BalanceEditorTool {
             if (ok) {
                 int customCount = customFields.size();
                 String customMsg = customCount > 0 ? "（含 " + customCount + " 个自定义变量）" : "";
-                status("保存成功！已写入 config/balance.json" + customMsg + "。重启游戏后生效。");
+                status("保存成功！已写入 config/balance.json" + customMsg
+                        + "。表单外的 14 个键按文件原值保留；重启游戏后生效。");
             } else {
                 error("保存失败", "未找到 src/main/resources 目录，请确认以仓库根目录运行。");
             }
@@ -416,7 +417,7 @@ public final class BalanceEditorTool {
         // ================= 重置默认 =================
         private void resetToDefaults() {
             fillFields(BalanceTable.defaults());
-            status("已恢复内置默认值（自定义变量已清空），如需生效请点击「保存」。");
+            status("已恢复展示字段的内置默认值（自定义变量已清空）；表单外的 14 个键保持文件原值，如需生效请点击「保存」。");
         }
 
         // ================= 校验工具 =================

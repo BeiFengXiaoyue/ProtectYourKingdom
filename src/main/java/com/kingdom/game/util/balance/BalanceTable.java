@@ -273,6 +273,12 @@ public final class BalanceTable {
 
     public Object getExtra(String key) { return extra.get(key); }
 
+    /**
+     * 已知固定字段键集合（只读，{@code Set.of(...)} 本身不可变）。
+     * 供编辑器等外部在新增“自定义变量”前查重，避免与固定字段重名导致 JSON 出现重复键。
+     */
+    public static Set<String> fixedKeys() { return FIXED_KEYS; }
+
     public double getExtraDouble(String key, double defaultValue) {
         Object v = extra.get(key);
         if (v instanceof Number) return ((Number) v).doubleValue();
