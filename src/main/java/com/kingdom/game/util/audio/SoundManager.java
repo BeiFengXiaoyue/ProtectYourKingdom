@@ -40,6 +40,15 @@ public final class SoundManager implements IWaveSound, ITowerSound, IUnitSound, 
     /** 默认节流间隔(ms)：同类音效两次播放的最小间距，超出触发次数直接丢弃 */
     private static final long DEFAULT_THROTTLE_MS = 120;
 
+    /** 全部音效清单：构造期一次性预加载，杜绝首次播放时在界面线程做磁盘 IO（Day05 线程纪律）。
+     *  注意：必须声明在 INSTANCE 之前——单例构造期要遍历本清单。 */
+    private static final String[] ALL_SOUNDS = {
+            "wave_start.wav", "tower_place.wav", "tower_upgrade.wav", "tower_sell.wav",
+            "unit_spawn.wav", "arrow_release.wav", "arrow_hit.wav", "bomb_hit.wav",
+            "melee_attack.wav", "die_1.wav", "die_2.wav", "die_3.wav", "die_4.wav",
+            "boss_stomp.wav", "life_lost.wav", "gold_insufficient.wav", "win.wav", "lose.mp3"
+    };
+
     private static final SoundManager INSTANCE = new SoundManager();
 
     /** 单例：交互侧无法经 controller 注入时，可直接 getInstance() 调用扩展音效方法 */
@@ -52,6 +61,9 @@ public final class SoundManager implements IWaveSound, ITowerSound, IUnitSound, 
     private final Random random = new Random();
 
     private SoundManager() {
+        for (String file : ALL_SOUNDS) {
+            clip(file);   // 启动期预加载进缓存；缺失文件只告警，不阻断
+        }
     }
 
     // ================= 播放基础 =================

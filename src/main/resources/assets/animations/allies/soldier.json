@@ -3,7 +3,7 @@
   "name": "soldier",
   "interval": 6,
   "modes": {
-    "idle": ["allies/soldier/idle_0.png","allies/soldier/idle_1.png","allies/soldier/idle_2.png","allies/soldier/idle_3.png"],
+    "idle": ["allies/soldier/idle_0.png","allies/soldier/idle_1.png"],
     "walk": ["allies/soldier/walk_0.png","allies/soldier/walk_1.png","allies/soldier/walk_2.png","allies/soldier/walk_3.png","allies/soldier/walk_4.png","allies/soldier/walk_5.png","allies/soldier/walk_6.png","allies/soldier/walk_7.png","allies/soldier/walk_8.png","allies/soldier/walk_9.png","allies/soldier/walk_10.png","allies/soldier/walk_11.png"],
     "attack": ["allies/soldier/attack_0.png","allies/soldier/attack_1.png","allies/soldier/attack_2.png","allies/soldier/attack_3.png","allies/soldier/attack_4.png","allies/soldier/attack_5.png","allies/soldier/attack_6.png","allies/soldier/attack_7.png","allies/soldier/attack_8.png","allies/soldier/attack_9.png"],
     "death": ["allies/soldier/death_0.png","allies/soldier/death_1.png","allies/soldier/death_2.png","allies/soldier/death_3.png","allies/soldier/death_4.png","allies/soldier/death_5.png","allies/soldier/death_6.png","allies/soldier/death_7.png","allies/soldier/death_8.png","allies/soldier/death_9.png","allies/soldier/death_10.png"]

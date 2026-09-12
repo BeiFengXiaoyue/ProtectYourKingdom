@@ -3,7 +3,7 @@
   "name": "royal_soldier",
   "interval": 6,
   "modes": {
-    "idle": ["allies/royal_soldier/idle_0.png","allies/royal_soldier/idle_1.png","allies/royal_soldier/idle_2.png","allies/royal_soldier/idle_3.png"],
+    "idle": ["allies/royal_soldier/idle_0.png","allies/royal_soldier/idle_1.png","allies/royal_soldier/idle_2.png"],
     "walk": ["allies/royal_soldier/walk_0.png","allies/royal_soldier/walk_1.png","allies/royal_soldier/walk_2.png","allies/royal_soldier/walk_3.png","allies/royal_soldier/walk_4.png","allies/royal_soldier/walk_5.png","allies/royal_soldier/walk_6.png","allies/royal_soldier/walk_7.png","allies/royal_soldier/walk_8.png","allies/royal_soldier/walk_9.png","allies/royal_soldier/walk_10.png","allies/royal_soldier/walk_11.png"],
     "attack": ["allies/royal_soldier/attack_0.png","allies/royal_soldier/attack_1.png","allies/royal_soldier/attack_2.png","allies/royal_soldier/attack_3.png","allies/royal_soldier/attack_4.png","allies/royal_soldier/attack_5.png","allies/royal_soldier/attack_6.png","allies/royal_soldier/attack_7.png","allies/royal_soldier/attack_8.png"]
   }
