@@ -613,6 +613,27 @@ public class GameView implements IRenderNotifier,
         bossWarningActive = false;
     }
 
+    /**
+     * 进入关卡前的统一清理（选择关卡 → 进入战场时由装配层调用一次）。
+     *
+     * 覆盖《多关卡与运行期切图-接口规范》§3.5-2 要求的"切关后清理选中态与瞬态特效"：
+     * {@code clearTransientEffects()} 是本类 private，跨类无法复用；结束遮罩的 {@code endShown}
+     * 此前只由遮罩自己的两个按钮复位，若从"遮罩已显示"状态换关会永久残留遮罩，故一并在此复位。
+     */
+    public void prepareForLevelEntry() {
+        hideEnd();                 // 结束/胜利遮罩（含 endShown 幂等开关）
+        hideBuildMenu();           // 可能开着的建塔弹窗（pendingSlotIndex 指向旧关点位）
+        clearTowerSelection();     // 选中塔与详情面板（旧关的塔已被清空）
+        clearTransientEffects();   // 飘字/粒子/闪屏/震屏/Boss 预警
+        // 尺寸守卫：本版要求各关地图同尺寸（《多关卡与运行期切图-接口规范》§2/§5），
+        // canvas 在构造期固定，切到不同尺寸的关卡会错位——此处只告警，不做动态缩放。
+        if (canvas.getWidth() != config.getViewWidth() || canvas.getHeight() != config.getViewHeight()) {
+            System.err.println("[GameView] 关卡地图尺寸 " + config.getViewWidth() + "x" + config.getViewHeight()
+                    + " 与画布 " + (int) canvas.getWidth() + "x" + (int) canvas.getHeight()
+                    + " 不一致（本版要求各关同尺寸，绘制可能错位）");
+        }
+    }
+
     /** 绘制塔位标点（半透明圆台 + 锤位示意，与 TowerSpotEditorTool 内画法一致；已占用变灰） */
     /** 头顶血条（样式与各实体 render 内一致）：黑底 + 绿色当前血量；仅动画跳过静态渲染时使用 */
     private void drawHpBar(LivingEntity u) {

@@ -19,8 +19,10 @@ import com.kingdom.game.util.asset.Assets;
 import com.kingdom.game.util.asset.SizeTable;
 import com.kingdom.game.util.audio.SoundManager;
 import javafx.application.Application;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 /**
@@ -109,16 +111,50 @@ public class Main extends Application {
         Assets.preload();                     // 预加载贴图（无图自动跳过）
         SizeTable.getInstance().preload();    // 预加载实体尺寸表（缺文件回退默认，不阻断）
 
-        BorderPane root = new BorderPane();
-        root.setTop(hud.getNode());
-        root.setCenter(view.getNode());
+        // ===== 三屏装配：开始界面 → 选关界面 → 战场（HUD + GameView），互斥显示 =====
+        // 战场屏沿用原结构（HUD 在上、GameView 居中）；根改为 StackPane 以便整屏切换
+        BorderPane gameScreen = new BorderPane();
+        gameScreen.setTop(hud.getNode());
+        gameScreen.setCenter(view.getNode());
 
-        Scene scene = new Scene(root);
+        StackPane shell = new StackPane();
+        final boolean[] loopStarted = {false};
+
+        // 进入战场：清掉上一局残留 → 切屏 → 首次进入时才启动游戏循环（菜单期间世界不推进）
+        Runnable enterLevel = () -> {
+            view.prepareForLevelEntry();
+            showScreen(shell, gameScreen);
+            if (!loopStarted[0]) {
+                view.startLoop();
+                loopStarted[0] = true;
+            }
+        };
+
+        // 选关界面：查询/动作全走接口（controller 同时实现 IGameStateReader 与 ILevelSwitcher）
+        LevelSelectScreen levelSelectScreen = new LevelSelectScreen(controller, controller, enterLevel);
+        // 开始界面：「开始游戏」先刷新关卡列表（打开时取一次，getLevels() 每次都会重解析 index.json）
+        StartScreen startScreen = new StartScreen(() -> {
+            levelSelectScreen.refresh();
+            showScreen(shell, levelSelectScreen.getNode());
+        });
+
+        shell.getChildren().addAll(startScreen.getNode(), levelSelectScreen.getNode(), gameScreen);
+        showScreen(shell, startScreen.getNode());   // 启动先显示开始界面
+
+        Scene scene = new Scene(shell);
         stage.setTitle("王国保卫战：前线哨站");
         stage.setScene(scene);
         stage.setResizable(false);
         stage.show();
+    }
 
-        view.startLoop();
+    /**
+     * 三屏互斥显示：只切可见性，**不动 managed**——让 StackPane 的 pref 始终由战场屏（画布尺寸）
+     * 决定，避免切到菜单时窗口跟着缩水；不可见节点不参与鼠标拾取，故隐藏的屏幕点不到。
+     */
+    private static void showScreen(StackPane shell, Node target) {
+        for (Node n : shell.getChildren()) {
+            n.setVisible(n == target);
+        }
     }
 }
