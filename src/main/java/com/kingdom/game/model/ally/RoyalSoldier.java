@@ -27,7 +27,7 @@ import java.util.List;
  * 数值归属：与 Soldier 一致，生产方（兵营/装配层）可经全参构造注入；无参档案构造只是
  * “直接实例化”时的兜底，不是唯一数值源。
  */
-public class RoyalSoldier extends Ally {
+public class RoyalSoldier extends Ally implements IGuardPoint {
 
     // ===== 3 级默认档案（2 级 → 3 级：HP 100→150、速度 65→72、攻击 14→20、冷却 700→620）=====
     /** 3 级默认生命值 */
@@ -48,8 +48,15 @@ public class RoyalSoldier extends Ally {
     /** 回防到家判定距离 px */
     private static final double RETURN_EPSILON = 2;
 
-    /** 出生锚点（回防目标） */
+    /** 出生锚点 */
     private final double homeX, homeY;
+
+    /**
+     * 驻守点（由装配层经 {@link IGuardPoint} 注入；未注入时=出生锚点）。
+     * ⚠️ 本批（接口落地批）仅承接注入、字段暂未被 {@code move()}/{@code returnHome()} 读取，
+     * 故二三级兵当前行为不变；改为"回防/拴绳/环形就位读驻守点"属**行为对齐第二批**（归实体侧）。
+     */
+    private double guardX, guardY;
 
     /** 3 级档案构造：采用 3 级默认数值 */
     public RoyalSoldier(double x, double y) {
@@ -63,6 +70,15 @@ public class RoyalSoldier extends Ally {
         super(x, y, hp, speed, attackDamage, attackCooldown);
         this.homeX = x;
         this.homeY = y;
+        this.guardX = x;
+        this.guardY = y;
+    }
+
+    /** 由装配层（GameController.addAlly）注入驻守点（=离兵营最近的路径点）；实现 {@link IGuardPoint} */
+    @Override
+    public void setGuardPoint(double x, double y) {
+        this.guardX = x;
+        this.guardY = y;
     }
 
     /** 索敌：返回视野内最近的存活敌人；视野内无目标返回 null */

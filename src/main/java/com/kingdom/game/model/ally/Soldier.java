@@ -17,7 +17,7 @@ import java.util.List;
  * - 碰撞拦截由基类 Ally.handleEntityCollision() 完成（接触即锁定目标 + 近战反击）。
  * 数值（HP/速度/攻击力/冷却）由兵营（Barrack）生产时经构造函数传入，类内不写死。
  */
-public class Soldier extends Ally {
+public class Soldier extends Ally implements IGuardPoint {
 
     /** 索敌视野半径 px */
     private static final double VISION_RANGE = 90;
@@ -54,7 +54,8 @@ public class Soldier extends Ally {
         this.guardY = y;
     }
 
-    /** 由装配层（GameController.addAlly）注入驻守点（=离兵营最近的路径点） */
+    /** 由装配层（GameController.addAlly）注入驻守点（=离兵营最近的路径点）；实现 {@link IGuardPoint} */
+    @Override
     public void setGuardPoint(double x, double y) {
         this.guardX = x;
         this.guardY = y;

@@ -6,7 +6,7 @@ import com.kingdom.game.model.GameState;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.ally.Ally;
-import com.kingdom.game.model.ally.Soldier;
+import com.kingdom.game.model.ally.IGuardPoint;
 import com.kingdom.game.model.enemy.BossEnemy;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.enemy.FastEnemy;
@@ -323,9 +323,11 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     public void addAlly(Ally ally) {
         if (ally == null) return;
         attachFx(ally);
-        if (ally instanceof Soldier) {   // 士兵：驻守点=离兵营最近的路径点（上路拦截；仿 placeTower 的 Barrack 装配先例）
+        // 驻守点=离兵营最近的路径点（上路拦截；仿 placeTower 的 Barrack 装配先例）。
+        // ⚠️ 按**能力接口**判定而非具体兵种：三档士兵互不继承，按兵种判定会让新增兵种漏注入。
+        if (ally instanceof IGuardPoint) {
             double[] g = nearestPathPoint(ally.getX(), ally.getY());
-            if (g != null) ((Soldier) ally).setGuardPoint(g[0], g[1]);
+            if (g != null) ((IGuardPoint) ally).setGuardPoint(g[0], g[1]);
         }
         allies.add(ally);
         if (unitSound != null) unitSound.onUnitSpawned(ally);
