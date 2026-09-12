@@ -39,7 +39,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
     private static final double PATH_CLEARANCE = 30;   // 塔中心离路径中线的最近距离下限
     private static final double TOWER_SPACING = 40;    // 塔之间最小间距
-    private static final int BOSS_STOMP_STUN_MS = 3000; // Boss 震地 → 全塔眩晕时长（《整改方案》§7 P1-3）
+    private static final int BOSS_STOMP_STUN_MS = 3000; // Boss 震地 → 全塔眩晕时长
 
     private final GameState state;
     private final WaveManager waveManager;

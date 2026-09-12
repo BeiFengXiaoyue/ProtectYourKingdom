@@ -14,7 +14,7 @@ import java.util.Map;
  * TowerBalance —— 塔数值配置仓库（config/tower.json 的读取入口）。
  *
  * 用法（塔类构造函数中）：
- *   this.baseAttackDamage = TowerBalance.getInt("arrowL1", "damage", 18);
+ *   this.baseAttackDamage = TowerBalance.getInt("arrowL1", "damage", 25);
  *   this.attackRange = TowerBalance.getDouble("arrowL1", "range", 120);
  *
  * 改 tower.json 后重启游戏生效（同 balance.json 契约）。

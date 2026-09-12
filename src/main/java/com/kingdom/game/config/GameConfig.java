@@ -17,11 +17,11 @@ import java.util.List;
  * GameConfig —— 运行期唯一数值入口（合并版：JSON 化 + LevelWaves 波次表）。
  *
  * 数值来源分三类：
- * 1. JSON 化字段（24 个）：玩家开局 + 四类敌人（normal/fast/tank/boss 的 HP/speed/goldReward）
- *    + 四类敌人近战（攻击力 / 攻击冷却）+ 重甲物理减伤比例，
+ * 1. JSON 化字段（23 个）：玩家开局 + 四类敌人（normal/fast/tank/boss 的 HP/speed/goldReward）
+ *    + 四类敌人近战（攻击力 / 攻击冷却），
  *    构造期从 classpath:/config/balance.json 读取（util.balance.BalanceLibrary），
  *    文件缺失/字段非法 → 回退 BalanceTable.defaults() 内置默认，不抛异常。
- * 2. 关卡波次表（LevelWaves）：从 maps/&lt;key&gt;/waves.json 读取（feature/UIinteraction 分支功能），
+ * 2. 关卡波次表（LevelWaves）：从 maps/&lt;key&gt;/waves.json 读取，
  *    读取成功则总波数由波次表唯一决定（覆盖 JSON 中的 totalWaves）；
  *    缺失/为空/解析失败 → 回退全局波次配置并告警，运行期不崩。
  * 3. 字面量默认字段（波次节奏 4 个）：waveEnemyCount/waveSpawnIntervalMs/
@@ -70,8 +70,8 @@ public class GameConfig {
     private int bossAttackDamage;
     private int bossAttackCooldownMs;
 
-    // ===== ⑦ 重甲物理减伤比例（由 balance.json 读取，0 ≤ v < 1）=====
-    private double tankPhysicalReduction;
+    // 注：重甲物理减伤比例不经本类暴露——敌人侧直接读 BalanceTable.runtime()
+    //     （见 TankEnemy 构造），此处不再保留平行副本，避免两套口径。
 
     // ===== 波次（不纳入 JSON 化，保持字面量默认，避免与波次模块合并冲突）=====
     private int waveEnemyCount = 3;        // 每波敌人数
@@ -142,8 +142,6 @@ public class GameConfig {
         this.tankAttackCooldownMs = bt.getTankAttackCooldownMs();
         this.bossAttackDamage = bt.getBossAttackDamage();
         this.bossAttackCooldownMs = bt.getBossAttackCooldownMs();
-        // ⑦ 重甲物理减伤
-        this.tankPhysicalReduction = bt.getTankPhysicalReduction();
         // 波次节奏 4 个字段不读 JSON，保持上方字面量默认值
 
         // ===== 第 2 步：地图分包读取（选定默认地图后交给 loadMap，逻辑与原实现等价）=====
@@ -298,9 +296,6 @@ public class GameConfig {
     public int getTankAttackCooldownMs() { return tankAttackCooldownMs; }
     public int getBossAttackDamage() { return bossAttackDamage; }
     public int getBossAttackCooldownMs() { return bossAttackCooldownMs; }
-
-    // ===== ⑦ 重甲物理减伤比例（0 ≤ v < 1）=====
-    public double getTankPhysicalReduction() { return tankPhysicalReduction; }
 
     // ===== 波次 =====
     /** 关卡波次表（null=无波次表，运行期回退全局波次配置）；敌人数值仍按 id 从本类现取 */

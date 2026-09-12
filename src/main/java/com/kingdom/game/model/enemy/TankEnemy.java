@@ -38,8 +38,8 @@ public class TankEnemy extends Enemy {
         super(x, y, hp, speed, goldReward);
         this.attackDamage = attackDamage;
         this.maxAttackCooldown = attackCooldownMs;
-        // 重甲物理减伤（《整改方案》§7 P0-3 / B-5）：构造期从 balance.json 读入并固化。
-        // 倍率 = 1 − tankPhysicalReduction（默认 1 − 0.3 = 0.7，即只吃 70% 伤害）；
+        // 重甲物理减伤：构造期从 config/balance.json 的 tankPhysicalReduction 读入并固化。
+        // 倍率 = 1 − tankPhysicalReduction（只吃剩余比例伤害）；
         // 该值只作用于"未声明破甲"的伤害——炮塔 Bomb 走 takeDamage(dmg, true) 绕过。
         this.damageTakenMultiplier =
                 1.0 - BalanceTable.runtime().getTankPhysicalReduction();

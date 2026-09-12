@@ -53,7 +53,7 @@ public class Barrack extends Tower implements ITowerUpgrade {
     protected long spawnIntervalMillis = 5000;
     protected int soldierHp = 50;
     protected double soldierSpeed = 40;
-    protected int soldierAttack = 8;
+    protected int soldierAttack = 11;
     protected int soldierCooldown = 800;
 
     /** 友方出口（默认 no-op：未被装配层注入时产出被丢弃、不报错；GameController 放置兵营时已注入） */

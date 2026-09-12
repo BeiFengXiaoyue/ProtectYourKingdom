@@ -18,13 +18,14 @@ import java.util.Set;
  * - ③ 快速敌人：fastHp / fastSpeed / fastGoldReward
  * - ④ 重甲敌人：tankHp / tankSpeed / tankGoldReward
  * - ⑤ Boss：bossHp / bossSpeed / bossGoldReward
- * - ⑥ 敌人近战（《整改方案》§7 P0-1）：
+ * - ⑥ 敌人近战：
  *      {normal|fast|tank|boss}AttackDamage / …AttackCooldownMs
- * - ⑦ 重甲减伤（《整改方案》§7 P0-3）：tankPhysicalReduction，范围 [0,1)
- * - ⑧ 炮塔溅射半径（《整改方案》§7 P1-1）：{cannon|eliteCannon|masterCannon}SplashRadius，
+ * - ⑦ 重甲减伤：tankPhysicalReduction，范围 [0,1)
+ * - ⑧ 炮塔溅射半径：{cannon|eliteCannon|masterCannon}SplashRadius，
  *      必须 > 0；由各炮塔构造期经 {@link #runtime()} 读取并传给 Bomb
- * - ⑨ Boss 狂暴机制（《整改方案》§7 P1-3 / B-2）：bossStompIntervalMs（>0）、
+ * - ⑨ Boss 狂暴机制：bossStompIntervalMs（>0）、
  *      bossEnrageAttackCooldownCut（[0,1)）；由 {@code BossEnemy} 构造期经 {@link #runtime()} 读取
+ * （字段按 id/语义的归属总表见 docs/数值配置JSON化规范.md）
  *
  * 波次节奏字段（waveEnemyCount / waveSpawnIntervalMs / waveIntermissionMs /
  * earlyStartRewardCap）不纳入 JSON 化，仍由 GameConfig 字面量默认值管理，
@@ -78,12 +79,12 @@ public final class BalanceTable {
     // ===== ⑦ 重甲物理减伤（比例，0 ≤ v < 1；0 = 不减伤）=====
     private double tankPhysicalReduction;
 
-    // ===== ⑧ 炮塔溅射半径（px，> 0；《整改方案》§7 P1-1）=====
+    // ===== ⑧ 炮塔溅射半径（px，> 0）=====
     private double cannonSplashRadius;
     private double eliteCannonSplashRadius;
     private double masterCannonSplashRadius;
 
-    // ===== ⑨ Boss 狂暴机制（《整改方案》§7 P1-3 / B-2）=====
+    // ===== ⑨ Boss 狂暴机制 =====
     /** 狂暴后震地间隔 ms（> 0）：每间隔触发一次全塔眩晕请求 */
     private int bossStompIntervalMs;
     /** 狂暴后攻击冷却削减比例（[0,1)）：0.3 = 攻击间隔砍 30%（冷却 ×0.7）；0 = 不改 */
@@ -96,29 +97,32 @@ public final class BalanceTable {
 
     // ================= 内置默认（唯一来源）=================
 
-    /** 内置默认 = 策划文档 v1.1 数值表（seed JSON 必须与此一致） */
+    /**
+     * 内置默认 = 兜底值（仅当 config/balance.json 缺失/损坏时生效）。
+     * 内容须与 config/balance.json 保持一致，改一处请同步另一处。
+     */
     public static BalanceTable defaults() {
         BalanceTable b = new BalanceTable();
         // 玩家开局
-        b.initialGold = 100;
+        b.initialGold = 130;
         b.initialLives = 20;
         b.totalWaves = 10;
         // 普通敌人
         b.normalHp = 80;
-        b.normalSpeed = 60.0;
-        b.normalGoldReward = 10;
-        // 快速敌人（速度约普通 2 倍，HP 低，赏金略高）
+        b.normalSpeed = 25.0;
+        b.normalGoldReward = 15;
+        // 快速敌人（速度约为普通 2 倍，HP 低，赏金略高）
         b.fastHp = 50;
-        b.fastSpeed = 120.0;
-        b.fastGoldReward = 15;
+        b.fastSpeed = 50.0;
+        b.fastGoldReward = 22;
         // 重甲敌人（HP 约普通 3 倍，速度慢，赏金高）
         b.tankHp = 240;
-        b.tankSpeed = 35.0;
-        b.tankGoldReward = 25;
+        b.tankSpeed = 18.0;
+        b.tankGoldReward = 35;
         // Boss（高血量，最终波首领）
         b.bossHp = 1500;
-        b.bossSpeed = 40.0;
-        b.bossGoldReward = 200;
+        b.bossSpeed = 22.0;
+        b.bossGoldReward = 300;
         // 敌人近战：攻击力 / 攻击冷却（= 实体类原有写死值，改造后表现不变）
         b.normalAttackDamage = 5;
         b.normalAttackCooldownMs = 1000;

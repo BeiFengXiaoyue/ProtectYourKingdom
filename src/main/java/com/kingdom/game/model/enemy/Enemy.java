@@ -31,7 +31,8 @@ public abstract class Enemy extends LivingEntity {
      * 常用构造：hp/speed/goldReward 由调用方传入。
      *
      * ⚠️ 近战参数 `attackDamage` / `maxAttackCooldown` **不在此设置**——基类原先写死的
-     * 5 / 1000 已按《整改方案》§7 P0-1 删除（属"待删除的写死值"）。
+     * 5 / 1000 已删除（改由 config/balance.json 的 `{type}AttackDamage` /
+     * `{type}AttackCooldownMs` 提供）。
      * **每个具体子类必须自行设置这两项**（经构造参数注入，或老签名重载从
      * config/balance.json 取），否则近战伤害为 0。
      */

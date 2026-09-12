@@ -30,8 +30,7 @@ import java.util.Random;
  *
  * 交互侧（D）扩展调用入口（详见 docs/音效扩展方法说明.md）：
  * - {@link #getInstance()} 获取单例；
- * - {@link #onLifeLost()} 漏怪扣生命时；
- * - {@link #onGoldInsufficient()} 建塔/升级金币不足时。
+ * - {@link #onLifeLost()} 漏怪扣生命时（已在 view/HUD 接线）。
  */
 public final class SoundManager implements IWaveSound, ITowerSound, IUnitSound, ICombatSound, IEndSound {
 
@@ -203,13 +202,5 @@ public final class SoundManager implements IWaveSound, ITowerSound, IUnitSound, 
      */
     public void onLifeLost() {
         play("life_lost.wav");
-    }
-
-    /**
-     * 金币不足提示音。
-     * 建议调用点：placeTower/upgradeTower 返回失败且原因为金币不足时（交互侧收到失败推送后调用）。
-     */
-    public void onGoldInsufficient() {
-        play("gold_insufficient.wav");
     }
 }
