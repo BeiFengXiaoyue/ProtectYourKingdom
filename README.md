@@ -9,6 +9,7 @@
 ## 快速开始（运行游戏）
 - 默认 `pom.xml` 的 javafx 插件 mainClass 为 `com.kingdom.game.view.Main`，直接执行 `mvn javafx:run` 运行游戏。
 - IDE 直接运行不可用（JavaFX 模块检查），工具/游戏都请走 `mvn javafx:run`（工具见下节）。
+- 启动后为**开始界面 → 选关界面 → 战场**三屏单向流程（`view/StartScreen`、`view/LevelSelectScreen`，实现在 `Main` 里装配）；进入战场时游戏循环才启动，菜单期间世界不推进。战场内打完一关可用结束遮罩的「下一关」继续。
 - 点击「开始波次」出怪；生命值归零即失败，守住全部波次即胜利。
 - 启动时会自动读取**默认地图**（`maps/index.json` 第一条，可用 `-Dmap.key=<key>` 指定）的
   `maps/<key>/path.json` 与 `spots.json`（若存在则按导出内容设置画布尺寸、敌人路径与可建塔位；不存在则回退内置默认）。
