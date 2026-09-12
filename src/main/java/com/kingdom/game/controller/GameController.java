@@ -515,11 +515,17 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
      * 兵营被替换/出售前，把其产出的在役士兵从 {@code allies} 注册表移除（P1-9）。
      *
      * 契约「实体不碰全局列表」：兵营只交出所产士兵（{@link Barrack#releaseSoldiers()}），
-     * 由本控制层负责删除。非兵营塔为空操作。旧兵属"退役"而非阵亡，不触发死亡音效。
+     * 由本控制层负责删除。非兵营塔为空操作。
+     * 交出的旧兵由本层即刻置为阵亡（保留死亡音效与粒子）——交战中的敌人只在目标
+     * {@code isAlive()} 时才追击（{@code Enemy.move}），若只做移除，旧兵会变成坐标冻结的
+     * "幽灵"把敌人永久卡在原地，故此处必须让它真的阵亡。
      */
     private void retireBarrackSoldiers(Tower tower) {
-        if (tower instanceof Barrack) {
-            allies.removeAll(((Barrack) tower).releaseSoldiers());
+        if (!(tower instanceof Barrack)) return;
+        List<Ally> retired = ((Barrack) tower).releaseSoldiers();
+        allies.removeAll(retired);
+        for (Ally s : retired) {
+            s.takeDamage(s.getCurrentHp());
         }
     }
 
