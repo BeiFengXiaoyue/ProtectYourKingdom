@@ -1,6 +1,6 @@
 {
   "maps": [
-    { "key": "default", "name": "默认地图", "image": "map.png" },
+    { "key": "default", "name": "前线哨站", "image": "map.png" },
     { "key": "round2", "name": "田边守卫", "image": "map.png" }
     ]
 }
