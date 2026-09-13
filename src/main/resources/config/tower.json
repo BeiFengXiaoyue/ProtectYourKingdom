@@ -1,35 +1,35 @@
 {
   "arrowL1": {
-    "damage": 25,
+    "damage": 12,
     "range": 120,
-    "cooldownMs": 700
+    "cooldownMs": 900
   },
   "arrowL2": {
-    "damage": 38,
+    "damage": 18,
     "range": 140,
-    "cooldownMs": 700
+    "cooldownMs": 900
   },
   "arrowL3": {
-    "damage": 57,
+    "damage": 25,
     "range": 140,
-    "cooldownMs": 600,
+    "cooldownMs": 700,
     "chainTargets": 1,
     "chainDamageRatio": 0.5
   },
   "cannonL1": {
-    "damage": 63,
+    "damage": 35,
     "range": 140,
-    "cooldownMs": 1800
+    "cooldownMs": 2200
   },
   "cannonL2": {
-    "damage": 98,
+    "damage": 50,
     "range": 140,
-    "cooldownMs": 1800
+    "cooldownMs": 2200
   },
   "cannonL3": {
-    "damage": 154,
+    "damage": 63,
     "range": 140,
-    "cooldownMs": 1800,
+    "cooldownMs": 2200,
     "burnDps": 5,
     "burnDurationMs": 3000
   },
@@ -38,24 +38,24 @@
     "spawnIntervalMs": 5000,
     "soldierHp": 50,
     "soldierSpeed": 40,
-    "soldierAttack": 11,
-    "soldierCooldown": 800
+    "soldierAttack": 5,
+    "soldierCooldown": 1000
   },
   "barrackL2": {
     "maxSoldiers": 3,
     "spawnIntervalMs": 5000,
     "soldierHp": 80,
     "soldierSpeed": 40,
-    "soldierAttack": 11,
-    "soldierCooldown": 800
+    "soldierAttack": 5,
+    "soldierCooldown": 1000
   },
   "barrackL3": {
     "maxSoldiers": 4,
     "spawnIntervalMs": 5000,
     "soldierHp": 80,
     "soldierSpeed": 40,
-    "soldierAttack": 11,
-    "soldierCooldown": 800,
+    "soldierAttack": 5,
+    "soldierCooldown": 1000,
     "healPerSecond": 2,
     "auraRadius": 80
   }
