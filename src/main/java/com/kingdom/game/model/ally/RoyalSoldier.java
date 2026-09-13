@@ -152,16 +152,17 @@ public class RoyalSoldier extends Ally implements IGuardPoint {
         fxParticle.spawnExplosionParticles(x, y, "#ffd75e", 16);
     }
 
-    /** 动画帧叠加之后的 3 级标记：动画帧会画满身体框，故在帧之上补画加粗金环 + 盔缨（与色块回退同一套形状）。 */
+    /**
+     * 动画帧叠加之后的 3 级标记：动画帧会画满身体框，故标记要压在帧之上再画。
+     * 友军识别环由基类统一绘制（三档同一种），本类只补 3 级专属的肩章金星 + 红盔缨。
+     */
     @Override
     public void renderPostAnim(GraphicsContext gc) {
+        super.renderPostAnim(gc);                // 友军统一识别环（基类）
         double r = width / 2;
-        gc.setStroke(Color.web("#b8860b"));
-        gc.setLineWidth(2.5);
-        gc.strokeOval(x - r, y - r, width, height);
-        gc.setFill(Color.web("#ffd75e"));
+        gc.setFill(Color.web("#ffd75e"));        // 肩章金星
         gc.fillOval(x - 2, y - r - 4, 4, 4);
-        gc.setFill(Color.web("#e74c3c"));
+        gc.setFill(Color.web("#e74c3c"));        // 红色盔缨：最高档识别标记
         gc.fillOval(x - 2.5, y - r - 9, 5, 5);
     }
 

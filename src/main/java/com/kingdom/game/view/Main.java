@@ -64,12 +64,12 @@ public class Main extends Application {
                 "/assets/animations/enemies/boss_enemy.json");
         view.registerUnitAnimation("allies", "Soldier",
                 "/assets/animations/allies/soldier.json");
-        // 精英 / 皇家兵复用士兵帧（1-3：soldier.json 帧图齐备，尺寸按 sizes.json 缩放）：
-        // 登记后 GameView 跳过静态渲染、改画动画帧，再叠 renderPostAnim 的精英标记
+        // 三档士兵各有独立动画表（不共用 soldier.json，见《接口契约与抽象类说明》§4.7）：
+        // 登记后 GameView 跳过静态渲染、改画本档动画帧，再叠 renderPostAnim 的等级标记
         view.registerUnitAnimation("allies", "EliteSoldier",
-                "/assets/animations/allies/soldier.json");
+                "/assets/animations/allies/elite_soldier.json");
         view.registerUnitAnimation("allies", "RoyalSoldier",
-                "/assets/animations/allies/soldier.json");
+                "/assets/animations/allies/royal_soldier.json");
         view.registerUnitAnimation("towers", "ArrowTower",
                 "/assets/animations/towers/arrow_tower.json");
 

@@ -5,196 +5,189 @@ import com.kingdom.game.controller.ILevelSwitcher;
 import com.kingdom.game.controller.LevelInfo;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Node;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
-import javafx.scene.effect.DropShadow;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.Background;
-import javafx.scene.layout.BackgroundFill;
-import javafx.scene.layout.BorderStroke;
-import javafx.scene.layout.BorderStrokeStyle;
-import javafx.scene.layout.BorderWidths;
-import javafx.scene.layout.CornerRadii;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 
-import java.io.InputStream;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * LevelSelectScreen —— 选关界面（缩略图卡片，点击直接进入）。
+ * LevelSelectScreen —— 选关界面（**全屏关卡磁贴网格** → 进入所选关卡）。
+ *
+ * 版式：顶栏（左标题 + 下分隔线）+ 磁贴网格区 + 提示行，整屏铺满（根 StackPane 由装配层放进
+ * 与战场屏同尺寸的场景，故菜单屏天然用满 700×636）。网格区 `VBox.setVgrow(ALWAYS)` 吃掉
+ * 剩余高度——**关卡再多也只在网格区内竖向滚动**，界面与窗口尺寸恒定（若让卡片随关卡数长高，
+ * 根 StackPane 的 pref 会被撑大，窗口跟着变大）。
  *
  * 数据与动作**只走接口**（《多关卡与运行期切图-接口规范》§3.5-1）：查询用
  * {@link IGameStateReader#getLevels()}，切关用 {@link ILevelSwitcher#switchLevelAt(int)}；
  * 不 import 具体 {@code GameController}，也不直接读 {@code GameConfig} / {@code MapLibrary}。
  *
  * 进入关卡的时序：先切关，成功才回调 {@code onEntered} 交回装配层切屏；切关失败时接口保证
- * **状态零变化**（无非法 key 的部分应用），故本界面停在原地提示、可安全重试。
+ * **状态零变化**，故本界面停在原地提示、可安全重试。
  *
- * 视觉：与开始界面同底（KR 木纹面板）；每关一张卡片 = 地图缩略图 + 关名，
- * 点击卡片直接进关（无“先选中再确认”流程，故无“当前关”标记）。
- * 关卡列表只在 {@link #refresh()} 时取一次——index 解析不可每帧调用。
+ * 关卡列表只在 {@link #refresh()} 时取一次——{@code getLevels()} 每次调用都会重新解析
+ * {@code maps/index.json}（无缓存），不可每帧调用。
+ *
+ * 磁贴内容为「大号序号 + 关卡名 + 当前关角标」；缩略图位预留但未做（{@code LevelInfo} 不暴露
+ * 底图名，要显示需扩该值对象或按约定读 {@code /maps/<key>/map.png}）。
  */
 public class LevelSelectScreen {
+
+    // ===== 版式常量（调参只改这里）=====
+    /** 磁贴列数（700px 宽下 3 列最舒展） */
+    private static final int COLUMNS = 3;
+    /** 磁贴尺寸 px（196 = 留出竖向滚动条宽度：3×196+2×16 = 620 < 可视宽度，滚动条出现也不会回流成 2 列） */
+    private static final double TILE_WIDTH = 196;
+    private static final double TILE_HEIGHT = 120;
+    /** 磁贴间距 px */
+    private static final double GAP = 16;
+    /** 整屏内边距 px */
+    private static final double PADDING = 24;
+
+    // ===== 配色（与 GameView 结束遮罩 / 开始界面同一套）=====
+    private static final String COLOR_TILE_BG = "rgba(30,34,40,0.96)";
+    private static final String COLOR_TILE_BG_HOVER = "rgba(46,52,60,0.98)";
+    private static final String COLOR_BORDER = "#9aa3ad";
+    private static final String COLOR_GOLD = "#ffd700";
 
     private final IGameStateReader stateReader;
     private final ILevelSwitcher levelSwitcher;
     private final Runnable onEntered;
 
     private final StackPane root;
-    private final TilePane cards = new TilePane();
+    private final TilePane grid = new TilePane();
+    private final ScrollPane scroller;
     private final Label hintLabel = new Label();
-    private final Map<String, Image> thumbCache = new HashMap<>();
-
-    private static final String CARD_BASE = "-fx-background-color: rgba(24,20,14,0.82);"
-            + "-fx-background-radius: 10; -fx-border-color: #a08a5a; -fx-border-radius: 10;"
-            + "-fx-border-width: 2; -fx-cursor: hand;";
-    private static final String CARD_HOVER = "-fx-background-color: rgba(60,48,26,0.9);"
-            + "-fx-background-radius: 10; -fx-border-color: #ffd76a; -fx-border-radius: 10;"
-            + "-fx-border-width: 2; -fx-cursor: hand;";
 
     public LevelSelectScreen(IGameStateReader stateReader, ILevelSwitcher levelSwitcher, Runnable onEntered) {
         this.stateReader = stateReader;
         this.levelSwitcher = levelSwitcher;
         this.onEntered = onEntered;
 
-        Label title = new Label("选 择 关 卡");
-        title.setFont(Font.font("System", FontWeight.BOLD, 34));
-        title.setTextFill(Color.web("#ffd76a"));
-        DropShadow shadow = new DropShadow();
-        shadow.setColor(Color.web("#000000", 0.8));
-        shadow.setRadius(8);
-        title.setEffect(shadow);
+        // ---- 顶栏：左对齐标题 + 底部一条分隔线 ----
+        Label title = new Label("选择关卡");
+        title.setFont(Font.font(26));
+        title.setTextFill(Color.web(COLOR_GOLD));
+        HBox header = new HBox(title);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setPadding(new Insets(0, 0, 12, 0));
+        header.setStyle("-fx-border-color: transparent transparent " + COLOR_BORDER + " transparent;"
+                + "-fx-border-width: 0 0 1 0;");
+
+        // ---- 磁贴网格（3 列；关卡多时由外层 ScrollPane 竖向滚动）----
+        grid.setPrefColumns(COLUMNS);
+        grid.setHgap(GAP);
+        grid.setVgap(GAP);
+        grid.setTileAlignment(Pos.TOP_LEFT);
+        grid.setAlignment(Pos.TOP_CENTER);
+
+        scroller = new ScrollPane(grid);
+        scroller.setFitToWidth(true);
+        scroller.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroller.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        // ScrollPane 皮肤默认给 viewport 上底色，与暗色界面不一致 → 先内联透明化；
+        // viewport 的实际底色在 refresh() 里再兜一层（部分主题下 -fx-background 不生效）
+        scroller.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        VBox.setVgrow(scroller, Priority.ALWAYS);   // 网格区吃掉剩余高度 → 整屏铺满
 
         hintLabel.setFont(Font.font(13));
-        hintLabel.setTextFill(Color.web("#ff9c8a"));
+        hintLabel.setTextFill(Color.web("#ff6b5e"));
         hintLabel.setWrapText(true);
-        hintLabel.setMaxWidth(560);
-        hintLabel.setVisible(false);
-        hintLabel.setManaged(false);
+        setHint("");
 
-        cards.setHgap(16);
-        cards.setVgap(18);
-        cards.setAlignment(Pos.CENTER);
-        cards.setPrefTileWidth(150);
-        cards.setPrefTileHeight(150);
+        VBox content = new VBox(12, header, scroller, hintLabel);
+        content.setPadding(new Insets(PADDING));
+        content.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);   // 在 StackPane 里铺满整屏
 
-        VBox plate = new VBox(22, title, cards, hintLabel);
-        plate.setAlignment(Pos.CENTER);
-        plate.setPadding(new Insets(26, 30, 26, 30));
-        plate.setMaxSize(VBox.USE_PREF_SIZE, VBox.USE_PREF_SIZE);
-        plate.setStyle("-fx-background-color: rgba(16,14,10,0.72); -fx-background-radius: 18;"
-                + "-fx-border-color: #d9b380; -fx-border-radius: 18; -fx-border-width: 2;");
-
-        // 底图：与开始界面同款木纹面板（缺图回退暗色渐变）
-        StackPane layer = new StackPane();
-        Image bg = null;
-        try (InputStream in = LevelSelectScreen.class.getResourceAsStream("/assets/ui_start_bg.png")) {
-            if (in != null) bg = new Image(in);
-        } catch (Exception ignored) {
-        }
-        if (bg != null) {
-            ImageView bgView = new ImageView(bg);
-            // 铺满整个窗口（含顶部状态条区域），不留白边
-            bgView.fitWidthProperty().bind(layer.widthProperty());
-            bgView.fitHeightProperty().bind(layer.heightProperty());
-            layer.getChildren().add(bgView);
-            layer.setPrefSize(700, 665);   // 与游戏屏同高，防窗口上下露白
-        } else {
-            layer.setStyle("-fx-background-color: linear-gradient(to bottom, #1b2026, #38414b);");
-            layer.setPrefSize(700, 665);
-        }
-        layer.getChildren().add(plate);
-        StackPane.setAlignment(plate, Pos.CENTER);
-
-        root = layer;
+        root = new StackPane(content);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #1b2026, #38414b);");
     }
 
     public Node getNode() { return root; }
 
-    /** 打开选关界面时调用一次：按当前关卡列表重建缩略图卡片 */
+    /** 打开选关界面时调用一次：按当前关卡列表重建磁贴（当前关以金框 + 角标标出） */
     public void refresh() {
-        cards.getChildren().clear();
-        hideHint();
+        grid.getChildren().clear();
+        setHint("");
+
+        // viewport 底色兜底：节点此时已挂在场景里，lookup 可用；取不到就跳过，只影响背景色
+        Node viewport = scroller.lookup(".viewport");
+        if (viewport != null) {
+            viewport.setStyle("-fx-background-color: transparent;");
+        }
 
         List<LevelInfo> levels;
         try {
             levels = stateReader.getLevels();
         } catch (RuntimeException ex) {
-            // maps/index.json 语法非法时 MiniJson 抛 IllegalArgumentException，这里必须自行兜底，避免崩窗口
-            showHint("关卡列表读取失败：" + ex.getMessage());
+            // maps/index.json 语法非法时 MiniJson 抛 IllegalArgumentException，而
+            // MapLibrary.listMapsFromClasspath 只兜 IOException → 这里必须自行兜底，避免崩窗口
+            setHint("关卡列表读取失败：" + ex.getMessage());
             return;
         }
         if (levels == null || levels.isEmpty()) {
-            showHint("未找到任何关卡（maps/index.json 缺失或为空）");
+            setHint("未找到任何关卡（maps/index.json 缺失或为空）");
             return;
         }
 
+        int current = stateReader.getCurrentLevelIndex();
         for (LevelInfo info : levels) {
-            cards.getChildren().add(levelCard(info));
+            grid.getChildren().add(buildTile(info, info.getIndex() == current));
         }
     }
 
-    /** 单张关卡卡片：缩略图 + 关名；点击直接切关进入 */
-    private Node levelCard(LevelInfo info) {
-        ImageView thumb = new ImageView(thumbnail(info.getKey()));
-        thumb.setFitWidth(126);
-        thumb.setFitHeight(96);
-        thumb.setPreserveRatio(false);
-        thumb.setSmooth(true);
-        thumb.setMouseTransparent(true);
+    /** 一枚关卡磁贴：大号序号 + 关卡名（+ 当前关角标）；点击进入该关 */
+    private StackPane buildTile(LevelInfo info, boolean isCurrent) {
+        Label number = new Label(String.valueOf(info.getIndex() + 1));
+        number.setFont(Font.font(34));
+        number.setTextFill(Color.web(COLOR_GOLD));
 
-        Label name = new Label("第 " + (info.getIndex() + 1) + " 关 · " + info.getName());
-        name.setFont(Font.font("System", FontWeight.BOLD, 12));
-        name.setTextFill(Color.web("#f0e6c8"));
-        name.setMouseTransparent(true);
+        Label name = new Label(info.getName());
+        name.setFont(Font.font(14));
+        name.setTextFill(Color.web("#dddddd"));
+        name.setWrapText(true);
+        name.setMaxWidth(TILE_WIDTH - 24);
+        name.setAlignment(Pos.CENTER);
 
-        VBox card = new VBox(6, thumb, name);
-        card.setAlignment(Pos.CENTER);
-        card.setPadding(new Insets(8));
-        card.setStyle(CARD_BASE);
-        card.setOnMouseEntered(e -> card.setStyle(CARD_HOVER));
-        card.setOnMouseExited(e -> card.setStyle(CARD_BASE));
-        card.setOnMouseClicked(e -> enter(info));
-        return card;
+        Label currentTag = new Label("当前");
+        currentTag.setFont(Font.font(11));
+        currentTag.setTextFill(Color.web(COLOR_GOLD));
+        currentTag.setVisible(isCurrent);
+        currentTag.setManaged(isCurrent);
+
+        VBox box = new VBox(6, number, name, currentTag);
+        box.setAlignment(Pos.CENTER);
+        box.setPadding(new Insets(12));
+
+        StackPane tile = new StackPane(box);
+        tile.setMinSize(TILE_WIDTH, TILE_HEIGHT);
+        tile.setPrefSize(TILE_WIDTH, TILE_HEIGHT);
+        tile.setMaxSize(TILE_WIDTH, TILE_HEIGHT);
+        tile.setCursor(Cursor.HAND);
+        applyTileStyle(tile, isCurrent, false);
+        tile.setOnMouseEntered(e -> applyTileStyle(tile, isCurrent, true));
+        tile.setOnMouseExited(e -> applyTileStyle(tile, isCurrent, false));
+        tile.setOnMouseClicked(e -> enter(info));
+        return tile;
     }
 
-    /** 关卡缩略图：读取该图 map.png（classpath），带缓存；缺失回退灰色占位图 */
-    private Image thumbnail(String key) {
-        Image cached = thumbCache.get(key);
-        if (cached != null) return cached;
-        Image img = null;
-        try (InputStream in = LevelSelectScreen.class.getResourceAsStream("/maps/" + key + "/map.png")) {
-            if (in != null) img = new Image(in);
-        } catch (Exception ignored) {
-        }
-        if (img == null) img = placeholder();
-        thumbCache.put(key, img);
-        return img;
-    }
-
-    /** 灰色占位图（126×96） */
-    private Image placeholder() {
-        javafx.scene.image.WritableImage ph = new javafx.scene.image.WritableImage(126, 96);
-        javafx.scene.canvas.Canvas c = new javafx.scene.canvas.Canvas(126, 96);
-        GraphicsContext g = c.getGraphicsContext2D();
-        g.setFill(Color.web("#4a4a4a"));
-        g.fillRect(0, 0, 126, 96);
-        g.setFill(Color.web("#777777"));
-        g.fillText("No Image", 34, 52);
-        javafx.scene.SnapshotParameters sp = new javafx.scene.SnapshotParameters();
-        ph = c.snapshot(sp, ph);
-        return ph;
+    /** 磁贴样式：当前关与悬停态用金色描边（当前关更粗），悬停时底色略亮 */
+    private void applyTileStyle(StackPane tile, boolean isCurrent, boolean hovered) {
+        String border = (isCurrent || hovered) ? COLOR_GOLD : COLOR_BORDER;
+        int borderWidth = isCurrent ? 2 : 1;
+        String bg = hovered ? COLOR_TILE_BG_HOVER : COLOR_TILE_BG;
+        tile.setStyle("-fx-background-color: " + bg + "; -fx-background-radius: 10;"
+                + "-fx-border-color: " + border + "; -fx-border-radius: 10;"
+                + "-fx-border-width: " + borderWidth + ";");
     }
 
     /** 进入所选关卡：切关成功 → 交回装配层切屏；失败 → 留在本界面并提示（失败时状态零变化） */
@@ -202,19 +195,15 @@ public class LevelSelectScreen {
         if (levelSwitcher.switchLevelAt(info.getIndex())) {
             onEntered.run();
         } else {
-            showHint("关卡数据缺失，无法进入：" + info.getKey());
+            setHint("关卡数据缺失，无法进入：" + info.getKey());
         }
     }
 
-    private void showHint(String text) {
+    /** 提示行：空串时整行隐藏并脱管，避免界面里留一条空行 */
+    private void setHint(String text) {
         hintLabel.setText(text);
-        hintLabel.setVisible(true);
-        hintLabel.setManaged(true);
-    }
-
-    private void hideHint() {
-        hintLabel.setText("");
-        hintLabel.setVisible(false);
-        hintLabel.setManaged(false);
+        boolean show = text != null && !text.isBlank();
+        hintLabel.setVisible(show);
+        hintLabel.setManaged(show);
     }
 }

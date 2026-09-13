@@ -4,6 +4,7 @@ import com.kingdom.game.model.Faction;
 import com.kingdom.game.model.LivingEntity;
 import com.kingdom.game.model.enemy.Enemy;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 
 import java.util.List;
 
@@ -14,6 +15,11 @@ import java.util.List;
  * 索敌抽象 + 对敌人近战碰撞反应。
  */
 public abstract class Ally extends LivingEntity {
+
+    /** 友军识别环的颜色：三档士兵统一用同一种，敌人不画环，故只看环即可分敌我 */
+    protected static final String FRIEND_RING_COLOR = "#66ccff";
+    /** 友军识别环的线宽 */
+    protected static final double FRIEND_RING_WIDTH = 2;
 
     /** 当前攻击目标（由索敌/移动逻辑维护） */
     protected Enemy target;
@@ -58,11 +64,16 @@ public abstract class Ally extends LivingEntity {
     }
 
     /**
-     * 动画帧叠加之后的额外绘制（默认空）。
-     * 需要压在动画帧之上的标记（如精英兵种的金环/盔缨）由子类覆写本方法绘制；
-     * 渲染层若有动画叠加，应在叠加之后调用本方法。
+     * 动画帧叠加之后的友军标记（渲染层若有动画叠加，应在叠加之后调用本方法）。
+     * 所有友军统一画一圈**同一种识别环**做敌我识别——敌人不调用本方法，故只看有没有环即可分辨。
+     * 子类需要额外的等级标记（肩章金星/盔缨）时覆写本方法，开头先 {@code super.renderPostAnim(gc)}。
      */
-    public void renderPostAnim(GraphicsContext gc) { /* 默认无 */ }
+    public void renderPostAnim(GraphicsContext gc) {
+        double r = width / 2;
+        gc.setStroke(Color.web(FRIEND_RING_COLOR));
+        gc.setLineWidth(FRIEND_RING_WIDTH);
+        gc.strokeOval(x - r, y - r, width, height);
+    }
 
     /** 碰撞反应：碰到敌人则近战攻击 */
     @Override
