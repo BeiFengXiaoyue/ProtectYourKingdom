@@ -78,6 +78,7 @@ public class StartScreen {
         startButton.setStyle(startStyle);
         startButton.setOnMouseEntered(e -> startButton.setStyle(startHover));
         startButton.setOnMouseExited(e -> startButton.setStyle(startStyle));
+        startButton.setOnAction(e -> onStart.run());   // 进入选关界面
 
         Button quitButton = new Button("退 出 游 戏");
         quitButton.setFont(Font.font(15));

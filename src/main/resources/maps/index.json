@@ -1,6 +1,6 @@
 {
   "maps": [
     { "key": "default", "name": "默认地图", "image": "map.png" },
-    { "key": "new_map", "name": "new_map", "image": "map.png" }
+    { "key": "round2", "name": "田边守卫", "image": "map.png" }
     ]
 }
