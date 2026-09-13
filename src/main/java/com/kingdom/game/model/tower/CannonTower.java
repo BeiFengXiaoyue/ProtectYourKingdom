@@ -27,7 +27,7 @@ import java.util.List;
 public class CannonTower extends Tower implements ITowerUpgrade {
 
     /** 建造成本（Main 登记 TowerSpec 时引用，保持一致） */
-    public static final int BUILD_COST = 80;
+    public static final int BUILD_COST = 100;
 
     /** 1 级 → 2 级的升级投入（《建筑与怪物机制策划》：150；A 可经 setNextLevelSpec 覆盖） */
     public static final int UPGRADE_COST = 150;
