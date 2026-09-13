@@ -40,7 +40,9 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -99,6 +101,8 @@ public class GameView implements IRenderNotifier,
 
     /** 单位行为动画叠加层（外部观察 + 叠加绘制；未注册/无帧图时不影响原渲染） */
     private final UnitAnimator animator = new UnitAnimator();
+    /** 场景道具贴图缓存（塔位基座/出怪口/城堡），缺失回退绘制 */
+    private final Map<String, Image> propImages = new HashMap<>();
 
     /** 一条飘字记录：绘制状态（偏移/透明度）按 now−birth 现算，不存可变状态 */
     private static final class FloatingText {
@@ -303,13 +307,25 @@ public class GameView implements IRenderNotifier,
             gc.stroke();
         }
 
-        // 路径两端：出生口 / 终点(城堡口) 示意
+        // 路径两端：出生口（敌怪营地）/ 终点（城堡）——贴图缺失回退棕色圆形
         double[] pathX = config.getPathX();
         double[] pathY = config.getPathY();
-        gc.setFill(Color.web(config.getColorPath()));
-        gc.fillOval(pathX[0] - 16, pathY[0] - 16, 32, 32);
-        gc.setFill(Color.web("#5a3a1a"));
-        gc.fillOval(pathX[pathX.length - 1] - 20, pathY[pathY.length - 1] - 20, 40, 40);
+        Image spawnImg = propImage("prop_spawn.png");
+        Image homeImg = propImage("prop_home.png");
+        if (spawnImg != null) {
+            double s = 64;
+            gc.drawImage(spawnImg, pathX[0] - s / 2.0, pathY[0] - s / 2.0, s, s);
+        } else {
+            gc.setFill(Color.web(config.getColorPath()));
+            gc.fillOval(pathX[0] - 16, pathY[0] - 16, 32, 32);
+        }
+        if (homeImg != null) {
+            double s = 76;
+            gc.drawImage(homeImg, pathX[pathX.length - 1] - s / 2.0, pathY[pathY.length - 1] - s / 2.0, s, s);
+        } else {
+            gc.setFill(Color.web("#5a3a1a"));
+            gc.fillOval(pathX[pathX.length - 1] - 20, pathY[pathY.length - 1] - 20, 40, 40);
+        }
 
         // 塔位标点（唯一来源：当前地图 spots.json，经 util.map.MapLibrary 加载；已占用点位显示为灰）
         drawTowerSpots();
@@ -651,20 +667,38 @@ public class GameView implements IRenderNotifier,
         if (n == 0) return;
         double[] xs = spots.getXs();
         double[] ys = spots.getYs();
+        Image plot = propImage("prop_spot.png");   // 空塔位基座贴图（符文石台）
         for (int i = 0; i < n; i++) {
             double x = xs[i];
             double y = ys[i];
-            double r = 14;
             boolean occupied = isSlotOccupied(i);
-            gc.setFill(occupied ? Color.web("#9a9a9a", 0.55) : Color.web("#f4d03f", 0.55));
-            gc.fillOval(x - r, y - r, r * 2, r * 2);
-            gc.setStroke(occupied ? Color.web("#666666") : Color.web("#7d6608"));
-            gc.setLineWidth(2.5);
-            gc.strokeOval(x - r, y - r, r * 2, r * 2);
-            gc.setFill(occupied ? Color.web("#666666") : Color.web("#7d6608"));
-            gc.fillRect(x - 2, y - 7, 4, 14);
-            gc.fillRect(x - 6, y - 2, 12, 4);
+            if (plot != null) {
+                double s = 40;
+                gc.setGlobalAlpha(occupied ? 0.45 : 1.0);
+                gc.drawImage(plot, x - s / 2.0, y - s / 2.0, s, s);
+                gc.setGlobalAlpha(1.0);
+            } else {
+                double r = 14;                     // 贴图缺失回退：黄圈+十字
+                gc.setFill(occupied ? Color.web("#9a9a9a", 0.55) : Color.web("#f4d03f", 0.55));
+                gc.fillOval(x - r, y - r, r * 2, r * 2);
+                gc.setStroke(occupied ? Color.web("#666666") : Color.web("#7d6608"));
+                gc.setLineWidth(2.5);
+                gc.strokeOval(x - r, y - r, r * 2, r * 2);
+            }
         }
+    }
+
+    /** 加载 assets/ 下的道具贴图（带缓存；缺失返回 null，调用方走回退绘制） */
+    private Image propImage(String file) {
+        if (propImages.containsKey(file)) return propImages.get(file);
+        Image img = null;
+        try (java.io.InputStream in = GameView.class.getResourceAsStream("/assets/" + file)) {
+            if (in != null) img = new Image(in);
+        } catch (Exception e) {
+            System.err.println("[GameView] 道具贴图加载失败: " + file + " -> " + e.getMessage());
+        }
+        propImages.put(file, img);
+        return img;
     }
 
     // ================= 视觉特效接口（D：飘字/粒子/闪屏/震屏/Boss 预警均已落地）=================
