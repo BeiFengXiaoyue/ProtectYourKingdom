@@ -1,66 +1,68 @@
 {
-  "name": "default_waves",
+  "name": "round2_waves",
   "waves": [
     {
       "id": 1,
       "groups": [
-        {"type":"boss_enemy","count":2,"intervalMs":1000}
+        {"type":"normal_enemy","count":6,"intervalMs":1100}
       ]
     },
     {
       "id": 2,
       "groups": [
-        {"type":"normal_enemy","count":1,"intervalMs":1000},
-        {"type":"normal_enemy","count":1,"intervalMs":1000}
+        {"type":"normal_enemy","count":10,"intervalMs":900}
       ]
     },
     {
       "id": 3,
       "groups": [
-        {"type":"normal_enemy","count":1,"intervalMs":1000},
-        {"type":"normal_enemy","count":1,"intervalMs":1000}
+        {"type":"normal_enemy","count":8,"intervalMs":800},
+        {"type":"fast_enemy","count":5,"intervalMs":700}
       ]
     },
     {
       "id": 4,
       "groups": [
-        {"type":"normal_enemy","count":1,"intervalMs":1000},
-        {"type":"normal_enemy","count":1,"intervalMs":1000}
+        {"type":"fast_enemy","count":8,"intervalMs":600},
+        {"type":"normal_enemy","count":6,"intervalMs":800}
       ]
     },
     {
       "id": 5,
       "groups": [
-        {"type":"normal_enemy","count":1,"intervalMs":1000},
-        {"type":"normal_enemy","count":1,"intervalMs":1000}
+        {"type":"tank_enemy","count":4,"intervalMs":1400},
+        {"type":"normal_enemy","count":8,"intervalMs":700}
       ]
     },
     {
       "id": 6,
       "groups": [
-        {"type":"normal_enemy","count":1,"intervalMs":1000},
-        {"type":"normal_enemy","count":1,"intervalMs":1000}
+        {"type":"fast_enemy","count":12,"intervalMs":500},
+        {"type":"normal_enemy","count":6,"intervalMs":700}
       ]
     },
     {
       "id": 7,
       "groups": [
-        {"type":"normal_enemy","count":1,"intervalMs":1000},
-        {"type":"normal_enemy","count":1,"intervalMs":1000}
+        {"type":"tank_enemy","count":6,"intervalMs":1100},
+        {"type":"fast_enemy","count":8,"intervalMs":600}
       ]
     },
     {
       "id": 8,
       "groups": [
-        {"type":"normal_enemy","count":1,"intervalMs":1000},
-        {"type":"normal_enemy","count":1,"intervalMs":1000}
+        {"type":"normal_enemy","count":12,"intervalMs":500},
+        {"type":"tank_enemy","count":5,"intervalMs":900},
+        {"type":"fast_enemy","count":8,"intervalMs":500}
       ]
     },
     {
       "id": 9,
       "groups": [
-        {"type":"normal_enemy","count":1,"intervalMs":1000},
-        {"type":"normal_enemy","count":1,"intervalMs":1000}
+        {"type":"boss_enemy","count":1,"intervalMs":1000},
+        {"type":"tank_enemy","count":10,"intervalMs":800},
+        {"type":"fast_enemy","count":12,"intervalMs":450},
+        {"type":"boss_enemy","count":2,"intervalMs":1000}
       ]
     }
   ]
