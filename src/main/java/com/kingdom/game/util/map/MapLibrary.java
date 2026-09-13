@@ -333,12 +333,15 @@ public final class MapLibrary {
     }
 
     // ================= classpath 只读（运行期用）=================
-    /** 运行期从 classpath 读默认 index（供 GameConfig 选图） */
+    /** 运行期从 classpath 读默认 index（供 GameConfig 选图）；缺失/解析失败返回空表 */
     public static List<MapEntry> listMapsFromClasspath() {
         try (java.io.InputStream in = MapLibrary.class.getResourceAsStream("/maps/" + INDEX_FILE)) {
             if (in == null) return new ArrayList<>();
             return parseIndex(new String(in.readAllBytes(), StandardCharsets.UTF_8));
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            // 双捕获与同文件 readWaves、MapRoute.loadFromClasspath 一致：
+            // index.json 语法非法时 MiniJson 抛 IllegalArgumentException，只兜 IOException 会穿透到 UI（崩窗口）
+            System.err.println("[MapLibrary] 读取关卡索引失败: " + e.getMessage());
             return new ArrayList<>();
         }
     }

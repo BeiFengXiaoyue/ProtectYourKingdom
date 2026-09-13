@@ -76,6 +76,15 @@ public class WaveManager {
         return spawning && spawned < orders.size();
     }
 
+    /**
+     * 暂停恢复时把出怪锚点整体后移（与 GameController 的波间倒计时同源处理）：
+     * 不后移的话，暂停时长会被 update 的 "nowNanos - waveStartNanos" 当成已流逝，
+     * 恢复后待出怪会一帧全部涌出。未在出怪期（anchor 为 -1）时无操作。
+     */
+    public void shiftTimeBase(long deltaNanos) {
+        if (waveStartNanos > 0) waveStartNanos += deltaNanos;
+    }
+
     /** 重置（重新开始一局时由 GameController 调用） */
     public void reset() {
         orders.clear();

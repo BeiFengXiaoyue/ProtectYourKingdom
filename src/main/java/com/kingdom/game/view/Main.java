@@ -120,9 +120,12 @@ public class Main extends Application {
         StackPane shell = new StackPane();
         final boolean[] loopStarted = {false};
 
-        // 世界运行的唯一开关：循环 + 循环闸门 + HUD 计时器三者必须同进同退。
+        // 世界运行的唯一开关：循环 + 循环闸门 + HUD 计时器 + 后端时间基准四者必须同进同退。
         // （原先散在 6 处手工拼装，漏一处就失配——例如 HUD 计时器没停，暂停中还能点「立即开始」真的推进波次）
+        // controller.pause()/resume() 不可省：停 AnimationTimer 只让 update 不再被调用，
+        // 后端两个"绝对时间"基准（波间倒计时、出怪锚点）仍按真实时间流逝，必须在恢复时整体后移。
         Runnable resumeWorld = () -> {
+            controller.resume();      // 先把两个时间基准后移，再起循环（幂等；未暂停时无操作）
             if (!loopStarted[0]) {
                 view.startLoop();
                 loopStarted[0] = true;
@@ -130,6 +133,7 @@ public class Main extends Application {
             hud.setPaused(false);
         };
         Runnable pauseWorld = () -> {
+            controller.pause();       // 先登记暂停时刻，再停循环（幂等）
             view.stopLoop();
             loopStarted[0] = false;   // 闸门与循环同进同退，避免"忘了复位闸门 → 下次进关永不起循环"
             hud.setPaused(true);

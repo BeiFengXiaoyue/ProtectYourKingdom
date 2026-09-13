@@ -72,6 +72,12 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
     private boolean waveInProgress = false;
 
+    /** 暂停态：暂停期间冻结两个"绝对时间"基准，update 直接早退 */
+    private boolean paused = false;
+
+    /** 最近一次进入暂停的时刻（System.nanoTime），用于 resume 时把基准整体后移 */
+    private long pauseStartNanos = 0;
+
     /** 波间倒计时截止时刻（System.nanoTime）；<0 表示当前不在倒计时 */
     private long countdownDeadlineNanos = -1;
 
@@ -123,6 +129,11 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     @Override
     public void update(long nanoTime) {
         if (state.isGameOver()) {          // 生命耗尽，冻结世界（仍允许重绘一次）
+            if (renderNotifier != null) renderNotifier.requestRender();
+            return;
+        }
+
+        if (paused) {                      // 暂停态：世界不推进（UI 已停 AnimationTimer，此处为兜底）
             if (renderNotifier != null) renderNotifier.requestRender();
             return;
         }
@@ -202,6 +213,34 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
         if (renderNotifier != null) renderNotifier.requestRender();
     }
+
+    /**
+     * 暂停世界：冻结两个"绝对时间"基准（波间倒计时 {@link #countdownDeadlineNanos}、
+     * 出怪锚点 {@link WaveManager#shiftTimeBase(long)}）。幂等，重复调用无副作用。
+     */
+    @Override
+    public void pause() {
+        if (paused) return;
+        paused = true;
+        pauseStartNanos = System.nanoTime();
+    }
+
+    /**
+     * 恢复世界：把本次暂停时长从两个绝对时间基准上**整体后移**，使恢复后的剩余倒计时、
+     * 出怪节奏与暂停前逐毫秒一致（不后移的话，暂停时长会被当成"已流逝"，导致倒计时瞬间到期、
+     * 待出怪一帧涌出）。幂等；未处于暂停态时直接返回。
+     */
+    @Override
+    public void resume() {
+        if (!paused) return;
+        paused = false;
+        long delta = System.nanoTime() - pauseStartNanos;                  // 本次暂停时长
+        if (countdownDeadlineNanos > 0) countdownDeadlineNanos += delta;   // 波间倒计时整体后移
+        waveManager.shiftTimeBase(delta);                                  // 出怪锚点整体后移
+    }
+
+    @Override
+    public boolean isPaused() { return paused; }
 
     /**
      * Boss 震地结算：实体只把请求记在 {@link BossEnemy#consumeStompRequest()} 标记里，
@@ -370,7 +409,8 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
     @Override
     public boolean canStartNextWave() {
-        return !state.isGameOver() && !waveInProgress && state.getWave() < state.getTotalWaves();
+        // 暂停态不可开波：堵 HUD「立即开始」这个侧门（遮罩只挡画布，HUD 在 BorderPane.top）
+        return !paused && !state.isGameOver() && !waveInProgress && state.getWave() < state.getTotalWaves();
     }
 
     /** 提前奖励 = 剩余比例 × 上限（round 到整金币）；非倒计时 / 已到期返回 0 */
@@ -423,6 +463,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
     // ================= ITowerBuilder =================
     @Override
     public boolean placeTower(double x, double y, TowerType type) {
+        if (paused) return false;      // 暂停中禁止改变战场/金币（遮罩之外的兜底）
         BiFunction<Double, Double, Tower> factory = towerFactories.get(type);
         TowerSpec spec = config.getTowerSpec(type);
         if (factory == null || spec == null) {
@@ -469,6 +510,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
      */
     @Override
     public void upgradeTower(Tower tower) {
+        if (paused) return;            // 暂停中禁止升级扣费（遮罩之外的兜底）
         int idx = tower == null ? -1 : towers.indexOf(tower);
         if (idx < 0) return;                          // stale 引用（已替换/已出售）防重复扣费
         if (!(tower instanceof ITowerUpgrade)) {
@@ -501,6 +543,7 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
 
     @Override
     public void sellTower(Tower tower) {
+        if (paused) return;            // 暂停中禁止出售改金币（遮罩之外的兜底）
         if (tower == null) return;
         int refund = tower.sell();
         retireBarrackSoldiers(tower);          // 兵营出售后旧兵随之退场，避免无兵营的孤儿兵（P1-9）
@@ -591,6 +634,11 @@ public class GameController implements ITowerBuilder, IWaveStarter, IGameLoop, I
         waveInProgress = false;
         countdownDeadlineNanos = -1;
         activeIntermissionMs = 0;
+        // 必须连暂停态一起清：路径"暂停 → 返回选关 → 再选一关"会走到这里，
+        // 若 paused 残留 true，update() 会永远早退 → 世界永久冻结（假死）；
+        // pauseStartNanos 一并归零，避免下次 resume 拿到"跨关卡"的超长 delta。
+        paused = false;
+        pauseStartNanos = 0;
     }
 
     // ================= 多关卡（运行期切图；契约见《多关卡与运行期切图-接口规范》§3.3）=================
