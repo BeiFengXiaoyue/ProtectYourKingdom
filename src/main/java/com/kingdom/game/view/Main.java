@@ -175,7 +175,7 @@ public class Main extends Application {
         view.setOnResume(resumeWorld);
         view.setOnExitToSelect(() -> {
             showScreen(shell, levelSelectScreen.getNode());
-            levelSelectScreen.refresh();   // 重算"当前关"金框
+            levelSelectScreen.refresh();   // 按当前关卡列表重建磁贴（缩略图卡片；列表可能已变）
             pauseWorld.run();
         });
 
