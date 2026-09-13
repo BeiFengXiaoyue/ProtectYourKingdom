@@ -152,15 +152,13 @@ public class EliteSoldier extends Ally implements IGuardPoint {
     }
 
     /**
-     * 动画帧叠加之后的精英标记：叠加层会把行为动画帧画满整个身体框，
-     * 无素材时 render() 里那套标记会被盖住，故在帧之上再画一遍（同一套形状，颜色/位置完全一致）。
+     * 动画帧叠加之后的 2 级标记：叠加层会把行为动画帧画满整个身体框，故标记要压在帧之上再画。
+     * 友军识别环由基类统一绘制（三档同一种），本类只补 2 级专属的肩章金星。
      */
     @Override
     public void renderPostAnim(GraphicsContext gc) {
+        super.renderPostAnim(gc);                // 友军统一识别环（基类）
         double r = width / 2;
-        gc.setStroke(Color.web("#8a6d1f"));      // 精英金环
-        gc.setLineWidth(2);
-        gc.strokeOval(x - r, y - r, width, height);
         gc.setFill(Color.web("#ffd75e"));        // 肩章金星
         gc.fillOval(x - 2, y - r - 4, 4, 4);
     }
