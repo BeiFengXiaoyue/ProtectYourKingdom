@@ -40,11 +40,14 @@ public class StartScreen {
         }
         if (bg != null) {
             ImageView bgView = new ImageView(bg);
-            bgView.setFitWidth(700);
-            bgView.setFitHeight(600);
+            // 铺满整个窗口（含顶部状态条区域），不留白边
+            bgView.fitWidthProperty().bind(layer.widthProperty());
+            bgView.fitHeightProperty().bind(layer.heightProperty());
             layer.getChildren().add(bgView);
+            layer.setPrefSize(700, 665);   // 与游戏屏（画布+状态条）同高，防窗口上下露白
         } else {
             layer.setStyle("-fx-background-color: linear-gradient(to bottom, #1b2026, #38414b);");
+            layer.setPrefSize(700, 665);
         }
 
         // 内容板：半透明深色圆角卡，保证文字在木纹上可读
