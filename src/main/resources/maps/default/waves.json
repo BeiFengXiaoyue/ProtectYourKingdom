@@ -59,6 +59,7 @@
     {
       "id": 9,
       "groups": [
+        {"type":"boss_enemy","count":1,"intervalMs":1000},
         {"type":"tank_enemy","count":8,"intervalMs":900},
         {"type":"boss_enemy","count":1,"intervalMs":1000},
         {"type":"fast_enemy","count":10,"intervalMs":500}
