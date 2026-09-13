@@ -91,6 +91,16 @@ public class GameView implements IRenderNotifier,
     private final Button endNextLevelButton = new Button("下一关");
     private boolean endShown = false;    // 防每帧重复 show 的幂等开关
 
+    // 暂停覆盖层（同样内嵌本类；可见即拦截画布点击 → 挡住"暂停中还能建塔/卖塔并真的改金币"）
+    private final StackPane pauseOverlay;
+    private final Button pauseResumeButton = new Button("继续游戏");
+    private final Button pauseSelectButton = new Button("返回选关");
+    private final Button pauseRestartButton = new Button("重新开始");
+    private boolean pauseShown = false;   // 幂等开关（同 endShown）
+    /** 「继续游戏」/「重新开始」后的恢复动作、以及「返回选关」出口：由装配层二段接线 */
+    private Runnable onResume;
+    private Runnable onExitToSelect;
+
     private final AnimationTimer timer;
 
     // ================= 飘字（IFloatingTextFx）：时间驱动，绘制时现算、过期自清 =================
@@ -212,10 +222,12 @@ public class GameView implements IRenderNotifier,
 
         this.buildMenu = new TowerBuildMenu(stateReader, this::onMenuSelect);
         this.endOverlay = buildEndOverlay();
+        this.pauseOverlay = buildPauseOverlay();
         this.detailPanel = new TowerDetailPanel(stateReader, builder,
                 config.getViewWidth(), config.getViewHeight());
 
-        this.root = new Pane(canvas, buildMenu.getNode(), detailPanel.getNode(), endOverlay);
+        // pauseOverlay 置于最上层：暂停时必须吞掉画布点击
+        this.root = new Pane(canvas, buildMenu.getNode(), detailPanel.getNode(), endOverlay, pauseOverlay);
         canvas.setOnMouseClicked(this::handleCanvasClick);
 
         this.timer = new AnimationTimer() {
@@ -587,6 +599,51 @@ public class GameView implements IRenderNotifier,
         return overlay;
     }
 
+    /** 暂停叠层：半透明遮罩 + 居中卡片 + 三个出口（可见即拦截画布点击） */
+    private StackPane buildPauseOverlay() {
+        Rectangle mask = new Rectangle(canvas.getWidth(), canvas.getHeight());
+        mask.setFill(Color.rgb(0, 0, 0, 0.55));
+
+        Label title = new Label("已暂停");
+        title.setFont(Font.font(28));
+        title.setTextFill(Color.web("#ffd700"));
+
+        pauseResumeButton.setFont(Font.font(15));
+        pauseResumeButton.setPrefWidth(180);
+        pauseResumeButton.setOnAction(e -> {
+            hidePause();
+            if (onResume != null) onResume.run();
+        });
+
+        pauseSelectButton.setFont(Font.font(15));
+        pauseSelectButton.setPrefWidth(180);
+        pauseSelectButton.setOnAction(e -> {
+            // 返回选关＝放弃本局：关卡与状态会在再次进入所选关时由 switchLevelAt 全量重置，
+            // 两个"绝对时间"计时器（波间倒计时、出怪锚点）也随之清零，不会带回暂停痕迹
+            hidePause();
+            if (onExitToSelect != null) onExitToSelect.run();
+        });
+
+        pauseRestartButton.setFont(Font.font(15));
+        pauseRestartButton.setPrefWidth(180);
+        pauseRestartButton.setOnAction(e -> {
+            hidePause();
+            clearTransientEffects();
+            onRestart.run();                        // controller::resetGame：全量重置（含倒计时与出怪锚点）
+            if (onResume != null) onResume.run();   // 重置只改数据，循环与 HUD 计时由装配层恢复
+        });
+
+        VBox card = new VBox(14, title, pauseResumeButton, pauseSelectButton, pauseRestartButton);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(28, 40, 28, 40));
+        card.setStyle("-fx-background-color: rgba(30,34,40,0.96); -fx-background-radius: 12;"
+                + "-fx-border-color: #9aa3ad; -fx-border-radius: 12;");
+
+        StackPane overlay = new StackPane(mask, card);
+        overlay.setVisible(false);
+        return overlay;
+    }
+
     /** 每帧判定：仅在一次终态到达时显示一次；未终态且已隐藏则不动 */
     private void syncEndOverlay() {
         if (endShown) return;
@@ -620,6 +677,33 @@ public class GameView implements IRenderNotifier,
         endShown = false;
     }
 
+    /** 显示暂停叠层（终态不显示：与结束遮罩互斥，避免两个全屏层打架） */
+    public void showPause() {
+        if (pauseShown) return;
+        if (stateReader.isGameOver() || stateReader.isVictory()) return;
+        hideBuildMenu();          // 暂停时不留着建塔弹窗
+        clearTowerSelection();    // 并收起塔详情面板
+        pauseOverlay.setVisible(true);
+        pauseShown = true;
+    }
+
+    public void hidePause() {
+        pauseOverlay.setVisible(false);
+        pauseShown = false;
+    }
+
+    public boolean isPauseShown() { return pauseShown; }
+
+    /** 接线「继续游戏」与「重新开始」之后的恢复动作（装配层负责重启循环与 HUD 计时） */
+    public void setOnResume(Runnable onResume) {
+        this.onResume = onResume;
+    }
+
+    /** 接线「返回选关」（装配层负责切屏、停循环、重置闸门与刷新关卡列表） */
+    public void setOnExitToSelect(Runnable onExitToSelect) {
+        this.onExitToSelect = onExitToSelect;
+    }
+
     /** 清空时间驱动的临时特效（重开时调用；不清则残留至各自过期为止） */
     private void clearTransientEffects() {
         floatingTexts.clear();
@@ -638,6 +722,7 @@ public class GameView implements IRenderNotifier,
      */
     public void prepareForLevelEntry() {
         hideEnd();                 // 结束/胜利遮罩（含 endShown 幂等开关）
+        hidePause();               // 暂停叠层（含 pauseShown）：否则"暂停中返回选关 → 再进关"会留下菜单压屏
         hideBuildMenu();           // 可能开着的建塔弹窗（pendingSlotIndex 指向旧关点位）
         clearTowerSelection();     // 选中塔与详情面板（旧关的塔已被清空）
         clearTransientEffects();   // 飘字/粒子/闪屏/震屏/Boss 预警
