@@ -7,10 +7,12 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
@@ -34,6 +36,10 @@ import java.util.List;
  * 进入关卡的时序：先切关，成功才回调 {@code onEntered} 交回装配层切屏；切关失败时接口保证
  * **状态零变化**，故本界面停在原地提示、可安全重试。
  *
+ * 顶栏右侧的「← 返回」由装配层经 {@link #setOnBack(Runnable)} 二段接线（两个屏幕互相引用，
+ * 构造期无法直接互通；未接线时按钮隐藏，不出现死按钮）；本界面只回调，不持有其它屏幕引用、
+ * 也不动关卡状态——菜单间导航归装配层。
+ *
  * 关卡列表只在 {@link #refresh()} 时取一次——{@code getLevels()} 每次调用都会重新解析
  * {@code maps/index.json}（无缓存），不可每帧调用。
  *
@@ -53,10 +59,12 @@ public class LevelSelectScreen {
     /** 整屏内边距 px */
     private static final double PADDING = 24;
 
-    // ===== 配色（与 GameView 结束遮罩 / 开始界面同一套）=====
+    // ===== 配色（与 GameView 结束遮罩同一套冷灰蓝）=====
     private static final String COLOR_TILE_BG = "rgba(30,34,40,0.96)";
     private static final String COLOR_TILE_BG_HOVER = "rgba(46,52,60,0.98)";
     private static final String COLOR_BORDER = "#9aa3ad";
+    private static final String COLOR_BORDER_HOVER = "#c9d2da";
+    private static final String COLOR_TEXT = "#dddddd";
     private static final String COLOR_GOLD = "#ffd700";
 
     private final IGameStateReader stateReader;
@@ -67,17 +75,37 @@ public class LevelSelectScreen {
     private final TilePane grid = new TilePane();
     private final ScrollPane scroller;
     private final Label hintLabel = new Label();
+    /** 顶栏「← 返回」：由 {@link #setOnBack(Runnable)} 接线后才显示 */
+    private final Button backButton = new Button("← 返回");
+    /** 返回动作（装配层注入）；null = 未接线 */
+    private Runnable onBack;
 
     public LevelSelectScreen(IGameStateReader stateReader, ILevelSwitcher levelSwitcher, Runnable onEntered) {
         this.stateReader = stateReader;
         this.levelSwitcher = levelSwitcher;
         this.onEntered = onEntered;
 
-        // ---- 顶栏：左对齐标题 + 底部一条分隔线 ----
+        // ---- 顶栏：左标题 + 右侧「← 返回」 + 底部一条分隔线 ----
         Label title = new Label("选择关卡");
         title.setFont(Font.font(26));
         title.setTextFill(Color.web(COLOR_GOLD));
-        HBox header = new HBox(title);
+
+        backButton.setFont(Font.font(13));
+        backButton.setTextFill(Color.web(COLOR_TEXT));
+        backButton.setPrefSize(110, 32);
+        backButton.setCursor(Cursor.HAND);
+        applyBackButtonStyle(false);
+        backButton.setOnMouseEntered(e -> applyBackButtonStyle(true));
+        backButton.setOnMouseExited(e -> applyBackButtonStyle(false));
+        backButton.setOnAction(e -> {
+            if (onBack != null) onBack.run();
+        });
+        setBackButtonVisible(false);   // 未接线前不显示（避免死按钮）
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox header = new HBox(title, spacer, backButton);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(0, 0, 12, 0));
         header.setStyle("-fx-border-color: transparent transparent " + COLOR_BORDER + " transparent;"
@@ -113,6 +141,28 @@ public class LevelSelectScreen {
     }
 
     public Node getNode() { return root; }
+
+    /**
+     * 接线「← 返回」：由装配层在两个屏幕都建好之后调用（二段式，避开两屏互相引用造成的
+     * 非法前向引用）。传 null 则按钮隐藏；按钮只回调，不碰关卡状态。
+     */
+    public void setOnBack(Runnable onBack) {
+        this.onBack = onBack;
+        setBackButtonVisible(onBack != null);
+    }
+
+    private void setBackButtonVisible(boolean visible) {
+        backButton.setVisible(visible);
+        backButton.setManaged(visible);   // 脱管：未接线时不占顶栏右侧空间
+    }
+
+    /** 「← 返回」样式：冷灰蓝（与磁贴、结束卡同一套），悬停时底色与描边一起提亮 */
+    private void applyBackButtonStyle(boolean hovered) {
+        String bg = hovered ? COLOR_TILE_BG_HOVER : COLOR_TILE_BG;
+        String border = hovered ? COLOR_BORDER_HOVER : COLOR_BORDER;
+        backButton.setStyle("-fx-background-color: " + bg + "; -fx-background-radius: 8;"
+                + "-fx-border-color: " + border + "; -fx-border-radius: 8; -fx-border-width: 1;");
+    }
 
     /** 打开选关界面时调用一次：按当前关卡列表重建磁贴（当前关以金框 + 角标标出） */
     public void refresh() {
@@ -153,7 +203,7 @@ public class LevelSelectScreen {
 
         Label name = new Label(info.getName());
         name.setFont(Font.font(14));
-        name.setTextFill(Color.web("#dddddd"));
+        name.setTextFill(Color.web(COLOR_TEXT));
         name.setWrapText(true);
         name.setMaxWidth(TILE_WIDTH - 24);
         name.setAlignment(Pos.CENTER);

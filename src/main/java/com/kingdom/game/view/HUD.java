@@ -29,6 +29,8 @@ public class HUD implements IStatusObserver {
     private final Label msgLabel = new Label();
     private final Label countdownLabel = new Label();
     private final Button startButton = new Button("开始波次");
+    /** 「暂停」：由装配层经 setOnPause 接线（按钮只回调，暂停语义归装配层编排） */
+    private final Button pauseButton = new Button("暂停");
 
     private final IWaveStarter waveStarter;
     private final IGameStateReader stateReader;
@@ -37,6 +39,10 @@ public class HUD implements IStatusObserver {
     private final AnimationTimer countdownTimer;
     private String lastCountdownText = "";
     private String lastButtonText = "开始波次";
+    /** 暂停动作（装配层注入）；null = 未接线 */
+    private Runnable onPause;
+    /** 是否处于暂停态（本类只用于停自己的计时器与置灰按钮） */
+    private boolean paused = false;
     /** 上一次收到的生命值；-1 = 尚未收到首次推送（避免初始推送误触发漏怪音） */
     private int lastLives = -1;
 
@@ -67,10 +73,15 @@ public class HUD implements IStatusObserver {
             }
         });
 
+        pauseButton.setFont(Font.font(14));
+        pauseButton.setOnAction(e -> {
+            if (onPause != null) onPause.run();
+        });
+
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        bar = new HBox(18, livesLabel, goldLabel, waveLabel, msgLabel, spacer, countdownLabel, startButton);
+        bar = new HBox(18, livesLabel, goldLabel, waveLabel, msgLabel, spacer, countdownLabel, startButton, pauseButton);
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.setPadding(new Insets(8, 12, 8, 12));
         bar.setStyle("-fx-background-color: #40454d;");
@@ -87,6 +98,28 @@ public class HUD implements IStatusObserver {
 
     public Node getNode() { return bar; }
 
+    /** 接线「暂停」按钮：由装配层在战场屏装配完成后调用 */
+    public void setOnPause(Runnable onPause) {
+        this.onPause = onPause;
+    }
+
+    /**
+     * 暂停/恢复 HUD 侧计时。
+     *
+     * HUD 自持的 AnimationTimer 与战场循环相互独立：不停它的话，暂停期间倒计时标签会继续按真实
+     * 时间走、按钮还会变成可点的「立即开始」，点下去真的会推进波次与金币（即"暂停中世界被推进"）。
+     */
+    public void setPaused(boolean paused) {
+        this.paused = paused;
+        if (paused) {
+            countdownTimer.stop();
+            startButton.setDisable(true);
+            pauseButton.setDisable(true);   // 计时器停了不会再刷新它，这里显式置灰
+        } else {
+            countdownTimer.start();   // 下一帧 hudTick() 自会重算按钮可用态
+        }
+    }
+
     private void refreshWaveLabel() {
         waveLabel.setText("波次 " + stateReader.getCurrentWave() + " / " + stateReader.getTotalWaves());
         waveLabel.setTextFill(Color.WHITE);
@@ -98,6 +131,8 @@ public class HUD implements IStatusObserver {
 
     /** 每帧同步：倒计时文字 / 按钮文案与可用态（仅在变化时刷新，避免无谓 setText） */
     private void hudTick() {
+        // 终态或暂停中不再允许按「暂停」（终态时结束遮罩盖不住 HUD，只能在动作里挡）
+        pauseButton.setDisable(paused || stateReader.isGameOver() || stateReader.isVictory());
         long ms = stateReader.getNextWaveCountdownMs();
         if (ms > 0) {
             int sec = (int) ((ms + 999) / 1000);

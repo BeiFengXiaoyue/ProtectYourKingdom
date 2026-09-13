@@ -120,15 +120,37 @@ public class Main extends Application {
         StackPane shell = new StackPane();
         final boolean[] loopStarted = {false};
 
-        // 进入战场：清掉上一局残留 → 切屏 → 首次进入时才启动游戏循环（菜单期间世界不推进）
-        Runnable enterLevel = () -> {
-            view.prepareForLevelEntry();
-            showScreen(shell, gameScreen);
+        // 世界运行的唯一开关：循环 + 循环闸门 + HUD 计时器三者必须同进同退。
+        // （原先散在 6 处手工拼装，漏一处就失配——例如 HUD 计时器没停，暂停中还能点「立即开始」真的推进波次）
+        Runnable resumeWorld = () -> {
             if (!loopStarted[0]) {
                 view.startLoop();
                 loopStarted[0] = true;
             }
+            hud.setPaused(false);
         };
+        Runnable pauseWorld = () -> {
+            view.stopLoop();
+            loopStarted[0] = false;   // 闸门与循环同进同退，避免"忘了复位闸门 → 下次进关永不起循环"
+            hud.setPaused(true);
+        };
+
+        // 进入战场：清掉上一局残留 → 切屏 → 恢复世界（菜单期间世界不推进）
+        Runnable enterLevel = () -> {
+            view.prepareForLevelEntry();
+            showScreen(shell, gameScreen);
+            resumeWorld.run();
+        };
+
+        // 暂停：终态不允许暂停——结束遮罩盖不住 HUD（HUD 在 BorderPane.top，不在 GameView 里），
+        // 只能在动作里挡，否则会留下"遮罩还在、循环却被停"的组合；已暂停则幂等返回
+        Runnable pauseGame = () -> {
+            if (controller.isGameOver() || controller.isVictory()) return;
+            if (view.isPauseShown()) return;
+            view.showPause();
+            pauseWorld.run();
+        };
+        hud.setOnPause(pauseGame);
 
         // 选关界面：查询/动作全走接口（controller 同时实现 IGameStateReader 与 ILevelSwitcher）
         LevelSelectScreen levelSelectScreen = new LevelSelectScreen(controller, controller, enterLevel);
@@ -138,7 +160,23 @@ public class Main extends Application {
             showScreen(shell, levelSelectScreen.getNode());
         });
 
+        // 选关屏「← 返回」：二段接线。若把 startScreen 写进上面 LevelSelectScreen 的构造 lambda，
+        // 会构成非法前向引用（两屏互相引用，任何一边写在前面都编译不过）。
+        levelSelectScreen.setOnBack(() -> {
+            showScreen(shell, startScreen.getNode());
+            pauseWorld.run();   // 停世界：该路径现已可达（战场 → 暂停 → 返回选关 →「← 返回」）
+        });
+
+        // 战场暂停菜单的三个出口：继续 / 重新开始 → 恢复世界；返回选关 → 切屏 + 停世界
+        view.setOnResume(resumeWorld);
+        view.setOnExitToSelect(() -> {
+            showScreen(shell, levelSelectScreen.getNode());
+            levelSelectScreen.refresh();   // 重算"当前关"金框
+            pauseWorld.run();
+        });
+
         shell.getChildren().addAll(startScreen.getNode(), levelSelectScreen.getNode(), gameScreen);
+        pauseWorld.run();   // 起步停在菜单：世界先不跑（enterLevel 时恢复）
         showScreen(shell, startScreen.getNode());   // 启动先显示开始界面
 
         Scene scene = new Scene(shell);
