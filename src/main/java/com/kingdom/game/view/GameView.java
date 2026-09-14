@@ -81,7 +81,7 @@ public class GameView implements IRenderNotifier,
     private Tower selectedTower;         // 当前选中塔（null = 未选中）
     private GameObject highlightTarget;  // 选中高亮目标（ISelectionFx）
 
-    // 结束/胜利覆盖层（内嵌本类构建，不新增类；可见即拦截画布点击）
+    // 结束/胜利覆盖层（内嵌本类构建，不新增类；可见即拦截画布点击；三个出口：下一关 / 返回选关 / 重新开始）
     private final Runnable onRestart;
     private final StackPane endOverlay;
     private final Label endTitleLabel = new Label();
@@ -90,6 +90,8 @@ public class GameView implements IRenderNotifier,
     private final Button endRestartButton = new Button("重新开始");
     /** 「下一关」（多关卡 MVP）：仅胜利且存在下一关时显示，由 showEnd() 判定 */
     private final Button endNextLevelButton = new Button("下一关");
+    /** 「返回选关」：胜利与失败都提供（无显示条件，故不设 setVisible/setManaged） */
+    private final Button endSelectButton = new Button("返回选关");
     private boolean endShown = false;    // 防每帧重复 show 的幂等开关
 
     // 暂停覆盖层（同样内嵌本类；可见即拦截画布点击 → 挡住"暂停中还能建塔/卖塔并真的改金币"）
@@ -625,8 +627,17 @@ public class GameView implements IRenderNotifier,
             }
         });
 
+        styleDarkButton(endSelectButton, "返 回 选 关");
+        endSelectButton.setOnAction(e -> {
+            // 返回选关＝放弃本局：关卡与状态会在再次进入所选关时由 switchLevelAt 全量重置。
+            // endShown 没有"终态消失则自动隐藏"的分支，故必须先 hideEnd() 复位；
+            // 本按钮不走 ILevelSwitcher（不直调 switchLevelAt），因此没有"切关失败"分支。
+            hideEnd();
+            if (onExitToSelect != null) onExitToSelect.run();
+        });
+
         VBox card = new VBox(14, endTitleLabel, endSubLabel, endDetailLabel,
-                endNextLevelButton, endRestartButton);
+                endNextLevelButton, endSelectButton, endRestartButton);
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(28, 40, 28, 40));
         card.setStyle(OVERLAY_CARD);
@@ -755,7 +766,7 @@ public class GameView implements IRenderNotifier,
      *
      * 覆盖《多关卡与运行期切图-接口规范》§3.5-2 要求的"切关后清理选中态与瞬态特效"：
      * {@code clearTransientEffects()} 是本类 private，跨类无法复用；结束遮罩的 {@code endShown}
-     * 此前只由遮罩自己的两个按钮复位，若从"遮罩已显示"状态换关会永久残留遮罩，故一并在此复位。
+     * 此前只由遮罩自己的三个按钮（下一关／返回选关／重新开始）复位，若从"遮罩已显示"状态换关会永久残留遮罩，故一并在此复位。
      */
     public void prepareForLevelEntry() {
         hideEnd();                 // 结束/胜利遮罩（含 endShown 幂等开关）
