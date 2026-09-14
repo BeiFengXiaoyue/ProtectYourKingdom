@@ -26,6 +26,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
@@ -554,28 +555,65 @@ public class GameView implements IRenderNotifier,
     }
 
     // ================= 结束/胜利覆盖层（内嵌，不新增类；含「下一关」入口，仅胜利且有下一关时显示）=================
+    // ===== 覆盖层按钮/卡片样式（与开始界面同一套）=====
+    private static final String GOLD_BTN = "-fx-background-color: linear-gradient(to bottom, #ffe08a, #e0a800);"
+            + "-fx-text-fill: #4a3200; -fx-background-radius: 12; -fx-border-color: #8a6a00;"
+            + "-fx-border-radius: 12; -fx-border-width: 2; -fx-cursor: hand; -fx-font-weight: bold;";
+    private static final String GOLD_BTN_HOVER = "-fx-background-color: linear-gradient(to bottom, #fff2b8, #ffc400);"
+            + "-fx-text-fill: #4a3200; -fx-background-radius: 12; -fx-border-color: #a8820a;"
+            + "-fx-border-radius: 12; -fx-border-width: 2; -fx-cursor: hand; -fx-font-weight: bold;";
+    private static final String DARK_BTN = "-fx-background-color: rgba(40,32,20,0.85);"
+            + "-fx-text-fill: #e8e0c8; -fx-background-radius: 10; -fx-border-color: #a08a5a;"
+            + "-fx-border-radius: 10; -fx-border-width: 1.5; -fx-cursor: hand;";
+    private static final String DARK_BTN_HOVER = "-fx-background-color: rgba(90,70,40,0.9);"
+            + "-fx-text-fill: #ffe08a; -fx-background-radius: 10; -fx-border-color: #d9b380;"
+            + "-fx-border-radius: 10; -fx-border-width: 1.5; -fx-cursor: hand;";
+    private static final String OVERLAY_CARD = "-fx-background-color: rgba(16,14,10,0.78);"
+            + " -fx-background-radius: 18; -fx-border-color: #d9b380; -fx-border-radius: 18; -fx-border-width: 2;";
+
+    /** 主行动按钮：金底深字，悬停提亮 */
+    private void styleGoldButton(Button b, String text) {
+        b.setText(text);
+        b.setFont(Font.font("System", FontWeight.BOLD, 17));
+        b.setPrefSize(260, 50);
+        b.setStyle(GOLD_BTN);
+        b.setOnMouseEntered(e -> b.setStyle(GOLD_BTN_HOVER));
+        b.setOnMouseExited(e -> b.setStyle(GOLD_BTN));
+    }
+
+    /** 次要按钮：暗底浅字，悬停提亮 */
+    private void styleDarkButton(Button b, String text) {
+        b.setText(text);
+        b.setFont(Font.font("System", FontWeight.BOLD, 15));
+        b.setPrefSize(260, 46);
+        b.setStyle(DARK_BTN);
+        b.setOnMouseEntered(e -> b.setStyle(DARK_BTN_HOVER));
+        b.setOnMouseExited(e -> b.setStyle(DARK_BTN));
+    }
 
     /** 结束/胜利全画布叠层：半透明遮罩 + 居中卡片（可见即拦截画布点击） */
     private StackPane buildEndOverlay() {
         Rectangle mask = new Rectangle(canvas.getWidth(), canvas.getHeight());
         mask.setFill(Color.rgb(0, 0, 0, 0.55));
 
-        endTitleLabel.setFont(Font.font(36));
-        endSubLabel.setFont(Font.font(15));
+        endTitleLabel.setFont(Font.font("System", FontWeight.BOLD, 44));
+        DropShadow endTitleShadow = new DropShadow();
+        endTitleShadow.setColor(Color.web("#000000", 0.85));
+        endTitleShadow.setRadius(10);
+        endTitleLabel.setEffect(endTitleShadow);
+        endSubLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         endDetailLabel.setFont(Font.font(13));
-        endSubLabel.setTextFill(Color.web("#dddddd"));
-        endDetailLabel.setTextFill(Color.web("#bbbbbb"));
+        endSubLabel.setTextFill(Color.web("#e8e0c8"));
+        endDetailLabel.setTextFill(Color.web("#c9b98a"));
 
-        endRestartButton.setFont(Font.font(15));
-        endRestartButton.setPrefWidth(180);
+        styleDarkButton(endRestartButton, "重 新 开 始");
         endRestartButton.setOnAction(e -> {
             hideEnd();
             clearTransientEffects();   // 防上一局的飘字/粒子在重开后残留
             onRestart.run();
         });
 
-        endNextLevelButton.setFont(Font.font(15));
-        endNextLevelButton.setPrefWidth(180);      // 与「重新开始」同宽
+        styleGoldButton(endNextLevelButton, "下 一 关");
         endNextLevelButton.setVisible(false);      // 由 showEnd() 按"胜利且有下一关"判定
         endNextLevelButton.setManaged(false);
         endNextLevelButton.setOnAction(e -> {
@@ -591,8 +629,7 @@ public class GameView implements IRenderNotifier,
                 endNextLevelButton, endRestartButton);
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(28, 40, 28, 40));
-        card.setStyle("-fx-background-color: rgba(30,34,40,0.96); -fx-background-radius: 12;"
-                + "-fx-border-color: #9aa3ad; -fx-border-radius: 12;");
+        card.setStyle(OVERLAY_CARD);
 
         StackPane overlay = new StackPane(mask, card);
         overlay.setVisible(false);
@@ -604,19 +641,21 @@ public class GameView implements IRenderNotifier,
         Rectangle mask = new Rectangle(canvas.getWidth(), canvas.getHeight());
         mask.setFill(Color.rgb(0, 0, 0, 0.55));
 
-        Label title = new Label("已暂停");
-        title.setFont(Font.font(28));
-        title.setTextFill(Color.web("#ffd700"));
+        Label title = new Label("已 暂 停");
+        title.setFont(Font.font("System", FontWeight.BOLD, 34));
+        title.setTextFill(Color.web("#ffd76a"));
+        DropShadow pauseShadow = new DropShadow();
+        pauseShadow.setColor(Color.web("#000000", 0.85));
+        pauseShadow.setRadius(8);
+        title.setEffect(pauseShadow);
 
-        pauseResumeButton.setFont(Font.font(15));
-        pauseResumeButton.setPrefWidth(180);
+        styleGoldButton(pauseResumeButton, "继 续 游 戏");
         pauseResumeButton.setOnAction(e -> {
             hidePause();
             if (onResume != null) onResume.run();
         });
 
-        pauseSelectButton.setFont(Font.font(15));
-        pauseSelectButton.setPrefWidth(180);
+        styleDarkButton(pauseSelectButton, "返 回 选 关");
         pauseSelectButton.setOnAction(e -> {
             // 返回选关＝放弃本局：关卡与状态会在再次进入所选关时由 switchLevelAt 全量重置，
             // 两个"绝对时间"计时器（波间倒计时、出怪锚点）也随之清零，不会带回暂停痕迹
@@ -624,8 +663,7 @@ public class GameView implements IRenderNotifier,
             if (onExitToSelect != null) onExitToSelect.run();
         });
 
-        pauseRestartButton.setFont(Font.font(15));
-        pauseRestartButton.setPrefWidth(180);
+        styleDarkButton(pauseRestartButton, "重 新 开 始");
         pauseRestartButton.setOnAction(e -> {
             hidePause();
             clearTransientEffects();
@@ -636,8 +674,7 @@ public class GameView implements IRenderNotifier,
         VBox card = new VBox(14, title, pauseResumeButton, pauseSelectButton, pauseRestartButton);
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(28, 40, 28, 40));
-        card.setStyle("-fx-background-color: rgba(30,34,40,0.96); -fx-background-radius: 12;"
-                + "-fx-border-color: #9aa3ad; -fx-border-radius: 12;");
+        card.setStyle(OVERLAY_CARD);
 
         StackPane overlay = new StackPane(mask, card);
         overlay.setVisible(false);
