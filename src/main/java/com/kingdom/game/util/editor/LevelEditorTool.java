@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -66,6 +67,7 @@ public final class LevelEditorTool {
         private final Canvas canvas = new Canvas(700, 600);
         private final Label statusLabel = new Label("提示：先选地图或新建，再按模式标路线/塔位/换贴图。");
         private final ComboBox<String> mapCombo = new ComboBox<>();
+        private final javafx.scene.control.TextField nameField = new javafx.scene.control.TextField();
         private final ToggleButton pathMode = new ToggleButton("路线");
         private final ToggleButton spotMode = new ToggleButton("塔位");
         private final ToggleButton propMode = new ToggleButton("道具");
@@ -140,6 +142,7 @@ public final class LevelEditorTool {
 
             HBox bar = new HBox(8,
                     new Label("地图:"), mapCombo, loadMap, newMap, loadBg, delMap, renameMap,
+                    new Label("显示名:"), nameField,
                     new Separator(),
                     pathMode, spotMode, propMode,
                     new Separator(),
@@ -262,6 +265,8 @@ public final class LevelEditorTool {
                     }
                 }
                 status("已载入 " + key + "：路线 " + path.size() + " 点，塔位 " + spots.size() + " 个");
+                mapName = indexNameFor(key);
+                nameField.setText(mapName);
                 redraw();
             } catch (IOException | RuntimeException ex) {
                 error("载入失败", ex.getMessage());
@@ -281,6 +286,7 @@ public final class LevelEditorTool {
                 }
                 mapKey = k;
                 mapName = k;
+                nameField.setText(k);
                 backgroundImage = null;
                 backgroundSource = null;
                 path.clear();
@@ -402,17 +408,58 @@ public final class LevelEditorTool {
         }
 
         /** 替换底图：选图片 → 设为画布背景（保存关卡时拷入地图目录） */
-        private void loadBackground() {            FileChooser fc = new FileChooser();
-            fc.setTitle("选择底图（建议 700 宽左右的水平图）");
+        /** 替换底图：选图片 → 选适配方式 → 生成 700×600 底图 */
+        private void loadBackground() {
+            FileChooser fc = new FileChooser();
+            fc.setTitle("选择底图");
             fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("图片", "*.png", "*.jpg", "*.jpeg"));
             File file = fc.showOpenDialog(null);
             if (file == null) return;
-            backgroundImage = new Image(file.toURI().toString());
-            backgroundSource = file;
-            canvas.setWidth(Math.max(16, backgroundImage.getWidth()));
-            canvas.setHeight(Math.max(16, backgroundImage.getHeight()));
-            status("底图已替换：" + file.getName() + "，记得保存关卡");
+            Image loaded = new Image(file.toURI().toString());
+            if (loaded.isError() || loaded.getWidth() <= 0) {
+                error("图片加载失败", file.getName());
+                return;
+            }
+
+            javafx.scene.control.ChoiceDialog<String> modeDlg = new javafx.scene.control.ChoiceDialog<>(
+                    "等比缩放铺宽（上下裁剪）",
+                    "等比缩放铺宽（上下裁剪）", "等比缩放铺满（居中裁剪左右）", "拉伸铺满画布", "原尺寸（可能超出）");
+            modeDlg.setTitle("底图适配方式");
+            modeDlg.setHeaderText("画布固定 700×600，选择底图适配方式");
+            modeDlg.setContentText("适配方式:");
+            String mode = modeDlg.showAndWait().orElse(null);
+            if (mode == null) return;
+
+            backgroundImage = fitToCanvas(loaded, mode);
+            backgroundSource = null;   // 已是画布尺寸的处理图，保存时直接写 PNG
+            canvas.setWidth(700);
+            canvas.setHeight(600);
+            status("底图已替换（" + mode + "）：" + file.getName() + "，记得保存关卡");
             redraw();
+        }
+
+        /** 把任意底图按所选方式适配成 700×600 画布图 */
+        private Image fitToCanvas(Image src, String mode) {
+            double cw = 700, ch = 600;
+            javafx.scene.canvas.Canvas tmp = new javafx.scene.canvas.Canvas(cw, ch);
+            GraphicsContext g = tmp.getGraphicsContext2D();
+            g.setFill(Color.DIMGRAY);
+            g.fillRect(0, 0, cw, ch);
+            double iw = src.getWidth(), ih = src.getHeight();
+            switch (mode) {
+                case "拉伸铺满画布" -> g.drawImage(src, 0, 0, cw, ch);
+                case "等比缩放铺满（居中裁剪左右）", "等比缩放铺宽（上下裁剪）" -> {
+                    double scale = "等比缩放铺满（居中裁剪左右）".equals(mode)
+                            ? Math.max(cw / iw, ch / ih) : cw / iw;
+                    double dw = iw * scale, dh = ih * scale;
+                    g.drawImage(src, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+                }
+                default -> g.drawImage(src, 0, 0, iw, ih);   // 原尺寸（可能超出被裁）
+            }
+            javafx.scene.SnapshotParameters sp = new javafx.scene.SnapshotParameters();
+            sp.setFill(Color.TRANSPARENT);
+            Image out = tmp.snapshot(sp, null);
+            return out;
         }
 
         // ================= 交互 =================
@@ -604,6 +651,7 @@ public final class LevelEditorTool {
                 error("保存失败", "路线至少需要 2 个点（首点=出怪口，末点=家）");
                 return;
             }
+            mapName = nameField.getText().isBlank() ? mapKey : nameField.getText().trim();
             if (saveAsNew) {
                 TextInputDialog dlg = new TextInputDialog(mapKey + "_v2");
                 dlg.setTitle("另存为新地图");
@@ -633,6 +681,17 @@ public final class LevelEditorTool {
                 if (backgroundSource != null) {
                     Files.copy(backgroundSource.toPath(), new File(dir, "map.png").toPath(),
                             java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } else if (backgroundImage != null) {
+                    // 处理过的画布尺寸底图（无来源文件）→ 逐像素拷到 BufferedImage 再写 PNG
+                    java.awt.image.BufferedImage bimg = new java.awt.image.BufferedImage(
+                            (int) backgroundImage.getWidth(), (int) backgroundImage.getHeight(),
+                            java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                    for (int y = 0; y < bimg.getHeight(); y++) {
+                        for (int x = 0; x < bimg.getWidth(); x++) {
+                            bimg.setRGB(x, y, backgroundImage.getPixelReader().getArgb(x, y));
+                        }
+                    }
+                    javax.imageio.ImageIO.write(bimg, "png", new File(dir, "map.png"));
                 }
                 Files.writeString(new File(dir, "path.json").toPath(), pathJson(), StandardCharsets.UTF_8);
                 Files.writeString(new File(dir, "spots.json").toPath(), spotsJson(), StandardCharsets.UTF_8);
@@ -674,18 +733,58 @@ public final class LevelEditorTool {
         }
 
         /** maps/index.json 登记本地图（已存在则跳过） */
+        /** 从 index.json 取某地图的显示名；无登记则返回 key */
+        private String indexNameFor(String key) {
+            File root = mapsRoot();
+            if (root == null) return key;
+            File idx = new File(root, "index.json");
+            if (!idx.isFile()) return key;
+            try {
+                Map<String, Object> m = asMap(Files.readString(idx.toPath()));
+                for (Object o : (List<?>) m.get("maps")) {
+                    Map<String, Object> e = castMap(o);
+                    if (key.equals(e.get("key"))) return String.valueOf(e.get("name"));
+                }
+            } catch (IOException | RuntimeException ignored) {
+            }
+            return key;
+        }
+
         private void registerIndex() {
             File root = mapsRoot();
             if (root == null) return;
             File idxFile = new File(root, "index.json");
             if (!idxFile.isFile()) return;
             try {
-                String json = Files.readString(idxFile.toPath(), StandardCharsets.UTF_8);
-                if (json.contains("\"" + mapKey + "\"")) return;
-                String entry = "    { \"key\": \"" + mapKey + "\", \"name\": \"" + mapName
-                        + "\", \"image\": \"map.png\" }\n  ";
-                String updated = json.replace("  ]\n}", entry + "  ]\n}");
-                Files.writeString(idxFile.toPath(), updated, StandardCharsets.UTF_8);
+                // 已登记的地图 → 更新其显示名（改名/改名保存不丢）；未登记 → 追加新条目
+                Map<String, Object> m = asMap(Files.readString(idxFile.toPath()));
+                List<Object> maps = (List<Object>) m.get("maps");
+                boolean found = false;
+                for (Object o : maps) {
+                    Map<String, Object> e = castMap(o);
+                    if (mapKey.equals(e.get("key"))) {
+                        e.put("name", mapName);
+                        found = true;
+                    }
+                }
+                if (!found) {
+                    Map<String, Object> e = new LinkedHashMap<>();
+                    e.put("key", mapKey);
+                    e.put("name", mapName);
+                    e.put("image", "map.png");
+                    maps.add(e);
+                }
+                StringBuilder sb = new StringBuilder();
+                sb.append("{\n  \"maps\": [");
+                for (int i = 0; i < maps.size(); i++) {
+                    Map<String, Object> e = castMap(maps.get(i));
+                    if (i > 0) sb.append(",");
+                    sb.append("\n    { \"key\": \"").append(e.get("key"))
+                      .append("\", \"name\": \"").append(e.get("name"))
+                      .append("\", \"image\": \"").append(e.get("image")).append("\" }");
+                }
+                sb.append("\n  ]\n}\n");
+                Files.writeString(idxFile.toPath(), sb.toString(), StandardCharsets.UTF_8);
             } catch (IOException ignored) {
             }
         }
