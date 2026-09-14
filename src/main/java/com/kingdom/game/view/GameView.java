@@ -560,10 +560,10 @@ public class GameView implements IRenderNotifier,
     // ===== 覆盖层按钮/卡片样式（与开始界面同一套）=====
     private static final String GOLD_BTN = "-fx-background-color: linear-gradient(to bottom, #ffe08a, #e0a800);"
             + "-fx-text-fill: #4a3200; -fx-background-radius: 12; -fx-border-color: #8a6a00;"
-            + "-fx-border-radius: 12; -fx-border-width: 2; -fx-cursor: hand; -fx-font-weight: bold;";
+            + "-fx-border-radius: 12; -fx-border-width: 2; -fx-cursor: hand;";
     private static final String GOLD_BTN_HOVER = "-fx-background-color: linear-gradient(to bottom, #fff2b8, #ffc400);"
             + "-fx-text-fill: #4a3200; -fx-background-radius: 12; -fx-border-color: #a8820a;"
-            + "-fx-border-radius: 12; -fx-border-width: 2; -fx-cursor: hand; -fx-font-weight: bold;";
+            + "-fx-border-radius: 12; -fx-border-width: 2; -fx-cursor: hand;";
     private static final String DARK_BTN = "-fx-background-color: rgba(40,32,20,0.85);"
             + "-fx-text-fill: #e8e0c8; -fx-background-radius: 10; -fx-border-color: #a08a5a;"
             + "-fx-border-radius: 10; -fx-border-width: 1.5; -fx-cursor: hand;";
@@ -576,7 +576,7 @@ public class GameView implements IRenderNotifier,
     /** 主行动按钮：金底深字，悬停提亮 */
     private void styleGoldButton(Button b, String text) {
         b.setText(text);
-        b.setFont(Font.font("System", FontWeight.BOLD, 17));
+        b.setFont(Font.font("System", FontWeight.BOLD, 16));
         b.setPrefSize(260, 50);
         b.setStyle(GOLD_BTN);
         b.setOnMouseEntered(e -> b.setStyle(GOLD_BTN_HOVER));
@@ -586,7 +586,7 @@ public class GameView implements IRenderNotifier,
     /** 次要按钮：暗底浅字，悬停提亮 */
     private void styleDarkButton(Button b, String text) {
         b.setText(text);
-        b.setFont(Font.font("System", FontWeight.BOLD, 15));
+        b.setFont(Font.font("System", FontWeight.BOLD, 16));
         b.setPrefSize(260, 46);
         b.setStyle(DARK_BTN);
         b.setOnMouseEntered(e -> b.setStyle(DARK_BTN_HOVER));
