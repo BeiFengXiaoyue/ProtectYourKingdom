@@ -104,7 +104,7 @@ public final class BalanceTable {
     public static BalanceTable defaults() {
         BalanceTable b = new BalanceTable();
         // 玩家开局
-        b.initialGold = 130;
+        b.initialGold = 100;
         b.initialLives = 20;
         b.totalWaves = 10;
         // 普通敌人

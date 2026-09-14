@@ -16,8 +16,8 @@ class BalanceTableTest {
     // ================= Initial Resources =================
 
     @Test
-    void initialGold_is130() {
-        assertEquals(130, table().getInitialGold());
+    void initialGold_is100() {
+        assertEquals(100, table().getInitialGold());
     }
 
     @Test
