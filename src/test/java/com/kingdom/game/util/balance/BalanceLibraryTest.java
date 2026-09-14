@@ -59,11 +59,29 @@ class BalanceLibraryTest {
         assertNotNull(table);
     }
 
+    /**
+     * 契约防回归：内置兜底 {@link BalanceTable#defaults()} 必须与随包发布的
+     * {@code config/balance.json} 保持一致（见 {@code BalanceTable.defaults()} 的注释）。
+     * 二者一旦只改一边，本用例立刻失败——历史事故即为 initialGold 100 / 130 各自为政。
+     */
+    @Test
+    void defaults_matchesShippedBalanceFile() {
+        BalanceTable shipped = BalanceLibrary.readFromClasspath();
+        BalanceTable builtin = BalanceTable.defaults();
+        assertNotNull(shipped);
+        assertEquals(shipped.getInitialGold(), builtin.getInitialGold(),
+                "initialGold：balance.json 与 BalanceTable.defaults() 不一致");
+        assertEquals(shipped.getInitialLives(), builtin.getInitialLives(),
+                "initialLives：balance.json 与 BalanceTable.defaults() 不一致");
+        assertEquals(shipped.getTotalWaves(), builtin.getTotalWaves(),
+                "totalWaves：balance.json 与 BalanceTable.defaults() 不一致");
+    }
+
     @Test
     void readFromClasspath_hasExpectedValues() {
         BalanceTable fromClasspath = BalanceLibrary.readFromClasspath();
         assertNotNull(fromClasspath);
-        assertEquals(130, fromClasspath.getInitialGold());
+        assertEquals(100, fromClasspath.getInitialGold());
         assertEquals(20, fromClasspath.getInitialLives());
         assertEquals(80, fromClasspath.getNormalHp());
         assertEquals(1500, fromClasspath.getBossHp());
@@ -74,22 +92,13 @@ class BalanceLibraryTest {
         assertFalse(BalanceLibrary.write(null));
     }
 
-    @Test
-    void write_validTable_returnsTrue() {
-        BalanceTable table = BalanceTable.defaults();
-        assertTrue(BalanceLibrary.write(table));
-    }
-
-    @Test
-    void writeThenRead_preservesValues() {
-        BalanceTable original = BalanceTable.defaults();
-        assertTrue(BalanceLibrary.write(original));
-        BalanceTable readBack = BalanceLibrary.read();
-        assertNotNull(readBack);
-        assertEquals(original.getInitialGold(), readBack.getInitialGold());
-        assertEquals(original.getNormalHp(), readBack.getNormalHp());
-        assertEquals(original.getBossHp(), readBack.getBossHp());
-    }
+    // 注：本测试类**不得**调用 BalanceLibrary.write(...)。
+    // write() 直接落盘仓库源文件 src/main/resources/config/balance.json，而非临时目录；
+    // 原有两个用例（write_validTable_returnsTrue / writeThenRead_preservesValues）
+    // 把它写成 BalanceTable.defaults() 的内容，导致每跑一次 mvn test
+    // 就把 initialGold 从 100 覆盖成 130，并顺带改写整个文件的换行符（CRLF→LF）。
+    // write() 属编辑器侧的文件 I/O，不在单元测试范围内，故移除；
+    // defaults() 与 balance.json 的一致性改由 defaults_matchesShippedBalanceFile() 守护。
 
     @Test
     void balanceFile_inConfigSubdirectory() {
