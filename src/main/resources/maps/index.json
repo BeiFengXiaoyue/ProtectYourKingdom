@@ -1,6 +1,9 @@
 {
   "maps": [
     { "key": "default", "name": "前线哨站", "image": "map.png" },
-    { "key": "round2", "name": "田边守卫", "image": "map.png" }
-    ]
+    { "key": "round2", "name": "田边守卫", "image": "map.png" },
+    { "key": "round3", "name": "乡间小路", "image": "map.png" },
+    { "key": "round4", "name": "河边矿镇", "image": "map.png" },
+    { "key": "round5", "name": "风车湖畔", "image": "map.png" }
+  ]
 }
