@@ -37,9 +37,13 @@ class RenderTargetTest {
         String stroke = "#000000";
         double lineWidth = 1;
 
-        boolean has(String op) { return ops.contains(op); }
+        /** 是否存在以 opPrefix 开头的记录（记录串带参数，如 "strokeOval:x,y,w,h"，故按前缀匹配） */
+        boolean has(String opPrefix) { return count(opPrefix) > 0; }
 
-        long count(String op) { return ops.stream().filter(op::equals).count(); }
+        /** 以 opPrefix 开头的记录条数 */
+        long count(String opPrefix) {
+            return ops.stream().filter(s -> s.startsWith(opPrefix)).count();
+        }
 
         /** 最后一条以 prefix 开头的记录；无则 null */
         String last(String prefix) {
@@ -61,6 +65,24 @@ class RenderTargetTest {
                 }
             }
             return out;
+        }
+
+        /**
+         * 指定填充色下第一个填充调用在 ops 中的下标；无则 -1。
+         * 不能改用 {@code ops.indexOf(fillsWith(c).get(0))}——满血时底槽与前景的几何串完全相同，
+         * indexOf 会把两者都定位到首次出现处，先后关系就测不出来了。
+         */
+        int firstFilledIndexOf(String color) {
+            String cur = null;
+            for (int i = 0; i < ops.size(); i++) {
+                String op = ops.get(i);
+                if (op.startsWith("setFill:")) {
+                    cur = op.substring("setFill:".length());
+                } else if (color.equals(cur) && op.startsWith("fill")) {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         @Override public void setFill(String color) { fill = color; ops.add("setFill:" + color); }
@@ -150,7 +172,9 @@ class RenderTargetTest {
         List<String> fill = rt.fillsWith(GameColors.HP_BAR_FILL);
         assertEquals(1, backdrop.size(), "血条底槽应绘制一次");
         assertEquals(1, fill.size(), "血条前景应绘制一次");
-        assertTrue(rt.ops.indexOf(backdrop.get(0)) < rt.ops.indexOf(fill.get(0)),
+        int bgIndex = rt.firstFilledIndexOf(GameColors.HP_BAR_BG);
+        int fillIndex = rt.firstFilledIndexOf(GameColors.HP_BAR_FILL);
+        assertTrue(bgIndex >= 0 && fillIndex > bgIndex,
                 "底槽必须先于前景绘制，否则前景会被底色盖住");
     }
 
