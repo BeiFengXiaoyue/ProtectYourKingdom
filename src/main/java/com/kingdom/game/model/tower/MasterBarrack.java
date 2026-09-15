@@ -1,11 +1,11 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.ally.RoyalSoldier;
 import com.kingdom.game.util.balance.TowerBalance;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 /**
  * MasterBarrack —— 大师兵营（兵营 3 级，满级）。
@@ -54,21 +54,21 @@ public class MasterBarrack extends EliteBarrack implements IHealAura {
     public double getAuraRadius() { return TowerBalance.getDouble("barrackL3", "auraRadius", 80); }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为营房色块（三级：金色屋顶 + 两颗金星）
-        if (!drawSprite(gc, AssetKey.MASTER_BARRACK)) {
+        if (!drawSprite(rt, AssetKey.MASTER_BARRACK)) {
             double r = width / 2;
-            gc.setFill(Color.web("#62814a"));        // 营房
-            gc.fillRect(x - r, y - r, width, height);
-            gc.setFill(Color.web("#d9b74a"));        // 金色屋顶
-            gc.fillPolygon(new double[]{x - r, x, x + r},
-                    new double[]{y - r, y - r - height / 3, y - r}, 3);
-            gc.setStroke(Color.web("#8a6d1f"));
-            gc.setLineWidth(2);
-            gc.strokeRect(x - r, y - r, width, height);
-            gc.setFill(Color.web("#ffd75e"));        // 两颗金星（三级标记）
-            gc.fillOval(x - 5, y - r - height / 3 - 4, 4, 4);
-            gc.fillOval(x + 1, y - r - height / 3 - 4, 4, 4);
+            rt.setFill(GameColors.TOWER_BASE_BARRACK);   // 营房
+            rt.fillRect(x - r, y - r, width, height);
+            rt.setFill(GameColors.GOLD_PLATE);          // 金色屋顶
+            rt.fillPolygon(new double[]{x - r, x, x + r},
+                    new double[]{y - r, y - r - height / 3, y - r});
+            rt.setStroke(GameColors.GOLD_DARK);
+            rt.setLineWidth(2);
+            rt.strokeRect(x - r, y - r, width, height);
+            rt.setFill(GameColors.GOLD_MARK);           // 两颗金星（三级标记）
+            rt.fillOval(x - 5, y - r - height / 3 - 4, 4, 4);
+            rt.fillOval(x + 1, y - r - height / 3 - 4, 4, 4);
         }
     }
 }

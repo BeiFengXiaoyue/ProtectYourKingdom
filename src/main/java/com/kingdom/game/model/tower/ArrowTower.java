@@ -1,13 +1,13 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.projectile.Arrow;
 import com.kingdom.game.util.balance.TowerBalance;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 import java.util.List;
 
@@ -87,17 +87,17 @@ public class ArrowTower extends Tower implements ITowerUpgrade {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为塔形色块
-        if (!drawSprite(gc, AssetKey.ARROW_TOWER)) {
+        if (!drawSprite(rt, AssetKey.ARROW_TOWER)) {
             double r = width / 2;
-            gc.setFill(Color.web("#5b4a3a"));        // 底座
-            gc.fillRect(x - r, y - r, width, height);
-            gc.setFill(Color.web("#8a7a5c"));        // 顶台
-            gc.fillOval(x - r, y - r - height / 4, width * 0.9, height * 0.6);
-            gc.setStroke(Color.DARKGRAY);
-            gc.setLineWidth(1.5);
-            gc.strokeRect(x - r, y - r, width, height);
+            rt.setFill(GameColors.TOWER_BASE_ARROW);   // 底座
+            rt.fillRect(x - r, y - r, width, height);
+            rt.setFill("#8a7a5c");                    // 顶台
+            rt.fillOval(x - r, y - r - height / 4, width * 0.9, height * 0.6);
+            rt.setStroke("#a9a9a9");                  // 通用描边灰
+            rt.setLineWidth(1.5);
+            rt.strokeRect(x - r, y - r, width, height);
         }
     }
 }

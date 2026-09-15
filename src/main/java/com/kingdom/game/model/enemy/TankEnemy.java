@@ -1,9 +1,9 @@
 package com.kingdom.game.model.enemy;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.util.balance.BalanceTable;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 /**
  * TankEnemy —— 重甲敌人（紫色，血量约为普通敌人 3 倍，体型大），沿预设路径走到终点。
@@ -54,26 +54,26 @@ public class TankEnemy extends Enemy {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为紫色圆形 + 护甲内环
-        if (!drawSprite(gc, AssetKey.TANK_ENEMY)) {
+        if (!drawSprite(rt, AssetKey.TANK_ENEMY)) {
             double r = width / 2;
-            gc.setFill(Color.web("#9b59b6"));
-            gc.fillOval(x - r, y - r, width, height);
-            gc.setStroke(Color.web("#5b2c6f"));   // 外圈重甲描边
-            gc.setLineWidth(2);
-            gc.strokeOval(x - r, y - r, width, height);
-            gc.setStroke(Color.web("#c39bd3"));   // 护甲内环
-            gc.setLineWidth(1);
-            gc.strokeOval(x - r * 0.6, y - r * 0.6, width * 0.6, height * 0.6);
+            rt.setFill("#9b59b6");
+            rt.fillOval(x - r, y - r, width, height);
+            rt.setStroke("#5b2c6f");   // 外圈重甲描边
+            rt.setLineWidth(2);
+            rt.strokeOval(x - r, y - r, width, height);
+            rt.setStroke("#c39bd3");   // 护甲内环
+            rt.setLineWidth(1);
+            rt.strokeOval(x - r * 0.6, y - r * 0.6, width * 0.6, height * 0.6);
         }
 
         // 头顶血条
         double r = width / 2;
         double ratio = Math.max(0, (double) currentHp / maxHp);
-        gc.setFill(Color.BLACK);
-        gc.fillRect(x - r, y - r - 8, width, 4);
-        gc.setFill(Color.LIMEGREEN);
-        gc.fillRect(x - r, y - r - 8, width * ratio, 4);
+        rt.setFill(GameColors.HP_BAR_BG);
+        rt.fillRect(x - r, y - r - 8, width, 4);
+        rt.setFill(GameColors.HP_BAR_FILL);
+        rt.fillRect(x - r, y - r - 8, width * ratio, 4);
     }
 }

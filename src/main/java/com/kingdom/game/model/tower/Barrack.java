@@ -1,14 +1,14 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.ally.Soldier;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.util.balance.TowerBalance;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -200,18 +200,18 @@ public class Barrack extends Tower implements ITowerUpgrade {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为兵营形色块
-        if (!drawSprite(gc, AssetKey.BARRACK)) {
+        if (!drawSprite(rt, AssetKey.BARRACK)) {
             double r = width / 2;
-            gc.setFill(Color.web("#62814a"));        // 营房
-            gc.fillRect(x - r, y - r, width, height);
-            gc.setFill(Color.web("#3c522c"));        // 屋顶
-            gc.fillPolygon(new double[]{x - r, x, x + r},
-                    new double[]{y - r, y - r - height / 3, y - r}, 3);
-            gc.setStroke(Color.DARKGREEN);
-            gc.setLineWidth(1.5);
-            gc.strokeRect(x - r, y - r, width, height);
+            rt.setFill(GameColors.TOWER_BASE_BARRACK);   // 营房
+            rt.fillRect(x - r, y - r, width, height);
+            rt.setFill("#3c522c");                      // 屋顶
+            rt.fillPolygon(new double[]{x - r, x, x + r},
+                    new double[]{y - r, y - r - height / 3, y - r});
+            rt.setStroke("#006400");                    // 深绿描边
+            rt.setLineWidth(1.5);
+            rt.strokeRect(x - r, y - r, width, height);
         }
     }
 }

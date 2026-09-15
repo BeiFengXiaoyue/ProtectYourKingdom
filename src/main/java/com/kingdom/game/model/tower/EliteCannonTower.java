@@ -1,12 +1,12 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.util.balance.BalanceTable;
 import com.kingdom.game.util.balance.TowerBalance;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 /**
  * EliteCannonTower —— 精英炮塔（炮塔 2 级）。
@@ -37,20 +37,20 @@ public class EliteCannonTower extends CannonTower {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为炮塔形色块（加金色描边/塔尖标记，与 1 级区分）
-        if (!drawSprite(gc, AssetKey.ELITE_CANNON_TOWER)) {
+        if (!drawSprite(rt, AssetKey.ELITE_CANNON_TOWER)) {
             double r = width / 2;
-            gc.setFill(Color.web("#3a3a3a"));        // 底座
-            gc.fillRect(x - r, y - r, width, height);
-            gc.setFill(Color.web("#d9b74a"));        // 精英炮管台（金色）
-            gc.fillOval(x - r, y - r - height / 4, width * 0.9, height * 0.6);
-            gc.setStroke(Color.web("#8a6d1f"));      // 金色描边
-            gc.setLineWidth(2);
-            gc.strokeRect(x - r, y - r, width, height);
+            rt.setFill(GameColors.TOWER_BASE_CANNON);  // 底座
+            rt.fillRect(x - r, y - r, width, height);
+            rt.setFill(GameColors.GOLD_PLATE);         // 精英炮管台（金色）
+            rt.fillOval(x - r, y - r - height / 4, width * 0.9, height * 0.6);
+            rt.setStroke(GameColors.GOLD_DARK);        // 金色描边
+            rt.setLineWidth(2);
+            rt.strokeRect(x - r, y - r, width, height);
             // 塔尖金星标记
-            gc.setFill(Color.web("#ffd75e"));
-            gc.fillOval(x - 2, y - r - height / 4 - 4, 4, 4);
+            rt.setFill(GameColors.GOLD_MARK);
+            rt.fillOval(x - 2, y - r - height / 4 - 4, 4, 4);
         }
     }
 }

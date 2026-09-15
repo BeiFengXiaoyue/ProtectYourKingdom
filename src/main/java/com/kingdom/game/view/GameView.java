@@ -11,6 +11,7 @@ import com.kingdom.game.controller.IScreenFx;
 import com.kingdom.game.controller.ISelectionFx;
 import com.kingdom.game.controller.ITowerBuilder;
 import com.kingdom.game.model.GameObject;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.LivingEntity;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.ally.Ally;
@@ -344,20 +345,23 @@ public class GameView implements IRenderNotifier,
         drawTowerSpots();
 
         // 渲染顺序：塔 → 友方 → 敌人 → 投射物
+        // 实体的渲染出口是 model 层的 IRenderTarget（model 不依赖 JavaFX），此处用适配器包住 gc；
+        // 动画叠加层（util.anim.UnitAnimator）仍直接用 gc——它不在 model 层，不受该抽象约束。
         // 有动画叠加的单位跳过静态渲染（底图+动画帧透明叠加会产生残影）；动画缺失时保持原渲染
+        IRenderTarget worldRt = new FxRenderTarget(gc);
         for (Tower t : stateReader.getTowers()) {
             if (!animator.hasOverlay(t)) {
-                t.render(gc);
+                t.render(worldRt);
             }
             animator.overlay(gc, t);
         }
         for (Ally a : stateReader.getAllies()) {
             boolean animated = animator.hasOverlay(a);
             if (!animated) {
-                a.render(gc);
+                a.render(worldRt);
             }
             animator.overlay(gc, a);
-            a.renderPostAnim(gc);   // 压在动画帧之上的单位标记（如精英兵种的金环/盔缨）
+            a.renderPostAnim(worldRt);   // 压在动画帧之上的单位标记（如精英兵种的金环/盔缨）
             if (animated) {
                 drawHpBar(a);   // 静态渲染被跳过时补画血条
             }
@@ -365,7 +369,7 @@ public class GameView implements IRenderNotifier,
         for (Enemy e : stateReader.getEnemies()) {
             boolean animated = animator.hasOverlay(e);
             if (!animated) {
-                e.render(gc);
+                e.render(worldRt);
             }
             animator.overlay(gc, e);
             if (animated) {
@@ -373,7 +377,7 @@ public class GameView implements IRenderNotifier,
             }
         }
         for (Projectile p : stateReader.getProjectiles()) {
-            p.render(gc);
+            p.render(worldRt);
         }
 
         // 爆炸粒子（世界坐标层：实体之上、选中环/飘字之下）

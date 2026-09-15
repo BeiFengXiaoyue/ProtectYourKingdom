@@ -1,9 +1,9 @@
 package com.kingdom.game.model.enemy;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.util.balance.BalanceTable;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 /**
  * BossEnemy —— 第 10 波首领敌人（血量高、体型偏大），沿预设路径走到终点。
@@ -141,25 +141,25 @@ public class BossEnemy extends Enemy {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为暗红色大圆（加粗血条示意首领身份）
-        if (!drawSprite(gc, AssetKey.BOSS_ENEMY)) {
+        if (!drawSprite(rt, AssetKey.BOSS_ENEMY)) {
             double r = width / 2;
-            gc.setFill(Color.web("#8b1a1a"));
-            gc.fillOval(x - r, y - r, width, height);
-            gc.setStroke(Color.web("#4a0a0a"));
-            gc.setLineWidth(2.5);
-            gc.strokeOval(x - r, y - r, width, height);
-            gc.setFill(Color.web("#5c1111"));   // 中心深色核心
-            gc.fillOval(x - r * 0.45, y - r * 0.45, width * 0.45, height * 0.45);
+            rt.setFill("#8b1a1a");
+            rt.fillOval(x - r, y - r, width, height);
+            rt.setStroke("#4a0a0a");
+            rt.setLineWidth(2.5);
+            rt.strokeOval(x - r, y - r, width, height);
+            rt.setFill("#5c1111");   // 中心深色核心
+            rt.fillOval(x - r * 0.45, y - r * 0.45, width * 0.45, height * 0.45);
         }
 
         // 头顶加粗血条
         double r = width / 2;
         double ratio = Math.max(0, (double) currentHp / maxHp);
-        gc.setFill(Color.BLACK);
-        gc.fillRect(x - r, y - r - 12, width, 6);
-        gc.setFill(Color.LIMEGREEN);
-        gc.fillRect(x - r, y - r - 12, width * ratio, 6);
+        rt.setFill(GameColors.HP_BAR_BG);
+        rt.fillRect(x - r, y - r - 12, width, 6);
+        rt.setFill(GameColors.HP_BAR_FILL);
+        rt.fillRect(x - r, y - r - 12, width * ratio, 6);
     }
 }
