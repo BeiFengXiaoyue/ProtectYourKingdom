@@ -1,9 +1,8 @@
 package com.kingdom.game.model.projectile;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.enemy.Enemy;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 import java.util.List;
 
@@ -65,14 +64,14 @@ public class Bomb extends Projectile {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先
-        if (drawSprite(gc, AssetKey.BOMB)) return;
+        if (drawSprite(rt, AssetKey.BOMB)) return;
         // 回退：黑色圆形炮弹（中心加一点浅色高光便于看清弹体）
         double r = width / 2.0;
-        gc.setFill(Color.BLACK);
-        gc.fillOval(x - r, y - r, width, height);
-        gc.setFill(Color.web("#666666"));
-        gc.fillOval(x - r * 0.35, y - r * 0.35, r * 0.7, r * 0.7);
+        rt.setFill("#000000");
+        rt.fillOval(x - r, y - r, width, height);
+        rt.setFill("#666666");
+        rt.fillOval(x - r * 0.35, y - r * 0.35, r * 0.7, r * 0.7);
     }
 }

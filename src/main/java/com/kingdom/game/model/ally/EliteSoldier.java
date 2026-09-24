@@ -1,9 +1,9 @@
 package com.kingdom.game.model.ally;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.enemy.Enemy;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 import java.util.List;
 
@@ -156,33 +156,33 @@ public class EliteSoldier extends Ally implements IGuardPoint {
      * 友军识别环由基类统一绘制（三档同一种），本类只补 2 级专属的肩章金星。
      */
     @Override
-    public void renderPostAnim(GraphicsContext gc) {
-        super.renderPostAnim(gc);                // 友军统一识别环（基类）
+    public void renderPostAnim(IRenderTarget rt) {
+        super.renderPostAnim(rt);                // 友军统一识别环（基类）
         double r = width / 2;
-        gc.setFill(Color.web("#ffd75e"));        // 肩章金星
-        gc.fillOval(x - 2, y - r - 4, 4, 4);
+        rt.setFill(GameColors.GOLD_MARK);        // 肩章金星
+        rt.fillOval(x - 2, y - r - 4, 4, 4);
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为蓝色圆身 + 金色精英环
-        if (!drawSprite(gc, AssetKey.ELITE_SOLDIER)) {
+        if (!drawSprite(rt, AssetKey.ELITE_SOLDIER)) {
             double r = width / 2;
-            gc.setFill(Color.web("#3498db"));
-            gc.fillOval(x - r, y - r, width, height);
-            gc.setStroke(Color.web("#8a6d1f"));      // 精英金边（1 级为深蓝边）
-            gc.setLineWidth(2);
-            gc.strokeOval(x - r, y - r, width, height);
-            gc.setFill(Color.web("#ffd75e"));        // 肩章金星
-            gc.fillOval(x - 2, y - r - 4, 4, 4);
+            rt.setFill(GameColors.ALLY_BODY);
+            rt.fillOval(x - r, y - r, width, height);
+            rt.setStroke(GameColors.GOLD_DARK);      // 精英金边（1 级为深蓝边）
+            rt.setLineWidth(2);
+            rt.strokeOval(x - r, y - r, width, height);
+            rt.setFill(GameColors.GOLD_MARK);        // 肩章金星
+            rt.fillOval(x - 2, y - r - 4, 4, 4);
         }
 
         // 头顶血条（沿用友方绿色，语义与 1 级士兵一致）
         double r = width / 2;
         double ratio = Math.max(0, (double) currentHp / maxHp);
-        gc.setFill(Color.BLACK);
-        gc.fillRect(x - r, y - r - 8, width, 4);
-        gc.setFill(Color.LIMEGREEN);
-        gc.fillRect(x - r, y - r - 8, width * ratio, 4);
+        rt.setFill(GameColors.HP_BAR_BG);
+        rt.fillRect(x - r, y - r - 8, width, 4);
+        rt.setFill(GameColors.HP_BAR_FILL);
+        rt.fillRect(x - r, y - r - 8, width * ratio, 4);
     }
 }

@@ -23,7 +23,8 @@ import java.util.WeakHashMap;
  * - 回退：未注册 / 缺 JSON / 模式缺键 / 帧为空 / 缺帧图 → **一律无操作，单位保持原渲染**（回归无损）。
  *
  * 接线：Main 调 {@code register(kind, 单位类名, JSON资源地址)}；GameView 在敌/友/塔绘制循环里
- * 于各自 {@code render(gc)} 之后调用 {@code overlay(gc, unit)}。
+ * 于各自 {@code render(IRenderTarget)} 之后调用 {@code overlay(gc, unit)}。
+ * （本层属 util 且直接用 JavaFX 画布，不在「model 零 JavaFX」的约束范围内。）
  */
 public final class UnitAnimator {
 

@@ -1,13 +1,13 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.ally.Ally;
 import com.kingdom.game.model.ally.EliteSoldier;
 import com.kingdom.game.util.balance.TowerBalance;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 /**
  * EliteBarrack —— 精英兵营（兵营 2 级）。
@@ -50,21 +50,21 @@ public class EliteBarrack extends Barrack {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为营房色块（金色屋顶标记，与 1 级区分）
-        if (!drawSprite(gc, AssetKey.ELITE_BARRACK)) {
+        if (!drawSprite(rt, AssetKey.ELITE_BARRACK)) {
             double r = width / 2;
-            gc.setFill(Color.web("#62814a"));        // 营房
-            gc.fillRect(x - r, y - r, width, height);
-            gc.setFill(Color.web("#d9b74a"));        // 精英屋顶（金色）
-            gc.fillPolygon(new double[]{x - r, x, x + r},
-                    new double[]{y - r, y - r - height / 3, y - r}, 3);
-            gc.setStroke(Color.web("#8a6d1f"));      // 金色描边
-            gc.setLineWidth(2);
-            gc.strokeRect(x - r, y - r, width, height);
+            rt.setFill(GameColors.TOWER_BASE_BARRACK);   // 营房
+            rt.fillRect(x - r, y - r, width, height);
+            rt.setFill(GameColors.GOLD_PLATE);          // 精英屋顶（金色）
+            rt.fillPolygon(new double[]{x - r, x, x + r},
+                    new double[]{y - r, y - r - height / 3, y - r});
+            rt.setStroke(GameColors.GOLD_DARK);         // 金色描边
+            rt.setLineWidth(2);
+            rt.strokeRect(x - r, y - r, width, height);
             // 屋顶金星标记
-            gc.setFill(Color.web("#ffd75e"));
-            gc.fillOval(x - 2, y - r - height / 3 - 4, 4, 4);
+            rt.setFill(GameColors.GOLD_MARK);
+            rt.fillOval(x - 2, y - r - height / 3 - 4, 4, 4);
         }
     }
 }

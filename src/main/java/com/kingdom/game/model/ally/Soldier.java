@@ -1,9 +1,9 @@
 package com.kingdom.game.model.ally;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.enemy.Enemy;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 import java.util.List;
 
@@ -131,23 +131,23 @@ public class Soldier extends Ally implements IGuardPoint {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为蓝色圆形
-        if (!drawSprite(gc, AssetKey.SOLDIER)) {
+        if (!drawSprite(rt, AssetKey.SOLDIER)) {
             double r = width / 2;
-            gc.setFill(Color.web("#3498db"));
-            gc.fillOval(x - r, y - r, width, height);
-            gc.setStroke(Color.web("#1f618d"));
-            gc.setLineWidth(1.5);
-            gc.strokeOval(x - r, y - r, width, height);
+            rt.setFill(GameColors.ALLY_BODY);
+            rt.fillOval(x - r, y - r, width, height);
+            rt.setStroke("#1f618d");
+            rt.setLineWidth(1.5);
+            rt.strokeOval(x - r, y - r, width, height);
         }
 
         // 头顶血条
         double r = width / 2;
         double ratio = Math.max(0, (double) currentHp / maxHp);
-        gc.setFill(Color.BLACK);
-        gc.fillRect(x - r, y - r - 8, width, 4);
-        gc.setFill(Color.LIMEGREEN);
-        gc.fillRect(x - r, y - r - 8, width * ratio, 4);
+        rt.setFill(GameColors.HP_BAR_BG);
+        rt.fillRect(x - r, y - r - 8, width, 4);
+        rt.setFill(GameColors.HP_BAR_FILL);
+        rt.fillRect(x - r, y - r - 8, width * ratio, 4);
     }
 }

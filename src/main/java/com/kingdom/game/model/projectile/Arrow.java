@@ -1,9 +1,8 @@
 package com.kingdom.game.model.projectile;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.enemy.Enemy;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 import java.util.List;
 
@@ -43,18 +42,18 @@ public class Arrow extends Projectile {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先
-        if (drawSprite(gc, AssetKey.ARROW)) return;
+        if (drawSprite(rt, AssetKey.ARROW)) return;
         // 回退：沿飞行方向画一枚深色小箭
         double angle = Math.atan2(targetY - y, targetX - x);
-        gc.save();
-        gc.translate(x, y);
-        gc.rotate(Math.toDegrees(angle));
-        gc.setFill(Color.web("#4a3a2a"));
-        gc.fillOval(-3, -3, 6, 6);
-        gc.setFill(Color.web("#8f8f8f"));
-        gc.fillRect(2, -1.2, 6, 2.4);   // 箭杆
-        gc.restore();
+        rt.save();
+        rt.translate(x, y);
+        rt.rotate(Math.toDegrees(angle));
+        rt.setFill("#4a3a2a");
+        rt.fillOval(-3, -3, 6, 6);
+        rt.setFill("#8f8f8f");
+        rt.fillRect(2, -1.2, 6, 2.4);   // 箭杆
+        rt.restore();
     }
 }

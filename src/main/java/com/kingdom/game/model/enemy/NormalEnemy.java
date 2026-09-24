@@ -1,9 +1,9 @@
 package com.kingdom.game.model.enemy;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.util.balance.BalanceTable;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 /**
  * NormalEnemy —— 基础敌人（红色圆形，可替换为 normal_enemy 贴图），沿预设路径走到终点。
@@ -49,23 +49,23 @@ public final class NormalEnemy extends Enemy {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为红色圆形
-        if (!drawSprite(gc, AssetKey.NORMAL_ENEMY)) {
+        if (!drawSprite(rt, AssetKey.NORMAL_ENEMY)) {
             double r = width / 2;
-            gc.setFill(Color.RED);
-            gc.fillOval(x - r, y - r, width, height);
-            gc.setStroke(Color.DARKRED);
-            gc.setLineWidth(1.5);
-            gc.strokeOval(x - r, y - r, width, height);
+            rt.setFill("#ff0000");
+            rt.fillOval(x - r, y - r, width, height);
+            rt.setStroke("#8b0000");
+            rt.setLineWidth(1.5);
+            rt.strokeOval(x - r, y - r, width, height);
         }
 
         // 头顶血条
         double r = width / 2;
         double ratio = Math.max(0, (double) currentHp / maxHp);
-        gc.setFill(Color.BLACK);
-        gc.fillRect(x - r, y - r - 8, width, 4);
-        gc.setFill(Color.LIMEGREEN);
-        gc.fillRect(x - r, y - r - 8, width * ratio, 4);
+        rt.setFill(GameColors.HP_BAR_BG);
+        rt.fillRect(x - r, y - r - 8, width, 4);
+        rt.setFill(GameColors.HP_BAR_FILL);
+        rt.fillRect(x - r, y - r - 8, width * ratio, 4);
     }
 }

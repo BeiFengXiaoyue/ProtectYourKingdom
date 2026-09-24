@@ -1,14 +1,14 @@
 package com.kingdom.game.model.tower;
 
 import com.kingdom.game.model.AssetKey;
+import com.kingdom.game.model.GameColors;
+import com.kingdom.game.model.IRenderTarget;
 import com.kingdom.game.model.TowerSpec;
 import com.kingdom.game.model.TowerType;
 import com.kingdom.game.model.enemy.Enemy;
 import com.kingdom.game.model.projectile.Bomb;
 import com.kingdom.game.util.balance.BalanceTable;
 import com.kingdom.game.util.balance.TowerBalance;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 import java.util.List;
 
@@ -102,17 +102,17 @@ public class CannonTower extends Tower implements ITowerUpgrade {
     }
 
     @Override
-    public void render(GraphicsContext gc) {
+    public void render(IRenderTarget rt) {
         // 贴图优先，未提供素材时回退为炮塔形色块
-        if (!drawSprite(gc, AssetKey.CANNON_TOWER)) {
+        if (!drawSprite(rt, AssetKey.CANNON_TOWER)) {
             double r = width / 2;
-            gc.setFill(Color.web("#3a3a3a"));        // 底座
-            gc.fillRect(x - r, y - r, width, height);
-            gc.setFill(Color.web("#666666"));        // 炮管/炮塔顶
-            gc.fillOval(x - r, y - r - height / 4, width * 0.9, height * 0.6);
-            gc.setStroke(Color.BLACK);
-            gc.setLineWidth(1.5);
-            gc.strokeRect(x - r, y - r, width, height);
+            rt.setFill(GameColors.TOWER_BASE_CANNON);  // 底座
+            rt.fillRect(x - r, y - r, width, height);
+            rt.setFill("#666666");                    // 炮管/炮塔顶
+            rt.fillOval(x - r, y - r - height / 4, width * 0.9, height * 0.6);
+            rt.setStroke(GameColors.OUTLINE_BLACK);
+            rt.setLineWidth(1.5);
+            rt.strokeRect(x - r, y - r, width, height);
         }
     }
 }

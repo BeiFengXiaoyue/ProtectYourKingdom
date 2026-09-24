@@ -5,11 +5,8 @@ import com.kingdom.game.controller.IFloatingTextFx;
 import com.kingdom.game.controller.IParticleFx;
 import com.kingdom.game.controller.IScreenFx;
 import com.kingdom.game.controller.ISelectionFx;
-import com.kingdom.game.util.asset.Assets;
 import com.kingdom.game.util.asset.SizeTable;
 import com.kingdom.game.util.fx.FxNop;
-import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.image.Image;
 
 /**
  * GameObject（抽象根类）
@@ -19,6 +16,8 @@ import javafx.scene.image.Image;
  * - 事件槽字段由 GameController 在实体注册/放置时通过 {@link #attachEffects(...)} 注入；
  *   缺省为 util.fx.FxNop 空实现，任何阶段调用都不会 NPE。
  * - destroy() 只表示"实体自身宣告结束"，把实体移出注册表(list)的动作**唯一由 GameController 完成**。
+ * - **渲染出口为 {@link IRenderTarget} 抽象**：本类与全部子类不依赖 JavaFX；
+ *   JavaFX 实现在 view.FxRenderTarget（见 docs/接口契约与抽象类说明.md）。
  */
 public abstract class GameObject {
 
@@ -70,7 +69,11 @@ public abstract class GameObject {
     // ===== 生命周期 =====
     public abstract void update();
 
-    public abstract void render(GraphicsContext gc);
+    /**
+     * 渲染出口：把自身画到给定绘制目标上。
+     * 参数是 model 层抽象（{@link IRenderTarget}），故本层不依赖 JavaFX。
+     */
+    public abstract void render(IRenderTarget rt);
 
     /**
      * 销毁钩子：子类可覆写做额外清理（如停止动画）。
@@ -79,21 +82,14 @@ public abstract class GameObject {
     public void destroy() { /* 默认空 */ }
 
     // ===== 贴图辅助（素材插入通道）=====
-    /** 按 key 取贴图；不存在返回 null */
-    protected Image sprite(AssetKey key) {
-        return Assets.get(key);
-    }
 
     /**
-     * 以实体中心点(x,y)、宽高(width,height)绘制贴图。
+     * 以实体中心点(x,y)、宽高(width,height)绘制贴图；贴图查找由绘制目标实现完成。
      *
      * @return true 表示贴图存在并已绘制；false 表示未提供贴图（调用方应回退为色块/形状）
      */
-    protected boolean drawSprite(GraphicsContext gc, AssetKey key) {
-        Image img = Assets.get(key);
-        if (img == null) return false;
-        gc.drawImage(img, x - width / 2.0, y - height / 2.0, width, height);
-        return true;
+    protected boolean drawSprite(IRenderTarget rt, AssetKey key) {
+        return rt.drawAsset(key, x - width / 2.0, y - height / 2.0, width, height);
     }
 
     // ===== Getter / Setter =====
